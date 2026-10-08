@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Varesa">
+  <defs>
+    <linearGradient id="vrs-g" x1="14" y1="14" x2="50" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8DFFD2"/>
+      <stop offset="1" stop-color="#1FC98A"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="#0C0F0E"/>
+  <rect x="1" y="1" width="62" height="62" rx="17" stroke="#FFFFFF" stroke-opacity=".09" stroke-width="2"/>
+  <!-- V: kaki kiri tebal, kaki kanan lebih tipis lalu berakhir di titik "online" -->
+  <path d="M16.5 18.5 29.6 44.2c1 2 3.8 2 4.8 0L41 31" stroke="url(#vrs-g)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="46.5" cy="20.5" r="5" fill="#8DFFD2"/>
+</svg>
