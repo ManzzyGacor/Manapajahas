@@ -26,11 +26,18 @@ async function process(sock, messageInfo) {
   if (!sender) return true; // Sender tidak valid
 
   try {
-    const selfChecker = await findGroup("owner");
-    if (selfChecker && command != "public") {
-      console.log("BOT SEDANG SELF");
+    // Mode self PER BOT. Bot milik user menyimpannya di config bot-nya
+    // (sessionConfig.selfMode, ditulis plugin .self). Dulu semua bot
+    // membaca satu kunci global "owner" di group.json — satu user mengetik
+    // .self dan SEMUA bot di server ikut diam.
+    const selfAktif = messageInfo.isJadibot
+      ? !!messageInfo.sessionConfig?.selfMode
+      : !!(await findGroup("owner"));
+    if (selfAktif && command != "public") {
       logWithTime("System", `BOT SEDANG DI SELF`);
-      if (isOwner(sender)) {
+      // messageInfo.isOwner sudah mencakup owner utama + owner bot ini
+      // (nomor dari dashboard), dihitung di autoresbot.js.
+      if (messageInfo.isOwner ?? isOwner(sender)) {
         return true;
       }
       return false;

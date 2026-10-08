@@ -1,6 +1,7 @@
 import axios from 'axios';
 import FormData from 'form-data';
 import { downloadContentFromMessage } from 'baileys';
+import config from "../../config.js";
 
 // --- KONFIGURASI UTAMA ---
 const API_KEY = "Varesa"; 
@@ -8,7 +9,7 @@ const API_URL = "https://api.botcahx.eu.org/api/maker/jadianime";
 
 // --- KONFIGURASI TAMPILAN ---
 const THUMBNAIL_URL = "https://autoresbot.com/tmp_files/f1d90ac1-89d5-4303-a4d9-46991586bd06.jpg"; 
-const SOURCE_URL = "https://varesa.manzzy.web.id";
+const SOURCE_URL = config.web_url; // link kartu pratinjau -> website Varesa
 const AD_TITLE = "💎 OPEN SEWA BOT VARESA";
 const AD_BODY = "Klik di sini untuk info website";
 

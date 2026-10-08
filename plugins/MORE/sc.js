@@ -1,16 +1,17 @@
 import { reply } from "../../lib/utils.js";
+import config from "../../config.js";
 
 async function handle(sock, messageInfo) {
   const { m } = messageInfo;
 
   // Tampilan Baru (Aesthetic Box Style) dengan Update Logs
-  const text = `╭───「 📦 *SCRIPT INFO - VaresaMD* 」
+  const text = `╭───「 📦 *SCRIPT INFO - Varesa* 」
 │
 │ 🏷️ *Version* : ${global.version || '1.0.0'}
 │ 📂 *Type* : Plugins ESM (Modular)
 │ 🔓 *Status* : Not For Sale
 │ 🛡️ *Developer* : *Manzzy*
-│ 🌐 *Official Web* : https://sewa.manzzy.web.id
+│ 🌐 *Official Web* : ${config.web_url}
 │
 ├─「 🔄 *UPDATE LOGS TERBARU* 」
 │
@@ -21,7 +22,7 @@ async function handle(sock, messageInfo) {
 │ ➕ Fix Bug Teks Spasi pada Fitur Brat
 │
 ╰────────────────────────⳹
-_🔥 ©VaresaMD | Created by Manzzy_`;
+_🔥 ©Varesa | Created by Manzzy_`;
 
   // Mengirim pesan dengan gaya balasan standar
   await reply(m, text);

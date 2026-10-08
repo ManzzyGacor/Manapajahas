@@ -213,11 +213,18 @@ async function dealerTurn(gameData, sock, remoteJid, message) {
 
 
 async function handle(sock, messageInfo) {
-  const { remoteJid, message, sender, isGroup, content, command } = messageInfo;
-  const commandArgs = content.trim().toLowerCase().split(/\s+/).filter(Boolean); 
+  const { remoteJid, message, sender, isGroup, content, command, prefix } = messageInfo;
+  // BUG SEBELUMNYA: `content` sudah TANPA nama command (".bj 500" -> "500"),
+  // tapi kode di bawah menganggap args[0] = command dan args[1] = taruhan.
+  // Akibatnya ".bj 500" selalu dibalas "taruhan tidak valid" dan game
+  // tidak pernah bisa dimulai. Nama command disisipkan kembali di depan.
+  const commandArgs = [
+    String(command || "bj").toLowerCase(),
+    ...String(content || "").trim().toLowerCase().split(/\s+/).filter(Boolean),
+  ];
   
   const betOrAction = commandArgs[1]; 
-  const commandToUse = commandArgs[0];
+  const commandToUse = `${prefix || "."}${commandArgs[0]}`;
 
   const groupOnlyMessage = { text: mess?.game?.isGroup || "Permainan hanya bisa dilakukan di dalam grup." };
   const waitingMessage = (taruhan) => `━━━━ *♠️ TANTANGAN BLACKJACK ♣️* ━━━━\n\n*@${sender.split('@')[0]}* menantang dengan taruhan *${taruhan}* Money.\n\n⏳ _Menunggu lawan (${WAKTU_TANTANGAN} detik)..._\n\n*CARA BERGABUNG:*\nKetik *${commandToUse} ${taruhan}*`;
@@ -350,7 +357,7 @@ async function handle(sock, messageInfo) {
       return await sock.sendMessage(remoteJid, { text: waitingMessage(taruhan), mentions: [sender] }, { quoted: message });
 
     } else {
-      return sock.sendMessage(remoteJid, { text: `_Masukkan jumlah taruhan yang valid (contoh: *${commandToUse} 1 500* atau *${commandToUse} 1 500 hard*)_` }, { quoted: message });
+      return sock.sendMessage(remoteJid, { text: `_Masukkan jumlah taruhan yang valid (contoh: *${commandToUse} 500* atau *${commandToUse} 500 hard*)_` }, { quoted: message });
     }
   }
 
@@ -367,10 +374,6 @@ async function handle(sock, messageInfo) {
     const nextPlayer = isCurrentP1 ? gameData.player2 : gameData.player1;
     
     let actionArg = betOrAction;
-
-    if (!actionArg && commandArgs.length === 1) {
-        actionArg = commandArgs[0];
-    }
 
     if (actionArg === 'hit') {
       const newCard = gameData.game.hit(playerJid);
@@ -440,7 +443,7 @@ async function handle(sock, messageInfo) {
              return sock.sendMessage(remoteJid, { text: `Permainan Blackjack dibatalkan oleh *@${sender.split('@')[0]}*. Taruhan telah dikembalikan.` }, { quoted: message, mentions: [sender] });
         }
     } else {
-      return sock.sendMessage(remoteJid, { text: "❌ Aksi tidak valid. Giliran Anda! Ketik *hit* atau *stand*." }, { quoted: message });
+      return sock.sendMessage(remoteJid, { text: `❌ Aksi tidak valid. Giliran Anda! Ketik *${commandToUse} hit* atau *${commandToUse} stand* (atau cukup *hit* / *stand*).` }, { quoted: message });
     }
   }
 }

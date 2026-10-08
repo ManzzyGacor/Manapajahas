@@ -1,5 +1,6 @@
 import axios from "axios";
 import { reply } from "../../lib/utils.js";
+import config from "../../config.js";
 
 async function handle(sock, messageInfo) {
   const { m, remoteJid, message, content, prefix, command } = messageInfo;
@@ -25,7 +26,7 @@ async function handle(sock, messageInfo) {
 
   try {
     // 3. Eksekusi API Jerexd dengan metode POST
-    const apiUrl = `https://api.jerexd.my.id/api/whatsapp/checkban?apikey=VaresaMD`;
+    const apiUrl = `https://api.jerexd.my.id/api/whatsapp/checkban?apikey=${config.JEREXD_APIKEY}`;
     const payload = {
       number: targetNumber
     };

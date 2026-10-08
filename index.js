@@ -7,6 +7,7 @@ import fs from "fs";
 import "./lib/version.js";
 import { checkAndInstallModules, clearDirectory } from "./lib/utils.js";
 import { startWebServer } from "./lib/webserver.js";
+import { getPerf, getCapacity, flushMonitorState } from "./lib/monitor.js";
 
 console.log(`[✔] Start App ...`);
 
@@ -24,17 +25,30 @@ if (major < 20 || major >= 21) {
   // Catat sebab proses berakhir. Tanpa ini, 'web tiba-tiba mati' tidak
   // meninggalkan jejak apa pun di log dan mustahil didiagnosis.
   process.on("exit", (code) => console.log(`[exit] Proses berakhir dengan kode ${code}`));
-  process.on("SIGTERM", () => { console.log("[exit] Menerima SIGTERM (dihentikan panel/PM2)."); process.exit(0); });
-  process.on("SIGINT", () => { console.log("[exit] Menerima SIGINT."); process.exit(0); });
+  // Penghitung monitor (pesan/command hari ini, total) disimpan sebelum
+  // keluar. lib/monitor.js juga memasang listener 'exit'; panggilan di sini
+  // memastikan urutannya: simpan dulu, baru proses berhenti.
+  const simpanSebelumKeluar = () => { try { flushMonitorState(); } catch {} };
+  process.on("SIGTERM", () => { console.log("[exit] Menerima SIGTERM (dihentikan panel/PM2)."); simpanSebelumKeluar(); process.exit(0); });
+  process.on("SIGINT", () => { console.log("[exit] Menerima SIGINT."); simpanSebelumKeluar(); process.exit(0); });
 
   // Laporan kesehatan berkala. Kalau angka memori terus naik sampai
   // mendekati batas container, berarti ada kebocoran memori dan itu
   // penyebab matinya (OOM-kill), bukan error kode.
+  // CPU/RAM di sini sudah jatah container (lib/monitor.js), dan kapasitas
+  // menunjukkan seberapa dekat server ke batas jumlah bot.
   setInterval(() => {
     const m = process.memoryUsage();
+    let extra = "";
+    try {
+      const p = getPerf();
+      const c = getCapacity();
+      extra = ` cpu=${p.cpuPercent}% ram=${p.ramPercent}% (${p.ramUsedMB}/${p.ramLimitMB}MB) ` +
+        `lag=${p.lagMs}ms bot=${c.used}/${c.max} (${c.basis})`;
+    } catch {}
     console.log(
       `[health] uptime=${Math.round(process.uptime())}s ` +
-      `rss=${Math.round(m.rss / 1048576)}MB heap=${Math.round(m.heapUsed / 1048576)}MB`
+      `rss=${Math.round(m.rss / 1048576)}MB heap=${Math.round(m.heapUsed / 1048576)}MB` + extra
     );
   }, 60000).unref();
 
@@ -79,7 +93,7 @@ if (major < 20 || major >= 21) {
       "api-autoresbot@1.0.6",
     ]);
 
-    // Jalankan Dashboard Web Server JadiVaresa lebih dulu.
+    // Jalankan Dashboard Web Server Varesa lebih dulu.
     startWebServer();
 
     // Bot dijalankan SETELAH web benar-benar siap, dan TIDAK di-await.

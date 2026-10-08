@@ -6,8 +6,9 @@
 'use strict';
 
 import axios from 'axios';
+import config from "../../config.js";
 
-const API_KEY = 'VaresaMD';
+const API_KEY = config.JEREXD_APIKEY; // dari .env (JEREXD_APIKEY)
 const BASE_URL = 'https://api.jerexd.my.id/api/maker/brat';
 
 async function handle(sock, messageInfo) {

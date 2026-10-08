@@ -16,8 +16,12 @@ async function handle(sock, messageInfo) {
     // Instance API
     const api = new ApiAutoresbot(config.APIKEY);
 
-    // Panggil endpoint berita sesuai command
-    const response = await api.get(`/api/news/${command}`);
+    // Panggil endpoint berita sesuai command.
+    // ".merdeka" sudah dipakai game kuis kemerdekaan (plugins/GAMES), jadi
+    // berita merdeka.com memakai ".merdekanews" — dulu dua plugin jalan
+    // bersamaan saat user mengetik ".merdeka".
+    const sumber = command === "merdekanews" ? "merdeka" : command;
+    const response = await api.get(`/api/news/${sumber}`);
 
     const posts = response?.data?.posts;
     if (!posts || posts.length === 0) {
@@ -58,7 +62,7 @@ export default {
     "cnbc",
     "jpnn",
     "kumparan",
-    "merdeka",
+    "merdekanews",
     "okezone",
     "republika",
     "sindonews",

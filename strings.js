@@ -10,6 +10,10 @@ const mess = {
 
   general: {
     isOwner: "🛡️ _Perintah ini hanya untuk Owner bot._",
+    // Perintah yang mengubah data seluruh server (premium, limit, sewa,
+    // plugin, dll). @dashboard diganti alamat dashboard dari config.
+    isMainOwner:
+      "🛡️ _Perintah ini mengubah data seluruh server Varesa, jadi khusus owner utama._\n\nAtur bot kamu sendiri (owner, menu, pesan otomatis, perintah kustom) lewat dashboard:\n🌐 @dashboard",
     isPremium: "💎 _Fitur ini khusus pengguna Premium._",
     isAdmin: "🔧 _Perintah ini hanya dapat digunakan oleh Admin grup._",
     isGroup: "👥 _Perintah ini hanya bisa dijalankan di dalam grup._",
@@ -61,7 +65,7 @@ const mess = {
     sewa_notif:
       "⏳✨ _*Pemberitahuan Masa Sewa*_ \n_Masa aktif sewa bot:_ @date",
     sewa_out:
-      "❌⏳ _*Masa Sewa Bot Telah Berakhir*_ \nBot akan keluar dari grup ini.\n\nTerima kasih sudah menggunakan layanan sewa VaresaMD.\n\n📞 *Owner Contact:*\nwa.me/@ownernumber",
+      "❌⏳ _*Masa Sewa Bot Telah Berakhir*_ \nBot akan keluar dari grup ini.\n\nTerima kasih sudah menggunakan layanan sewa Varesa.\n\n📞 *Owner Contact:*\n@ownernumber",
   },
 
   game_handler: {

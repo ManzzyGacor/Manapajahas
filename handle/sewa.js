@@ -30,9 +30,17 @@ async function leaveGroupWithRetry(sock, remoteJid, maxRetries = 3) {
 }
 
 async function process(sock, messageInfo) {
-  const { remoteJid, isGroup, message } = messageInfo;
+  const { remoteJid, isGroup, message, isJadibot } = messageInfo;
 
   if (!isGroup) {
+    return true;
+  }
+
+  // Sistem sewa grup hanya milik BOT UTAMA. database/sewa.json dikunci per
+  // ID grup, jadi tanpa pengecekan ini bot milik user (jadibot) yang
+  // kebetulan ada di grup yang sama ikut mengirim notifikasi sewa, lalu
+  // KELUAR dari grup saat sewa bot utama habis.
+  if (isJadibot) {
     return true;
   }
 
@@ -87,9 +95,14 @@ async function process(sock, messageInfo) {
     } else if (timeRemaining <= 0) {
 
       if (mess.handler.sewa_out) {
+        // Kontak owner kalau ada; kalau OWNER_NUMBERS kosong, arahkan ke
+        // website (dulu jadi "wa.me/undefined").
+        const kontak = config.owner_number[0]
+          ? `wa.me/${config.owner_number[0]}`
+          : `${config.web_url}/dashboard`;
         let warningMessage = mess.handler.sewa_out.replace(
           "@ownernumber",
-          config.owner_number[0]
+          kontak
         );
         
         logTracking(`Sewa Handler - Send notif out sewa ke ${remoteJid}`);

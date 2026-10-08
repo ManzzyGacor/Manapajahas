@@ -4,7 +4,9 @@ async function handle(sock, messageInfo) {
   const { m, remoteJid, message, content } = messageInfo;
 
   try {
-    return reply(m, `_NUMBER BOT :_ *${global.phone_number_bot}*`);
+    // global.phone_number_bot = bot yang TERAKHIR tersambung, bukan bot yang
+    // sedang membalas. Nomor sesi ini dibawa messageInfo.botNumber.
+    return reply(m, `_NUMBER BOT :_ *${messageInfo.botNumber || global.phone_number_bot}*`);
   } catch (error) {
     console.error("Error saat memproses grup:", error);
 

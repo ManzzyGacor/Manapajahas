@@ -16,7 +16,8 @@ async function handle(sock, messageInfo) {
     const mediaType = isQuoted ? `${isQuoted.type}Message` : `${type}Message`;
 
     if (media && mediaType === "imageMessage") {
-      const botJid = `${config.phone_number_bot}@s.whatsapp.net`;
+      // Foto profil bot SESI INI (dulu selalu nomor bot utama dari config).
+      const botJid = `${messageInfo.botNumber || config.phone_number_bot}@s.whatsapp.net`;
       // Path lengkap ke folder tmp
       const mediaPath = path.join(rootDir, "tmp", media);
 

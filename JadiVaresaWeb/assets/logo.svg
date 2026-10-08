@@ -1,13 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 64" fill="none" role="img" aria-label="Varesa">
   <defs>
-    <linearGradient id="vrs-g2" x1="14" y1="14" x2="50" y2="52" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#8DFFD2"/>
+    <linearGradient id="vrs-tile2" x1="32" y1="0" x2="32" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#151A18"/>
+      <stop offset="1" stop-color="#0A0C0B"/>
+    </linearGradient>
+    <linearGradient id="vrs-g2" x1="16" y1="16" x2="38" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9DFFDA"/>
       <stop offset="1" stop-color="#1FC98A"/>
     </linearGradient>
+    <radialGradient id="vrs-glow2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(46.5 20.5) scale(15)">
+      <stop offset="0" stop-color="#5CF0B4" stop-opacity=".34"/>
+      <stop offset="1" stop-color="#5CF0B4" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <rect width="64" height="64" rx="18" fill="#0C0F0E"/>
-  <rect x="1" y="1" width="62" height="62" rx="17" stroke="#FFFFFF" stroke-opacity=".09" stroke-width="2"/>
-  <path d="M16.5 18.5 29.6 44.2c1 2 3.8 2 4.8 0L41 31" stroke="url(#vrs-g2)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="46.5" cy="20.5" r="5" fill="#8DFFD2"/>
+  <rect width="64" height="64" rx="18" fill="url(#vrs-tile2)"/>
+  <circle cx="46.5" cy="20.5" r="15" fill="url(#vrs-glow2)"/>
+  <rect x="1" y="1" width="62" height="62" rx="17" stroke="#FFFFFF" stroke-opacity=".1" stroke-width="2"/>
+  <path d="M17 18.5 29.5 43.7c1.1 2.2 4.2 2.2 5.3 0L40.8 31.4" stroke="url(#vrs-g2)" stroke-width="7.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="46.5" cy="20.5" r="5.2" fill="#9DFFDA"/>
+  <circle cx="46.5" cy="20.5" r="8.6" stroke="#5CF0B4" stroke-opacity=".26" stroke-width="1.4"/>
   <text x="80" y="42" fill="#EDEEF0" font-family="Sora, 'Plus Jakarta Sans', system-ui, sans-serif" font-size="26" font-weight="700" letter-spacing="3">VARESA</text>
 </svg>

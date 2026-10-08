@@ -46,7 +46,7 @@ async function handle(sock, messageInfo) {
 │ 💬 *Status:* ${apiMessage}
 │
 ╰────────────────────────⳹
-_🔥 ©VaresaMD | Created by Manzzy_`;
+_🔥 ©Varesa | Created by Manzzy_`;
 
     // Kirim hasil ke pengguna
     await sock.sendMessage(

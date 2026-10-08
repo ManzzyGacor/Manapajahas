@@ -44,7 +44,7 @@ ${global.group.variable}`;
   return await sock.sendMessage(
     remoteJid,
     {
-      text: `✅ _Left Berhasil di set_\n\n_Pastikan fitur sudah di aktifkan dengan mengetik *.on left*_`,
+      text: `✅ _Left Berhasil di set dan langsung aktif_\n\n_Matikan kapan saja dengan mengetik *.off left*_`,
     },
     { quoted: message }
   );

@@ -612,7 +612,7 @@ async function process(sock, messageInfo) {
         if (!isQuoted?.sender) return false;
 
         const senderNumber = isQuoted.sender.split("@")[0];
-        return senderNumber === botNumber;
+        return senderNumber === (messageInfo.botNumber || botNumber);
       })();
 
       const content_old = isQuotedMessageFromBot
@@ -633,7 +633,7 @@ async function process(sock, messageInfo) {
         if (!isQuoted?.sender) return false;
 
         const senderNumber = isQuoted.sender.split("@")[0];
-        return senderNumber === botNumber;
+        return senderNumber === (messageInfo.botNumber || botNumber);
       })();
 
       const content_old = isQuotedMessageFromBot
@@ -652,7 +652,7 @@ async function process(sock, messageInfo) {
         if (!isQuoted?.sender) return false;
 
         const senderNumber = isQuoted.sender.split("@")[0];
-        return senderNumber === botNumber;
+        return senderNumber === (messageInfo.botNumber || botNumber);
       })();
       await autoRusuh(sock, messageInfo, isQuotedMessageFromBot);
       return false;

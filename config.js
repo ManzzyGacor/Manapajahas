@@ -10,14 +10,24 @@ const DESTINATION = "group"; // group , private, both
 const APIKEY = process.env.AUTORESBOT_APIKEY || ""; // apikey dari autoresbot.com 
 const APIBOTCAHX = process.env.APIBOTCAHX || "Varesa"; 
 const ANABOT_APIKEY = process.env.ANABOT_APIKEY || "";
+// Kunci api.jerexd.my.id (brat, spotify, play, gpt, cekwa, autoreact).
+// Dulu ditulis langsung di 6 plugin berbeda; sekarang satu tempat dan
+// bisa diganti lewat .env tanpa menyentuh kode.
+const JEREXD_APIKEY = process.env.JEREXD_APIKEY || "VaresaMD";
 const RATE_LIMIT = 3000; // 3 detik/chat
 const SIMILARITY = true; // Pencarian kemiripan command (true, false)
-const MODE = "development"; // [production, development] (jangan di ubah kecuali anda developer)
+// [production, development] — bisa di-set lewat BOT_MODE di .env.
+// development: hot reload plugin + log terminal lengkap + file log error.
+const MODE = process.env.BOT_MODE === "production" ? "production" : "development";
 const VERSION = global.version; // don't edit
 
 const EMAIL = "varesabot@gmail.com";
 const REGION = "Indonesia";
-const WEBSITE = "manzzy.web.id";
+// Alamat web dashboard Varesa. Semua balasan bot yang menyuruh user
+// daftar/upgrade/sewa/beli memakai ini, supaya bot & website nyambung.
+// Garis miring di akhir dibuang agar `${web_url}/dashboard` tetap rapi.
+const WEB_URL = (process.env.WEB_URL || "https://varesa.mom").replace(/\/+$/, "");
+const WEBSITE = WEB_URL.replace(/^https?:\/\//, "");
 const DATA_OWNER = (process.env.OWNER_NUMBERS || "").split(",").map((n) => n.trim()).filter(Boolean);
 
 // Konfiqurasi Chat
@@ -55,6 +65,7 @@ const config = {
   APIKEY,
   ANABOT_APIKEY,
   APIBOTCAHX,
+  JEREXD_APIKEY,
   phone_number_bot: NOMOR_BOT,
   type_connection: CONNECTION,
   bot_destination: DESTINATION,
@@ -63,6 +74,8 @@ const config = {
   bot_name: BOT_NAME,
   bot_media: BOT_MEDIA,
   owner_website: WEBSITE,
+  web_url: WEB_URL,
+  product_name: "Varesa",
   owner_email: EMAIL,
   region: REGION,
   version: VERSION,

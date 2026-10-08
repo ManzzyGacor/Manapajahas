@@ -1,5 +1,6 @@
 import axios from "axios";
 import { reply } from "../../lib/utils.js";
+import config from "../../config.js";
 
 // --- KONFIGURASI CHANNEL PROMOSI ---
 const MY_CHANNEL_LINK = "https://whatsapp.com/channel/0029VbCIEdlLNSZyA97fD222"; 
@@ -42,7 +43,7 @@ async function handle(sock, messageInfo) {
 
   try {
     // 6. Eksekusi API Jerexd dengan metode POST
-    const apiUrl = `https://api.jerexd.my.id/api/whatsapp/reactch?apikey=VaresaMD`;
+    const apiUrl = `https://api.jerexd.my.id/api/whatsapp/reactch?apikey=${config.JEREXD_APIKEY}`;
     const payload = {
       url: url,
       reaction: formattedEmojis

@@ -1,4 +1,5 @@
-import { updateJsonEntry, checkIfAdmin } from "../../lib/utils.js"; 
+import { checkIfAdmin } from "../../lib/utils.js"; 
+import { findGroup } from "../../lib/group.js";
 
 async function handle(sock, messageInfo) {
     const { remoteJid, content, message, prefix, sender } = messageInfo;
@@ -32,8 +33,15 @@ async function handle(sock, messageInfo) {
         );
     }
 
-    // 4. Update data grup di JSON
-    await updateJsonEntry("./database/group.json", remoteJid, { menu_mode: args });
+    // 4. Update data grup lewat lib/group.js (data di memori yang disimpan
+    // berkala). BUG SEBELUMNYA: plugin ini menulis langsung ke file
+    // group.json, lalu autosave lib/group.js menimpa file itu dengan data
+    // di memorinya — setelan menu kembali ke semula dalam 30 detik.
+    const dataGrup = await findGroup(remoteJid);
+    if (dataGrup) {
+        dataGrup.menu_mode = args;
+        dataGrup.updatedAt = new Date().toISOString();
+    }
     
     // 5. Kirim konfirmasi berhasil
     sock.sendMessage(

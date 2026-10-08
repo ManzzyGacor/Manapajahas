@@ -34,6 +34,28 @@ function readTunnelToken() {
 const CF_TOKEN = readTunnelToken();
 const PORT = String(process.env.SERVER_PORT || process.env.PORT || 4526);
 
+// Batas RAM proses utama sebelum PM2 me-restart-nya. Nilai yang SAMA
+// diteruskan ke aplikasi (MAX_MEMORY_MB) supaya lib/monitor.js menghitung
+// kapasitas bot dari batas ini — kalau tidak, server bisa menerima bot
+// lebih banyak dari yang muat lalu PM2 me-restart semuanya.
+// Ubah lewat Panel -> Startup / Variables (MAX_MEMORY_MB=1500) atau .env.
+// .env dibaca manual di sini karena file ini dievaluasi PM2 SEBELUM
+// aplikasi (lib/env.js) sempat memuatnya.
+function readEnvFileValue(key) {
+  try {
+    const envFile = path.join(__dirname, ".env");
+    if (!fs.existsSync(envFile)) return "";
+    const m = new RegExp(`^\\s*(?:export\\s+)?${key}\\s*=\\s*["']?([^"'\\r\\n#]*)`, "m").exec(fs.readFileSync(envFile, "utf8"));
+    return m ? m[1].trim() : "";
+  } catch {
+    return "";
+  }
+}
+const MAX_MEMORY_MB = Math.max(
+  256,
+  parseInt(process.env.MAX_MEMORY_MB || readEnvFileValue("MAX_MEMORY_MB"), 10) || 1200
+);
+
 // Argumen cloudflared.
 //
 // URUTAN PENTING: bentuk perintahnya adalah
@@ -94,6 +116,10 @@ function tunnelApp(name) {
 module.exports = {
   apps: [
     {
+      // Nama proses SENGAJA tidak diganti ke "Varesa-Core": PM2 mengenali
+      // proses dari namanya. Kalau diganti, `pm2 start` membuat proses
+      // KEDUA sementara yang lama masih jalan -> sesi WhatsApp ganda yang
+      // saling memutus.
       name: "JadiVaresa-Core",
       script: "./index.js",
       cwd: __dirname,
@@ -111,13 +137,14 @@ module.exports = {
 
       // Terukur di server ini: 335 MB setelah 7 jam dengan 3 sesi bot.
       // 1200 MB memberi ruang lega tanpa mendekati batas container 2 GB.
-      max_memory_restart: "1200M",
+      max_memory_restart: `${MAX_MEMORY_MB}M`,
       kill_timeout: 8000,
 
       env: {
         NODE_ENV: "production",
         TZ: "Asia/Jakarta",
         PORT: PORT,
+        MAX_MEMORY_MB: String(MAX_MEMORY_MB),
       },
 
       error_file: "./logs/core-error.log",

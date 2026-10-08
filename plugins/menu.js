@@ -1,7 +1,8 @@
 import { loadMenuOnce } from "../database/menu.js";
 import config from "../config.js";
 import { readFileAsBuffer } from "../lib/fileHelper.js";
-import { style, getCurrentDate, readMore, readJsonFile } from "../lib/utils.js"; // <-- Tambahin import readJsonFile
+import { style, getCurrentDate, readMore } from "../lib/utils.js";
+import { readGroup } from "../lib/group.js";
 import { isOwner, isPremiumUser } from "../lib/users.js";
 import moment from "moment-timezone";
 import path from "path";
@@ -16,6 +17,27 @@ const AUDIO_MENU = true;
 
 const MENU_MEDIA_URL = config.bot_media; 
 const IS_VIDEO_MEDIA = true; 
+
+// Media menu: foto/GIF milik bot (dashboard, khusus Zenith) atau bawaan.
+// Link .mp4/.webm/.mov dikirim sebagai video berulang (gifPlayback),
+// selain itu sebagai gambar.
+function resolveMenuMedia(menuImage) {
+    const url = String(menuImage || "").trim();
+    if (!/^https?:\/\//i.test(url)) {
+        return { url: MENU_MEDIA_URL, isVideo: IS_VIDEO_MEDIA };
+    }
+    const isVideo = /\.(mp4|webm|mov)$/i.test(url.split("?")[0]);
+    return { url, isVideo };
+}
+
+// Isi placeholder menu kustom dari dashboard ({pushname}, {prefix}, dst).
+function renderCustomMenu(template, data) {
+    let out = String(template || "");
+    for (const [key, value] of Object.entries(data)) {
+        out = out.replace(new RegExp(`\\{${key}\\}`, "gi"), String(value ?? ""));
+    }
+    return out.trim();
+}
 
 const soundPagi = "pagi.opus";
 const soundSiang = "siang.opus";
@@ -122,7 +144,8 @@ async function handle(sock, messageInfo) {
         pushName,
         sender,
         prefix,
-        sessionConfig,
+        sessionConfig = {},
+        isJadibot,
     } = messageInfo; 
 
     // Nama bot diambil dari config per-sesi (diatur di dashboard web) dan
@@ -130,6 +153,17 @@ async function handle(sock, messageInfo) {
     // memakai config.bot_name global, jadi nama bot yang disimpan user di
     // dashboard tidak pernah muncul.
     const botName = (sessionConfig?.botName || "").trim() || config.bot_name;
+
+    // Footer menu: teks footer dari dashboard (Core ke atas). Bot user tanpa
+    // footer menampilkan "Powered by Varesa" + alamat web; bot utama tetap
+    // memakai kredit owner seperti sebelumnya.
+    const webHost = config.web_url.replace(/^https?:\/\//, "");
+    const footerMenu = (sessionConfig?.footer || "").trim()
+        || (isJadibot ? `Powered by Varesa • ${webHost}` : `Created by ${config.owner_name}`);
+
+    // Foto/GIF menu dari dashboard (Zenith) — applyTierCaps di autoresbot.js
+    // sudah mengosongkannya untuk paket lain.
+    const menuMedia = resolveMenuMedia(sessionConfig?.menuImage);
 
     // Perintah kustom milik NOMOR BOT INI saja. Diambil dari sessionConfig,
     // jadi bot lain tidak akan pernah menampilkannya.
@@ -144,12 +178,17 @@ async function handle(sock, messageInfo) {
           `\n┗━━━━━━━◧`
         : '';
 
-    const roleUser = isOwner(sender) ? "Owner" : isPremiumUser(sender) ? "Premium" : "user";
+    // Owner bot dari dashboard juga dihitung owner (dihitung di autoresbot.js).
+    const roleUser = (messageInfo.isOwner ?? isOwner(sender))
+        ? "Owner"
+        : (messageInfo.isPremium ?? isPremiumUser(sender)) ? "Premium" : "user";
     const date = getCurrentDate();
     
     // --- LOAD SETTINGAN GRUP ---
     const isGroup = remoteJid.endsWith("@g.us");
-    const groupData = await readJsonFile("./database/group.json");
+    // Dibaca dari memori lib/group.js (sumber yang sama dengan .setmenu),
+    // bukan dari file yang bisa tertinggal sampai 30 detik.
+    const groupData = (await readGroup()) || {};
     // Default-nya kita bikin 'button', kalau ada settingan text, kita pake 'text'
     const menuMode = (isGroup && groupData[remoteJid]?.menu_mode) ? groupData[remoteJid].menu_mode : "button";
 
@@ -188,9 +227,9 @@ async function handle(sock, messageInfo) {
     const { titleGreeting, emoji, audioFile } = getGreetingInfo();
     const runtime = getRuntime(process.uptime()); 
 
-    const mediaMessage = IS_VIDEO_MEDIA 
-        ? { video: { url: MENU_MEDIA_URL } } 
-        : { image: { url: MENU_MEDIA_URL } };
+    const mediaMessage = menuMedia.isVideo
+        ? { video: { url: menuMedia.url }, gifPlayback: true }
+        : { image: { url: menuMedia.url } };
 
     const matchedKey = Object.keys(menuData).find(key => 
         key.toLowerCase().replace(/\s+/g, '_') === category
@@ -205,16 +244,37 @@ async function handle(sock, messageInfo) {
             {
                 ...mediaMessage,
                 caption: style(response),
-                gifPlayback: true, // Jadiin GIF selalu
             },
             { quoted: message }
         );
     
-    } else if (command === "menu" && !category) {
+    } else if (
+        // ".help" dulu tidak masuk cabang mana pun sehingga bot diam.
+        // Kategori yang tidak dikenal juga jatuh ke menu utama, bukan diam.
+        (command === "menu" || command === "help") &&
+        (!category || (!matchedKey && category !== "all"))
+    ) {
 
         const vpsRuntime = getRuntime(os.uptime()); 
+
+        // Menu kustom dari dashboard (Core ke atas). Placeholder yang didukung:
+        // {ucapanWaktu} {pushname} {statusUser} {date} {time} {prefix}
+        // {botname} {runtime} {totalfitur}
+        const customMenuText = renderCustomMenu(sessionConfig?.customMenu, {
+            ucapanWaktu: `${titleGreeting} ${emoji}`,
+            pushname: pushName || "Kak",
+            statusUser: roleUser.toUpperCase(),
+            date,
+            time: `${moment.tz("Asia/Jakarta").format("HH:mm:ss")} WIB`,
+            prefix,
+            botname: botName,
+            runtime,
+            totalfitur: totalFeatures,
+        });
             
-        const headerText = `*${titleGreeting}* ${emoji} *${pushName}*!
+        const headerText = customMenuText
+            ? `${customMenuText}${daftarPerintahKustom}`
+            : `*${titleGreeting}* ${emoji} *${pushName}*!
 Selamat datang di *${botName}*.
 
 ---
@@ -232,6 +292,10 @@ Selamat datang di *${botName}*.
 
 Silahkan pilih kategori di bawah, atau ketik ${prefix}allmenu.${daftarPerintahKustom}`;
 
+        // Menu kustom ditampilkan apa adanya (tanpa diubah gaya hurufnya),
+        // persis seperti yang ditulis pemilik bot di dashboard.
+        const headerTampil = customMenuText ? headerText : style(headerText);
+
         // --- CEK MODE DISPLAY MENU ---
         if (menuMode === "text") {
             // ======================================
@@ -246,14 +310,13 @@ Silahkan pilih kategori di bawah, atau ketik ${prefix}allmenu.${daftarPerintahKu
             
             listKategori += `┣⌬ ${prefix}allmenu\n┗━━━━━━━◧`;
 
-            const fullText = style(headerText) + listKategori;
+            const fullText = headerTampil + listKategori;
 
             result = await sock.sendMessage(
                 remoteJid,
                 {
                     ...mediaMessage,
                     caption: fullText,
-                    gifPlayback: true, // Diatur true biar jadi loop video muter-muter tanpa suara kaya GIF
                 },
                 { quoted: message }
             );
@@ -297,24 +360,41 @@ Silahkan pilih kategori di bawah, atau ketik ${prefix}allmenu.${daftarPerintahKu
             ];
 
             const headerConfig = {
-                title: "Menu Utama",
+                title: botName,
                 subtitle: `Total Fitur: ${totalFeatures}`,
                 hasMediaAttachment: true,
-                ...(IS_VIDEO_MEDIA 
-                    ? { videoMessage: { url: MENU_MEDIA_URL } }
-                    : { imageMessage: { url: MENU_MEDIA_URL } }
+                ...(menuMedia.isVideo
+                    ? { videoMessage: { url: menuMedia.url } }
+                    : { imageMessage: { url: menuMedia.url } }
                 )
             };
 
-            result = await sendInteractiveMessage(sock, remoteJid, {
-                text: style(headerText),
-                footer: `${botName} • Created by ${config.owner_name}`, 
-                header: headerConfig,
-                interactiveButtons: interactiveButtons
-            }, { quoted: message });
+            try {
+                result = await sendInteractiveMessage(sock, remoteJid, {
+                    text: headerTampil,
+                    footer: `${botName} • ${footerMenu}`, 
+                    header: headerConfig,
+                    interactiveButtons: interactiveButtons
+                }, { quoted: message });
+            } catch (err) {
+                // Pesan tombol bisa ditolak WhatsApp (mis. klien lama /
+                // media gagal diunduh). Jangan biarkan .menu diam: kirim
+                // versi teks berisi daftar kategori.
+                console.error("[menu] gagal kirim menu tombol:", err?.message || err);
+                const kategori = Object.keys(menuData)
+                    .map((key) => `┣⌬ ${prefix}menu ${key.toLowerCase().replace(/\s+/g, '_')}`)
+                    .join("\n");
+                result = await sock.sendMessage(
+                    remoteJid,
+                    {
+                        text: `${headerTampil}\n\n┏━『 *DAFTAR KATEGORI* 』\n┃\n${kategori}\n┣⌬ ${prefix}allmenu\n┗━━━━━━━◧\n\n_${botName} • ${footerMenu}_`,
+                    },
+                    { quoted: message }
+                );
+            }
         }
 
-    } else if (command === "allmenu" || (command === "menu" && category === "all")) {
+    } else if (command === "allmenu" || ((command === "menu" || command === "help") && category === "all")) {
         const allMenuResponse = `
 👑 *USER: ${pushName || "Guest"}*
  • Status: ${roleUser}
@@ -333,7 +413,6 @@ ${Object.keys(menuData)
             {
                 ...mediaMessage,
                 caption: style(allMenuResponse),
-                gifPlayback: true, 
             }, 
             { quoted: message }
         );

@@ -1,5 +1,6 @@
 const respondedSenders = new Set();
 import { getGreeting } from "../lib/utils.js";
+import config from "../config.js";
 
 async function process(sock, messageInfo) {
   const { sender, remoteJid, isGroup, message, pushName, fullText } =
@@ -21,14 +22,14 @@ async function process(sock, messageInfo) {
 
   const response = `🌟 _*Pesan Otomatis*_ 🌟 
 
-👋 _${salam}_ _Kak_ *${pushName}*, _Nomor ini adalah nomor bot yang tersedia untuk di sewa pada sebuah grub._
+👋 _${salam}_ _Kak_ *${pushName}*, _Nomor ini adalah bot WhatsApp yang berjalan di Varesa._
 
 ⚠️ _Kami sangat melarang jika bot kami digunakan untuk tindak penipuan atau kegiatan ilegal lainnya._
 
 _*Informasi lebih lanjut*_
-📞 Owner : https://wa.me/6285246154386?text=sewabot+4.0
-💻 Website : https://autoresbot.com
-👉 Saluran : https://www.whatsapp.com/channel/0029VaDSRuf05MUekJbazP1D`;
+💻 Website : ${config.web_url}
+🤖 Bikin bot sendiri : ${config.web_url}/dashboard
+📋 Daftar fitur : ketik *.menu*`;
 
   try {
     // Kirim pesan balasan ke pengirim

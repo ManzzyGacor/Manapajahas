@@ -1,10 +1,11 @@
 
 import { findUser, updateUser, addUser } from "../../lib/users.js";
 import { formatRemainingTime } from "../../lib/utils.js";
+import config from "../../config.js";
 
 // --- Konstanta Visual ---
 const THUMBNAIL_CLAIM_URL = "https://autoresbot.com/tmp_files/19dde1d0-76b8-4dac-947b-c47ae9c3493e.jpg"; // Ganti dengan link gambar koin atau peti
-const SOURCE_URL = "https://manzzy.web.id"; 
+const SOURCE_URL = config.web_url; // link kartu pratinjau -> website Varesa
 
 async function handle(sock, messageInfo) {
   const { remoteJid, message, sender, pushName } = messageInfo;

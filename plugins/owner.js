@@ -3,19 +3,21 @@ import { listOwner } from "../lib/users.js";
 import config from "../config.js";
 
 export async function handle(sock, messageInfo) {
-  const { remoteJid, message, sender, senderType, sessionConfig } = messageInfo;
+  const { remoteJid, message, sender, senderType, sessionConfig, isJadibot, botNumber } = messageInfo;
 
   // Nomor owner diambil dari config per-sesi (diatur di dashboard web)
   // lebih dulu. Sebelumnya plugin ini selalu memakai listOwner() global
   // dari database/owner.json, jadi nomor owner yang disimpan user di
   // dashboard tidak pernah tampil di perintah .owner.
-  const dashboardOwners = (sessionConfig?.ownerNumber || "")
-    .split(",")
-    .map((n) => n.trim())
-    .filter(Boolean)
-    .map((n) => `${n.replace(/\D/g, "")}@s.whatsapp.net`);
+  // sessionConfig.owners sudah dinormalkan & dibatasi sesuai paket
+  // (applyTierCaps di autoresbot.js).
+  const dashboardOwners = (sessionConfig?.owners || [])
+    .map((n) => `${n}@s.whatsapp.net`);
 
-  const data = dashboardOwners.length ? dashboardOwners : listOwner();
+  // Bot milik user tanpa owner di dashboard: pemiliknya adalah pemegang
+  // nomor bot itu sendiri — bukan operator Varesa.
+  const fallback = isJadibot && botNumber ? [`${botNumber}@s.whatsapp.net`] : listOwner();
+  const data = dashboardOwners.length ? dashboardOwners : fallback;
 
   let list = [];
   let no = 1;
@@ -27,7 +29,7 @@ N:Owner ${no}
 FN:Owner ${no}
 TEL;waid=${item.split("@")[0]}:${item.split("@")[0]}
 EMAIL;type=INTERNET:${config.owner_email}
-URL:https://varesa.mom
+URL:${config.web_url}
 ADR:;;${config.region};;;
 END:VCARD`;
 

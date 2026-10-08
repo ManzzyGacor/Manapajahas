@@ -59,7 +59,7 @@ async function handle(sock, messageInfo) {
 
     const targetNumber = userToAction.split("@")[0];
 
-    if (targetNumber === config.phone_number_bot) {
+    if (targetNumber === (messageInfo.botNumber || config.phone_number_bot)) {
       return await sock.sendMessage(
         remoteJid,
         { text: `⚠️ _Tidak dapat kick nomor sendiri_` },

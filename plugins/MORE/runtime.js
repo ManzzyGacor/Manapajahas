@@ -192,7 +192,7 @@ async function handle(sock, messageInfo) {
   const buffer = await generateRuntimeCanvas(stats);
 
   const caption = `
-*SYSTEM RUNTIME DASHBOARD – VARESA MD*
+*SYSTEM RUNTIME DASHBOARD – VARESA*
 
 📡 Latency: ${latencyText}
 🧠 CPU: ${formatPercent(stats.cpuPercent)}

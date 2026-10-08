@@ -11,6 +11,7 @@ try { dns.setDefaultResultOrder('ipv4first'); } catch (_) {}
 import { createDecipheriv, randomUUID } from 'crypto';
 import { spawn } from 'child_process';
 import axios from 'axios';
+import config from "../../config.js";
 
 /* =========================================================
  * CONFIG
@@ -391,7 +392,7 @@ async function getAudioBufferWithFallback(ytUrl) {
   }
 
   // Method 2: JereAPI Downloader Fallback
-  const API_KEY = "VaresaMD";
+  const API_KEY = config.JEREXD_APIKEY; // dari .env (JEREXD_APIKEY)
   const baseUrl = global.web || 'https://api.jerexd.my.id';
   try {
     const res = await axios.get(`${baseUrl}/api/downloader/youtube?apikey=${API_KEY}&url=${encodeURIComponent(ytUrl)}&format=mp3`, { timeout: 30000 });
@@ -660,7 +661,7 @@ function createMusicPlayer({ title, artist, duration, audioSrc, imageSrc, lyrics
         </button>
       </div>
 
-      <div class="note">by ManzzyID | Varesa MD</div>
+      <div class="note">by ManzzyID | Varesa</div>
     </div>
   </div>
 </div>

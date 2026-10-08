@@ -1,20 +1,24 @@
 // plugins/sewa.js
+import config from "../../config.js";
 
-// plugins/sewa.js
-
+// Ajakan bikin bot sendiri di Varesa. Dulu mengarah ke sewa.manzzy.web.id
+// (situs lama) — sekarang ke web dashboard Varesa yang sama dengan tempat
+// user mendaftar, pairing nomor, dan upgrade paket.
 const TEXT_PROMO = (pushName) => `
-👋 *Halo Kak ${pushName}!*
-Ingin membuat grup WhatsApp kamu lebih hidup, seru, dan terkelola otomatis?
+👋 *Halo Kak ${pushName || ""}!*
+Ingin grup WhatsApp kamu lebih hidup, seru, dan terkelola otomatis?
 
-✨ *Gunakan Bot WhatsApp Varesa MD Sekarang!* ✨
+✨ *Bikin Bot WhatsApp Sendiri di Varesa!* ✨
 
-🟢 Transaksi 24/7 Otomatis!
-bot bakal langsung masuk ke grub setelah pembayaran berhasil.
+🟢 Daftar gratis, masukkan nomor, pairing — bot langsung aktif 24/7.
+⚙️ Atur nama bot, owner, menu, pesan otomatis & sambutan grup langsung dari dashboard.
+🚀 Ratusan fitur: moderasi anti-link, game, stiker, downloader, cek MLBB, dan lainnya.
 
-Nikmati berbagai fitur canggih mulai dari moderasi anti-link, game interaktif, stiker maker, hingga cek statistik game favoritmu secara instan 24 jam nonstop!
+💎 *Paket:* Free • Core • Prime • Zenith
+_Harga terbaru & perbandingan paket ada di website._
 
-🚀 *Yuk sewa bot untuk grupmu melalui website resmi kami:*
-🌐 https://sewa.manzzy.web.id
+🌐 *Daftar / upgrade di:*
+${config.web_url}/dashboard
 `.trim();
 
 /**

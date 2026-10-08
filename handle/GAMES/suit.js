@@ -46,7 +46,7 @@ async function process(sock, messageInfo) {
       return await sock.sendMessage(
         groupId,
         {
-          text: `🎯 _Permainan dimulai!_ \n\n_Silakan chat ke nomor bot dan kirimkan pesan *kertas, batu atau gunting*_\nwa.me/${config.phone_number_bot}`,
+          text: `🎯 _Permainan dimulai!_ \n\n_Silakan chat ke nomor bot dan kirimkan pesan *kertas, batu atau gunting*_\nwa.me/${messageInfo.botNumber || config.phone_number_bot}`,
         },
         { quoted: message }
       );

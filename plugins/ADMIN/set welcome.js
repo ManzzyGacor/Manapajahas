@@ -47,10 +47,8 @@ ${global.group.variable}`;
 
 Pesan Welcome baru kamu sudah berhasil disimpan ke database bot.
 
-💡 *Jangan Lupa:*
-Pastikan fitur ini sudah dinyalakan agar bot bisa menyapa member baru.
-
-Ketik: *.on welcome*`,
+✅ Fitur welcome langsung *aktif* di grup ini.
+Matikan kapan saja dengan mengetik *.off welcome*`,
     },
     { quoted: message }
   );

@@ -1,5 +1,8 @@
 import axios from 'axios';
-import { logCustom } from "../lib/logger.js"; // Sesuaikan path folder logger lu cuy
+// Path harus naik dua tingkat (plugins/AI -> root). Dulu "../lib" membuat
+// plugin ini gagal dimuat sama sekali, jadi .gpt tidak pernah jalan.
+import { logCustom } from "../../lib/logger.js";
+import config from "../../config.js";
 
 // ==========================================================
 // 🔴 METADATA PLUGIN
@@ -42,7 +45,7 @@ export async function handle(sock, messageInfo) {
 
         // --- REQUEST KE API JEREXD ---
         const response = await axios.post(
-            'https://api.jerexd.my.id/api/ai/aichat?apikey=VaresaMD',
+            `https://api.jerexd.my.id/api/ai/aichat?apikey=${config.JEREXD_APIKEY}`,
             {
                 prompt: text,
                 model: "openai/gpt-5.6-terra"

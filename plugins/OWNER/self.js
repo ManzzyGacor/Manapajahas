@@ -1,9 +1,34 @@
 import { findGroup, updateGroup, deleteGroup } from "../../lib/group.js";
+import { updateBotConfig } from "../../lib/jadibot.js";
 
 async function handle(sock, messageInfo) {
-  const { remoteJid, message, command } = messageInfo;
+  const { remoteJid, message, command, isJadibot, botNumber, sessionConfig } = messageInfo;
 
   try {
+    // Bot milik user: mode self disimpan di config bot itu sendiri
+    // (jadibot.json), bukan kunci global "owner" yang dibaca semua bot.
+    if (isJadibot && botNumber) {
+      const sudahSelf = !!sessionConfig?.selfMode;
+      let teks;
+      if (command === "self") {
+        if (sudahSelf) {
+          teks = "_Bot Sebelumnya sudah self_";
+        } else {
+          await updateBotConfig(botNumber, { selfMode: true });
+          teks =
+            "_Bot berhasil di-self. Bot hanya dapat digunakan oleh owner. Untuk menjadikannya agar semua orang bisa menggunakan ketik_ *.public*.";
+        }
+      } else {
+        if (!sudahSelf) {
+          teks = "_Bot Sebelumnya sudah public_";
+        } else {
+          await updateBotConfig(botNumber, { selfMode: false });
+          teks = "_Bot berhasil diatur menjadi public._";
+        }
+      }
+      return await sock.sendMessage(remoteJid, { text: teks }, { quoted: message });
+    }
+
     // Cari data grup berdasarkan ID
     const dataGroup = await findGroup("owner", true);
 

@@ -106,7 +106,7 @@ _Note: Folder node_modules, .git, .npm, & .cache diabaikan dari perhitungan._
                 contextInfo: {
                     externalAdReply: {
                         title: "💾 SCRIPT SIZE INFO",
-                        body: `Varesa MD System Info`,
+                        body: `Varesa System Info`,
                         thumbnailUrl: "https://autoresbot.com/tmp_files/f1d90ac1-89d5-4303-a4d9-46991586bd06.jpg", 
                         sourceUrl: "https://autoresbot.com",
                         mediaType: 1,

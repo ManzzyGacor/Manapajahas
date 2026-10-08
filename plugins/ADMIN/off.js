@@ -2,12 +2,13 @@ import { findGroup, updateGroup } from "../../lib/group.js";
 import { getGroupMetadata } from "../../lib/cache.js";
 import { updateSocket } from "../../lib/scheduled.js";
 import mess from "../../strings.js";
+import config from "../../config.js";
 
 const icon_on = "🟢";
 const icon_off = "🔴";
 
 const THUMBNAIL_URL = "https://autoresbot.com/tmp_files/67b73161-58c2-4f3b-bf19-326c8232079f.jpg"; 
-const SOURCE_URL = "https://sewa.manzzy.web.id"; 
+const SOURCE_URL = config.web_url; // link kartu pratinjau -> website Varesa
 
 const formatFeatureStatus = (status) => (status ? icon_on : icon_off);
 
