@@ -1,0 +1,37 @@
+# Dependensi & build
+node_modules/
+
+# Rahasia — JANGAN PERNAH di-commit (repo ini public)
+.env
+.env.*
+!.env.example
+cf-token.txt
+
+# Binary besar (unduh sendiri di server, lihat README)
+cloudflared
+
+# Sesi WhatsApp (kredensial login bot)
+session-*/
+sessions/
+
+# Data runtime pengguna (dibuat otomatis oleh lib/bootstrap.js)
+database/users.json
+database/owner.json
+database/group.json
+database/jadibot.json
+database/sewa.json
+database/slr.json
+database/list.json
+database/mediaFiles.json
+database/numvirtual.json
+database/additional/
+database/media/
+database/runtime/
+JadiVaresaWeb/uploads/
+
+# Log & file sementara
+logs/
+tmp/
+*.log
+*.bak
+.DS_Store

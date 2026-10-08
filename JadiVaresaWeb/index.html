@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JadiVaresa — Ubah nomor WhatsApp kamu jadi bot</title>
+<meta name="description" content="Sambungkan nomor WhatsApp lewat pairing code, atur balasan otomatis, dan biarkan bot menjawab grup kamu sepanjang hari. Tanpa server sendiri, tanpa koding.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="google-site-verification" content="RZ3NsyPuXT2iiNSO0bhuhfJ-W60E8tAlXTu7MjsUFpk" />
+<link rel="canonical" href="https://varesa.mom/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+
+<!-- Open Graph: dipakai WhatsApp, Facebook, Telegram saat link dibagikan -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="JadiVaresa">
+<meta property="og:locale" content="id_ID">
+<meta property="og:url" content="https://varesa.mom/">
+<meta property="og:title" content="JadiVaresa — Ubah nomor WhatsApp kamu jadi bot">
+<meta property="og:description" content="Sambungkan nomor lewat pairing code, atur balasan otomatis, dan biarkan bot menjawab grup kamu sepanjang hari. Tanpa server sendiri, tanpa koding.">
+<meta property="og:image" content="https://varesa.mom/icons/icon-512.png">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="JadiVaresa — Ubah nomor WhatsApp kamu jadi bot">
+<meta name="twitter:description" content="Bot WhatsApp siap pakai: pairing code, balasan otomatis, dan pantau dari dashboard.">
+<meta name="twitter:image" content="https://varesa.mom/icons/icon-512.png">
+
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#171226">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="landing.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "JadiVaresa",
+      "url": "https://varesa.mom/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "inLanguage": "id",
+      "description": "Layanan bot WhatsApp siap pakai. Sambungkan nomor lewat pairing code, atur balasan otomatis, dan pantau bot dari dashboard.",
+      "offers": {
+        "@type": "AggregateOffer",
+        "priceCurrency": "IDR",
+        "lowPrice": "0",
+        "highPrice": "25000",
+        "offerCount": "4"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Bagaimana cara mengaktifkan bot WhatsApp?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Masukkan nomor WhatsApp di dashboard lalu tekan Start. Setelah pairing code muncul, buka WhatsApp, masuk ke Perangkat Tertaut, pilih Tautkan dengan nomor telepon saja, lalu ketik kodenya."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Bot saya tiba-tiba mati, kenapa?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Umumnya sesi WhatsApp terputus karena logout dari HP, ganti perangkat, atau koneksi terganggu. Buka dashboard dan tekan Start lagi dengan nomor yang sama untuk mendapat pairing code baru."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Boleh pakai nomor WhatsApp utama?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Boleh, tapi sebaiknya jangan. WhatsApp bisa membatasi nomor yang mengirim banyak pesan otomatis. Pakai nomor cadangan khusus bot supaya nomor pribadi aman."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Bagaimana cara membayarnya?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Lewat QRIS, bisa dibayar dari e-wallet atau m-banking mana pun. Setelah pembayaran masuk, paket naik otomatis tanpa konfirmasi manual."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top">
+      <span class="brand-mark">JV</span>
+      <span class="brand-name">JadiVaresa</span>
+    </a>
+
+    <nav class="nav-links" id="navLinks">
+      <a href="#cara-kerja">Cara kerja</a>
+      <a href="#fitur">Fitur</a>
+      <a href="#harga">Harga</a>
+      <a href="#tanya">Tanya jawab</a>
+      <a class="btn btn-solid btn-sm" href="/login">Masuk</a>
+    </nav>
+
+    <button class="nav-toggle" id="navToggle" aria-label="Buka menu" aria-expanded="false">&#9776;</button>
+  </div>
+</header>
+<div class="nav-scrim" id="navScrim"></div>
+
+<main id="top">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="shell hero-grid">
+      <div>
+        <h1>Nomor WhatsApp kamu, jadi bot yang menjawab sendiri.</h1>
+        <p class="measure">
+          Sambungkan nomor lewat pairing code, atur balasan otomatis, lalu biarkan bot
+          melayani grup kamu sepanjang hari. Tidak perlu sewa server, tidak perlu menulis kode.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-solid" href="/login">Mulai gratis</a>
+          <a class="btn btn-line" href="#cara-kerja">Lihat cara kerjanya</a>
+        </div>
+
+        <div class="hero-facts">
+          <div><strong>Tanpa scan QR</strong>Tautkan pakai pairing code enam digit.</div>
+          <div><strong>Jalan di server kami</strong>Bot tetap aktif walau HP kamu mati.</div>
+          <div><strong>Pengaturan tersimpan</strong>Ganti perangkat, config tetap ada.</div>
+        </div>
+      </div>
+
+      <!-- Percakapan adalah produknya, jadi itu yang ditampilkan lebih dulu -->
+      <div class="thread" aria-label="Contoh percakapan dengan bot">
+        <div class="thread-top">
+          <div class="thread-avatar">JV</div>
+          <div>
+            <div class="thread-name">Bot Varesa</div>
+            <div class="thread-state"><span class="pip"></span> aktif</div>
+          </div>
+        </div>
+
+        <div class="bubbles">
+          <div class="bubble from-user reveal">.menu</div>
+          <div class="bubble from-bot reveal">Halo, Rizky. Bot aktif di grup ini.
+
+Ketik <code>.lookup</code> untuk cek akun MLBB
+Ketik <code>.ping</code> untuk cek kecepatan respons</div>
+          <div class="bubble from-user reveal">harga</div>
+          <div class="bubble from-bot reveal">Paket mulai Rp 7.500 per bulan. Ketik <code>.order</code> untuk lanjut.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CARA KERJA ============ -->
+  <section class="band" id="cara-kerja">
+    <div class="shell">
+      <div class="band-head">
+        <h2>Tiga langkah sampai bot menyala</h2>
+        <p class="measure">Rata-rata selesai di bawah dua menit, selama nomor kamu bisa menerima kode dari WhatsApp.</p>
+      </div>
+
+      <ol class="steps">
+        <li class="step">
+          <div class="step-no">1</div>
+          <h3>Masukkan nomor</h3>
+          <p>Ketik nomor WhatsApp yang mau dijadikan bot di dashboard, lalu tekan Start.</p>
+          <span class="mono">628xxxxxxxxxx</span>
+        </li>
+        <li class="step">
+          <div class="step-no">2</div>
+          <h3>Tautkan perangkat</h3>
+          <p>Pairing code muncul di terminal. Buka WhatsApp, masuk ke Perangkat Tertaut, pilih tautkan dengan nomor telepon.</p>
+          <span class="mono">K7F2-9QLM</span>
+        </li>
+        <li class="step">
+          <div class="step-no">3</div>
+          <h3>Atur dan jalankan</h3>
+          <p>Pilih mode publik atau khusus grup, isi balasan otomatis, dan bot langsung bekerja.</p>
+          <span class="mono">status: aktif</span>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ FITUR ============ -->
+  <section class="band" id="fitur">
+    <div class="shell">
+      <div class="band-head">
+        <h2>Yang bisa kamu atur</h2>
+        <p class="measure">Semua diatur dari dashboard. Tidak ada file konfigurasi yang perlu disentuh.</p>
+      </div>
+
+      <div class="features">
+        <article class="feature">
+          <h3>Balasan otomatis</h3>
+          <p>Tentukan kata kunci dan jawabannya. Bot membalas tanpa perlu diawali titik, cocok untuk pertanyaan yang itu-itu saja.</p>
+        </article>
+        <article class="feature">
+          <h3>Menu buatan sendiri</h3>
+          <p>Susun ulang isi menu bot, lengkap dengan sapaan, nama pengirim, dan tanggal yang terisi otomatis.</p>
+        </article>
+        <article class="feature">
+          <h3>Beberapa nomor owner</h3>
+          <p>Daftarkan rekan kamu sebagai owner supaya mereka bisa memakai perintah khusus admin.</p>
+        </article>
+        <article class="feature">
+          <h3>Mode publik atau grup</h3>
+          <p>Batasi bot hanya menjawab di grup, atau biarkan terbuka untuk chat pribadi juga.</p>
+        </article>
+        <article class="feature">
+          <h3>Terminal langsung</h3>
+          <p>Lihat log bot mengalir waktu nyata, termasuk saat pairing code keluar dan sesi terputus.</p>
+        </article>
+        <article class="feature">
+          <h3>Cek Mobile Legends <span class="tag-tier">Zenith</span></h3>
+          <p>Tarik data akun MLBB langsung dari dalam chat, hasilnya dikirim sebagai kartu gambar.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SOROTAN MLBB ============ -->
+  <section class="band">
+    <div class="shell">
+      <div class="spotlight">
+        <div>
+          <h2>Cek akun Mobile Legends tanpa keluar dari grup</h2>
+          <p class="measure">
+            Anggota grup cukup mengirim ID dan zona. Bot membalas dengan nama pengguna,
+            tanggal pembuatan akun, status bind, dan status banned.
+          </p>
+          <ul class="cmd-list">
+            <li>.lookup</li>
+            <li>.cekban</li>
+            <li>.cekbind</li>
+            <li>.cekttl</li>
+            <li>.find</li>
+          </ul>
+        </div>
+
+        <div class="readout" aria-label="Contoh hasil pencarian akun">
+          <div class="readout-row"><span>Nickname</span><strong>RizkyGG</strong></div>
+          <div class="readout-row"><span>ID</span><strong>43044442 (5205)</strong></div>
+          <div class="readout-row"><span>Dibuat</span><strong>14 Mar 2021</strong></div>
+          <div class="readout-row"><span>Status bind</span><strong>Moonton, Google</strong></div>
+          <div class="readout-row"><span>Status akun</span><strong class="ok">Tidak diblokir</strong></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HARGA ============ -->
+  <section class="band" id="harga">
+    <div class="shell">
+      <div class="band-head">
+        <h2>Harga</h2>
+        <p class="measure">Mulai dari gratis. Naik paket saat grup kamu makin ramai, batalkan kapan saja.</p>
+      </div>
+
+      <div class="plans">
+        <div class="plan">
+          <h3>Free</h3>
+          <p class="plan-note">Untuk mencoba dulu</p>
+          <div class="plan-cost">Rp 0</div>
+          <ul class="plan-perks">
+            <li>Satu grup bebas jumlah anggota, atau dua grup di bawah 15 anggota</li>
+            <li>Mode publik atau khusus grup</li>
+            <li class="off">Bot menyisipkan watermark iklan</li>
+            <li class="off">Nomor owner dan balasan otomatis terkunci</li>
+          </ul>
+          <a class="btn btn-line" href="/login">Mulai gratis</a>
+        </div>
+
+        <div class="plan">
+          <h3>Core</h3>
+          <p class="plan-note">Untuk satu grup aktif</p>
+          <div class="plan-cost" data-price="basic">&mdash; <small>/ bulan</small></div>
+          <ul class="plan-perks">
+            <li>Satu nomor owner</li>
+            <li>Tanpa watermark iklan</li>
+            <li>Balasan otomatis sampai 10 aturan</li>
+            <li>Menu dan identitas bot bisa diubah</li>
+          </ul>
+          <a class="btn btn-line" href="/login">Pilih Core</a>
+        </div>
+
+        <div class="plan plan-pick">
+          <h3>Prime</h3>
+          <p class="plan-note">Untuk beberapa grup sekaligus</p>
+          <div class="plan-cost" data-price="plus">&mdash; <small>/ bulan</small></div>
+          <ul class="plan-perks">
+            <li>Tiga nomor owner</li>
+            <li>Balasan otomatis sampai 30 aturan</li>
+            <li>Semua yang ada di Core</li>
+            <li>Antrean update lebih dulu</li>
+          </ul>
+          <a class="btn btn-solid" href="/login">Pilih Prime</a>
+        </div>
+
+        <div class="plan">
+          <h3>Zenith</h3>
+          <p class="plan-note">Untuk komunitas besar</p>
+          <div class="plan-cost" data-price="booster">&mdash; <small>/ bulan</small></div>
+          <ul class="plan-perks">
+            <li>Lima nomor owner</li>
+            <li>Akses semua perintah Mobile Legends</li>
+            <li>Balasan otomatis sampai 100 aturan</li>
+            <li>Foto atau GIF pada menu bot</li>
+          </ul>
+          <a class="btn btn-line" href="/login">Pilih Zenith</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TANYA JAWAB ============ -->
+  <section class="band" id="tanya">
+    <div class="shell">
+      <div class="band-head">
+        <h2>Tanya jawab</h2>
+      </div>
+
+      <div class="faq">
+        <div class="faq-item open">
+          <button class="faq-q" aria-expanded="true">Bagaimana cara mengaktifkan botnya?</button>
+          <div class="faq-a"><div>
+            Masukkan nomor WhatsApp di dashboard lalu tekan Start. Setelah pairing code muncul di terminal,
+            buka WhatsApp, masuk ke <strong>Perangkat Tertaut</strong>, pilih <strong>Tautkan dengan nomor telepon saja</strong>,
+            lalu ketik kodenya.
+          </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">Bot saya tiba-tiba mati, kenapa?</button>
+          <div class="faq-a"><div>
+            Umumnya sesi WhatsApp terputus karena logout dari HP, ganti perangkat, atau koneksi terganggu.
+            Buka dashboard dan tekan Start lagi dengan nomor yang sama untuk mendapat pairing code baru.
+          </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">Boleh pakai nomor WhatsApp utama?</button>
+          <div class="faq-a"><div>
+            Boleh, tapi sebaiknya jangan. WhatsApp bisa membatasi nomor yang mengirim banyak pesan otomatis.
+            Pakai nomor cadangan khusus bot supaya nomor pribadi kamu aman.
+          </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">Apa batasan paket Free?</button>
+          <div class="faq-a"><div>
+            Bot boleh berada di satu grup dengan jumlah anggota bebas, atau dua grup yang masing-masing
+            di bawah 15 anggota. Kalau terlampaui, kami kirim peringatan lebih dulu dan memberi waktu
+            10 menit untuk merapikan sebelum sesi dihentikan.
+          </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">Bagaimana cara membayarnya?</button>
+          <div class="faq-a"><div>
+            Lewat QRIS, bisa dibayar dari e-wallet atau m-banking mana pun. Setelah pembayaran masuk,
+            paket kamu naik otomatis tanpa perlu konfirmasi manual.
+          </div></div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">Kalau berhenti berlangganan, data saya hilang?</button>
+          <div class="faq-a"><div>
+            Tidak. Pengaturan bot tetap tersimpan, hanya fitur berbayarnya yang terkunci.
+            Begitu kamu perpanjang, semuanya kembali seperti semula.
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PENUTUP ============ -->
+  <section class="closing">
+    <div class="shell">
+      <h2>Siap menyalakan bot kamu?</h2>
+      <p>Buat akun, tautkan nomor, dan lihat bot menjawab pesan pertamanya hari ini juga.</p>
+      <a class="btn btn-solid" href="/login">Mulai gratis</a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="shell foot-inner">
+    <p>&copy; 2026 JadiVaresa. All rights reserved.</p>
+    <p>Dikelola oleh <a href="https://www.instagram.com/manzz_wakeup?stkn=OHIzazZoNXBjM2Vr" target="_blank" rel="noopener">@ManzzyID</a></p>
+  </div>
+</footer>
+
+<script>
+  // Menu untuk layar kecil
+  const navLinks = document.getElementById('navLinks');
+  const navToggle = document.getElementById('navToggle');
+  const navScrim = document.getElementById('navScrim');
+
+  function closeNav() {
+    navLinks.classList.remove('open');
+    navScrim.classList.remove('open');
+    navToggle.setAttribute('aria-expanded', 'false');
+  }
+  navToggle.addEventListener('click', () => {
+    const open = navLinks.classList.toggle('open');
+    navScrim.classList.toggle('open', open);
+    navToggle.setAttribute('aria-expanded', String(open));
+  });
+  navScrim.addEventListener('click', closeNav);
+  navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', closeNav));
+
+  // Tanya jawab
+  document.querySelectorAll('.faq-q').forEach(q => {
+    q.addEventListener('click', () => {
+      const item = q.closest('.faq-item');
+      const wasOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i => {
+        i.classList.remove('open');
+        i.querySelector('.faq-q').setAttribute('aria-expanded', 'false');
+      });
+      if (!wasOpen) {
+        item.classList.add('open');
+        q.setAttribute('aria-expanded', 'true');
+      }
+    });
+  });
+
+  // Harga diambil dari pengaturan yang sama dengan admin dashboard,
+  // jadi ubah harga di sana langsung terpakai di halaman ini.
+  (async () => {
+    const rupiah = n => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+    try {
+      const res = await fetch('/api/pricing');
+      const result = await res.json();
+      if (!result.success) return;
+      document.querySelectorAll('[data-price]').forEach(el => {
+        const tier = el.getAttribute('data-price');
+        const val = result.pricing[tier];
+        if (val == null) return;
+        el.innerHTML = rupiah(val) + ' <small>/ bulan</small>';
+      });
+    } catch (err) {
+      // Server tidak terjangkau: biarkan tanda hubung, jangan tampilkan harga tebakan.
+    }
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Status Layanan — JadiVaresa</title>
+<meta name="description" content="Status layanan JadiVaresa secara langsung: web, database, dan bot WhatsApp.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="theme-color" content="#171226">
+<style>
+  :root{--ink:#171226;--rise:#211936;--line:#322549;--paper:#FBF8FF;--dim:#A79BC4;
+        --coral:#FF6B5B;--mint:#3DDC97;--amber:#FFC46B}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--ink);color:var(--paper);font-family:'IBM Plex Sans',system-ui,sans-serif;
+       min-height:100vh;padding:28px 20px;line-height:1.6}
+  .shell{max-width:620px;margin:0 auto}
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:30px}
+  .mark{width:34px;height:34px;border-radius:11px;background:var(--coral);display:grid;place-items:center;
+        font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:14px;color:#fff}
+  .brand span{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:18px}
+
+  .banner{border-radius:18px;padding:24px;margin-bottom:22px;border:1px solid var(--line);background:var(--rise)}
+  .banner.ok{border-color:rgba(61,220,151,.4);background:rgba(61,220,151,.08)}
+  .banner.bad{border-color:rgba(255,107,91,.4);background:rgba(255,107,91,.08)}
+  .banner h1{font-family:'Bricolage Grotesque',sans-serif;font-size:1.35rem;margin-bottom:6px}
+  .banner p{color:var(--dim);font-size:.9rem}
+
+  .row{display:flex;justify-content:space-between;align-items:center;gap:14px;
+       padding:15px 18px;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;background:var(--rise)}
+  .row b{font-weight:600;font-size:.95rem}
+  .pill{display:inline-flex;align-items:center;gap:7px;font-size:.78rem;font-weight:700;
+        padding:5px 12px;border-radius:20px;white-space:nowrap}
+  .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+  .up{background:rgba(61,220,151,.13);color:var(--mint)}
+  .idle{background:rgba(255,196,107,.13);color:var(--amber)}
+  .down{background:rgba(255,107,91,.13);color:var(--coral)}
+
+  .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:20px}
+  .box{border:1px solid var(--line);border-radius:14px;padding:15px;background:var(--rise)}
+  .box small{color:var(--dim);font-size:.75rem;display:block;margin-bottom:5px}
+  .box strong{font-family:'JetBrains Mono',monospace;font-size:1.05rem}
+
+  footer{margin-top:30px;text-align:center;color:var(--dim);font-size:.8rem}
+  footer a{color:var(--coral);text-decoration:none;font-weight:600}
+  .muted{color:var(--dim);font-size:.78rem;text-align:center;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="brand"><span class="mark">JV</span><span>JadiVaresa</span></div>
+
+  <div class="banner" id="banner">
+    <h1 id="judul">Memeriksa status…</h1>
+    <p id="subjudul">Mengambil data terbaru dari server.</p>
+  </div>
+
+  <div class="row"><b>Website &amp; Dashboard</b><span class="pill idle" id="pWeb"><span class="dot"></span>…</span></div>
+  <div class="row"><b>Database</b><span class="pill idle" id="pDb"><span class="dot"></span>…</span></div>
+  <div class="row"><b>Layanan Bot WhatsApp</b><span class="pill idle" id="pBot"><span class="dot"></span>…</span></div>
+
+  <div class="meta">
+    <div class="box"><small>Bot sedang aktif</small><strong id="mBot">—</strong></div>
+    <div class="box"><small>Server menyala</small><strong id="mUp">—</strong></div>
+  </div>
+
+  <p class="muted">Halaman ini menyegarkan sendiri tiap 30 detik. Tidak ada data pribadi atau nomor bot yang ditampilkan di sini.</p>
+
+  <footer>
+    <p>&copy; 2026 JadiVaresa &middot; <a href="/">Halaman utama</a></p>
+  </footer>
+</div>
+
+<script>
+  const setPill = (el, kelas, teks) => {
+    el.className = 'pill ' + kelas;
+    el.innerHTML = '<span class="dot"></span>' + teks;
+  };
+
+  const durasi = (d) => {
+    const j = Math.floor(d / 3600), m = Math.floor((d % 3600) / 60);
+    if (j >= 24) return Math.floor(j / 24) + ' hari ' + (j % 24) + ' jam';
+    return j > 0 ? j + ' jam ' + m + ' mnt' : m + ' menit';
+  };
+
+  async function muat() {
+    try {
+      const r = await fetch('/api/status', { cache: 'no-store' });
+      const d = await r.json();
+      if (!d.success) throw new Error();
+
+      const banner = document.getElementById('banner');
+      const semuaBaik = d.status === 'operational';
+      banner.className = 'banner ' + (semuaBaik ? 'ok' : 'bad');
+      document.getElementById('judul').innerText = semuaBaik
+        ? 'Semua layanan berjalan normal'
+        : 'Ada layanan yang sedang terganggu';
+      document.getElementById('subjudul').innerText =
+        'Terakhir diperiksa ' + new Date(d.waktu).toLocaleTimeString('id-ID');
+
+      const peta = { operational: ['up', 'Normal'], idle: ['idle', 'Siaga'], down: ['down', 'Gangguan'] };
+      const p = (k) => peta[k] || ['down', 'Gangguan'];
+
+      setPill(document.getElementById('pWeb'), ...p(d.layanan.web));
+      setPill(document.getElementById('pDb'), ...p(d.layanan.database));
+      setPill(document.getElementById('pBot'), ...p(d.layanan.bot));
+
+      document.getElementById('mBot').innerText = d.botAktif;
+      document.getElementById('mUp').innerText = durasi(d.uptimeSec);
+    } catch (e) {
+      // Kalau halaman ini saja tidak bisa menghubungi server, itu sendiri
+      // sudah informasi: berarti servernya memang sedang bermasalah.
+      document.getElementById('banner').className = 'banner bad';
+      document.getElementById('judul').innerText = 'Server tidak dapat dihubungi';
+      document.getElementById('subjudul').innerText = 'Kami sedang menanganinya. Coba lagi beberapa saat.';
+      ['pWeb', 'pDb', 'pBot'].forEach(id => setPill(document.getElementById(id), 'down', 'Gangguan'));
+    }
+  }
+
+  muat();
+  setInterval(muat, 30000);
+</script>
+</body>
+</html>

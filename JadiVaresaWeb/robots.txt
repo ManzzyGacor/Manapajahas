@@ -1,0 +1,14 @@
+# robots.txt — JadiVaresa
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /status
+
+# Halaman berikut tidak ada gunanya di hasil pencarian: butuh login,
+# isinya berbeda tiap user, dan invoice bahkan bersifat pribadi.
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /invoice
+Disallow: /api/
+
+Sitemap: https://varesa.mom/sitemap.xml

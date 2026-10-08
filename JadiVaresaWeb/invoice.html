@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice - JadiVaresa</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="brand">
+      <div class="logo-box">JV</div>
+      <span class="brand-name">JadiVaresa</span>
+    </div>
+    <a href="/dashboard" class="nav-item"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+  </nav>
+
+  <main class="container" style="max-width: 620px;">
+    <div id="invoiceLoading" class="control-panel" style="text-align: center; padding: 50px 20px;">
+      <i class="fa-solid fa-spinner fa-spin" style="font-size: 26px; color: var(--primary);"></i>
+      <p style="color: var(--text-muted); margin-top: 15px; font-size: 14px;">Memuat invoice...</p>
+    </div>
+
+    <div id="invoiceBox" style="display: none;">
+      <div class="invoice-head">
+        <div>
+          <p class="inv-label">Invoice</p>
+          <h2 id="invOrderId" class="inv-id">-</h2>
+        </div>
+        <span id="invStatusBadge" class="inv-status pending">Menunggu Pembayaran</span>
+      </div>
+
+      <!-- Panel QRIS (saat pending) -->
+      <div class="control-panel" id="qrisPanel">
+        <div id="countdownBox" class="countdown-box">
+          <i class="fa-regular fa-clock"></i> Bayar dalam <strong id="countdown">--:--</strong>
+        </div>
+
+        <div class="qr-wrap">
+          <div id="qrcode"></div>
+        </div>
+
+        <p style="text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 14px;">
+          Scan pakai aplikasi e-wallet / m-banking apa pun yang mendukung QRIS.
+        </p>
+
+        <div class="qr-actions">
+          <button class="btn" id="btnCopyQr" style="background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border-color);">
+            <i class="fa-regular fa-copy"></i> Salin Kode QR
+          </button>
+          <button class="btn" id="btnDownloadQr" style="background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border-color);">
+            <i class="fa-solid fa-download"></i> Unduh QR
+          </button>
+        </div>
+
+        <div class="checking-live">
+          <span class="status-live-dot"></span> Otomatis mengecek pembayaran...
+        </div>
+      </div>
+
+      <!-- Panel sukses -->
+      <div class="control-panel success-panel" id="successPanel" style="display: none;">
+        <div class="success-icon"><i class="fa-solid fa-check"></i></div>
+        <h3 style="text-align: center; margin-bottom: 8px;">Pembayaran Berhasil!</h3>
+        <p style="text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">
+          Paket <strong id="successTier" style="color: var(--text-main);">-</strong> kamu sudah aktif.
+        </p>
+        <a href="/dashboard" class="btn btn-primary" style="text-decoration: none; text-align: center; display: block;">Buka Dashboard</a>
+      </div>
+
+      <!-- Panel gagal/expired -->
+      <div class="control-panel" id="failedPanel" style="display: none;">
+        <div class="failed-icon"><i class="fa-solid fa-xmark"></i></div>
+        <h3 style="text-align: center; margin-bottom: 8px;" id="failedTitle">Invoice Kedaluwarsa</h3>
+        <p style="text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">
+          Silakan buat pesanan baru dari halaman Upgrade.
+        </p>
+        <a href="/dashboard" class="btn btn-primary" style="text-decoration: none; text-align: center; display: block;">Kembali ke Dashboard</a>
+      </div>
+
+      <!-- Rincian -->
+      <div class="control-panel">
+        <h3 style="font-size: 15px; margin-bottom: 15px;">Rincian Pesanan</h3>
+        <div class="inv-row"><span>Paket</span><strong id="invTier">-</strong></div>
+        <div class="inv-row"><span>Durasi</span><strong id="invMonths">-</strong></div>
+        <div class="inv-row"><span>Metode</span><strong>QRIS</strong></div>
+        <div class="inv-row"><span>Subtotal</span><strong id="invSubtotal">-</strong></div>
+        <div class="inv-row" id="rowDiscount" style="display: none;"><span>Diskon <span id="invPromo" class="promo-tag"></span></span><strong id="invDiscount" style="color: #34d399;">-</strong></div>
+        <div class="inv-row"><span>Biaya admin</span><strong id="invFee">-</strong></div>
+        <div class="inv-row total"><span>Total Bayar</span><strong id="invTotal">-</strong></div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-bottom: 30px;" id="cancelWrap">
+        <button class="btn btn-delete" id="btnCancelInvoice" style="font-size: 13px;">Batalkan Invoice</button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <p>&copy; 2026 JadiVaresa. All rights reserved.</p>
+    <p>Dikelola oleh <a href="https://www.instagram.com/manzz_wakeup?stkn=OHIzazZoNXBjM2Vr" target="_blank" rel="noopener">@ManzzyID</a></p>
+  </footer>
+
+  <script>
+    const TIER_LABEL = { free: 'Free', basic: 'Core', plus: 'Prime', booster: 'Zenith' };
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('order_id');
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+
+    let pollTimer = null, countdownTimer = null, qrRendered = false;
+
+    const rupiah = n => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+
+    if (!currentUser) window.location.href = '/login';
+    if (!orderId) window.location.href = '/dashboard';
+
+    async function loadInvoice() {
+      try {
+        const res = await fetch(`/api/payment/status/${encodeURIComponent(orderId)}`);
+        const result = await res.json();
+        if (!result.success) {
+          document.getElementById('invoiceLoading').innerHTML =
+            `<p style="color: #f87171;">${result.message || 'Invoice tidak ditemukan.'}</p>`;
+          return;
+        }
+        render(result.order);
+      } catch (err) {
+        console.error('Gagal memuat invoice:', err);
+      }
+    }
+
+    function render(order) {
+      document.getElementById('invoiceLoading').style.display = 'none';
+      document.getElementById('invoiceBox').style.display = 'block';
+
+      document.getElementById('invOrderId').innerText = order.orderId;
+      // Invoice bisa berupa paket ATAU add-on; labelnya disesuaikan.
+      if (order.kind === 'addon') {
+        document.getElementById('invTier').innerText = order.addonType === 'mlbb_unlimited'
+          ? 'Add-On: Unlimited Access' : `Add-On: ${order.addonType}`;
+        document.getElementById('invMonths').innerText = `${order.addonDays} hari`;
+      } else {
+        document.getElementById('invTier').innerText = TIER_LABEL[order.tier] || order.tier;
+        document.getElementById('invMonths').innerText = `${order.months} bulan`;
+      }
+      document.getElementById('invSubtotal').innerText = rupiah(order.subtotal);
+      document.getElementById('invFee').innerText = rupiah(order.fee);
+      document.getElementById('invTotal').innerText = rupiah(order.totalPayment || order.amount);
+
+      if (order.discount > 0) {
+        document.getElementById('rowDiscount').style.display = 'flex';
+        document.getElementById('invDiscount').innerText = '- ' + rupiah(order.discount);
+        document.getElementById('invPromo').innerText = order.promoCode;
+      }
+
+      const badge = document.getElementById('invStatusBadge');
+      const qrisPanel = document.getElementById('qrisPanel');
+      const successPanel = document.getElementById('successPanel');
+      const failedPanel = document.getElementById('failedPanel');
+      const cancelWrap = document.getElementById('cancelWrap');
+
+      if (order.status === 'completed') {
+        badge.className = 'inv-status completed';
+        badge.innerText = 'Lunas';
+        qrisPanel.style.display = 'none';
+        failedPanel.style.display = 'none';
+        cancelWrap.style.display = 'none';
+        successPanel.style.display = 'block';
+        // Kabari user kalau tab invoice sedang tidak dilihat — pembayaran
+        // QRIS sering dilakukan di aplikasi lain, jadi tab ini di latar belakang.
+        if ('Notification' in window && Notification.permission === 'granted') {
+          navigator.serviceWorker?.ready?.then(reg => {
+            reg.active?.postMessage({
+              type: 'notify',
+              title: 'Pembayaran berhasil',
+              body: 'Paket kamu sudah aktif. Selamat menikmati.',
+              tag: 'jv-pay', url: '/dashboard'
+            });
+          }).catch(() => {});
+        }
+
+        document.getElementById('successTier').innerText = order.kind === 'addon'
+          ? (order.addonType === 'mlbb_unlimited' ? 'Unlimited Access' : order.addonType)
+          : (TIER_LABEL[order.tier] || order.tier);
+        stopTimers();
+
+        // Sinkronkan tier di localStorage supaya dashboard langsung update.
+        if (currentUser && currentUser.id === order.userId) {
+          currentUser.tier = order.tier;
+          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        }
+        return;
+      }
+
+      if (order.status === 'cancelled' || order.status === 'expired') {
+        badge.className = 'inv-status failed';
+        badge.innerText = order.status === 'cancelled' ? 'Dibatalkan' : 'Kedaluwarsa';
+        qrisPanel.style.display = 'none';
+        successPanel.style.display = 'none';
+        cancelWrap.style.display = 'none';
+        failedPanel.style.display = 'block';
+        document.getElementById('failedTitle').innerText =
+          order.status === 'cancelled' ? 'Invoice Dibatalkan' : 'Invoice Kedaluwarsa';
+        stopTimers();
+        return;
+      }
+
+      // --- status pending ---
+      if (!qrRendered && (order.qrUrl || order.paymentNumber)) {
+        const box = document.getElementById('qrcode');
+
+        if (order.qrUrl) {
+          // Gateway sudah menyediakan gambar QRIS jadi. Dipakai langsung
+          // supaya QR pasti tampil walau library QR gagal dimuat.
+          const img = new Image();
+          img.width = 240; img.height = 240; img.alt = 'Kode QRIS';
+          img.src = order.qrUrl;
+          img.onerror = () => {
+            // Cadangan: gambar sendiri dari qr_string.
+            box.innerHTML = '';
+            if (order.paymentNumber && window.QRCode) {
+              new QRCode(box, {
+                text: order.paymentNumber, width: 240, height: 240,
+                colorDark: '#000000', colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M
+              });
+            } else {
+              box.innerHTML = '<p style="color:#171226;font-size:12px;padding:20px;">Gagal memuat QR. Muat ulang halaman.</p>';
+            }
+          };
+          box.appendChild(img);
+        } else {
+          new QRCode(box, {
+            text: order.paymentNumber, width: 240, height: 240,
+            colorDark: '#000000', colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        }
+        qrRendered = true;
+
+        document.getElementById('btnCopyQr').onclick = () => {
+          navigator.clipboard.writeText(order.paymentNumber);
+          alert('Kode QR (QRIS string) disalin.');
+        };
+        document.getElementById('btnDownloadQr').onclick = () => {
+          const img = document.querySelector('#qrcode img') || document.querySelector('#qrcode canvas');
+          if (!img) return;
+          const a = document.createElement('a');
+          a.href = img.tagName === 'IMG' ? img.src : img.toDataURL('image/png');
+          a.download = `QRIS-${order.orderId}.png`;
+          a.click();
+        };
+      }
+
+      if (order.expiredAt) startCountdown(new Date(order.expiredAt));
+      if (!pollTimer) pollTimer = setInterval(loadInvoice, 5000);
+
+      document.getElementById('btnCancelInvoice').onclick = async () => {
+        if (!confirm('Batalkan invoice ini?')) return;
+        try {
+          const res = await fetch('/api/payment/cancel', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: order.orderId, userId: currentUser.id })
+          });
+          const result = await res.json();
+          alert(result.message || 'Selesai.');
+          loadInvoice();
+        } catch (e) {}
+      };
+    }
+
+    function startCountdown(expiry) {
+      if (countdownTimer) return;
+      const tick = () => {
+        const diff = expiry - new Date();
+        if (diff <= 0) {
+          document.getElementById('countdown').innerText = '00:00';
+          clearInterval(countdownTimer); countdownTimer = null;
+          loadInvoice();
+          return;
+        }
+        const m = Math.floor(diff / 60000), s = Math.floor((diff % 60000) / 1000);
+        document.getElementById('countdown').innerText =
+          `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      };
+      tick();
+      countdownTimer = setInterval(tick, 1000);
+    }
+
+    function stopTimers() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    }
+
+    loadInvoice();
+  </script>
+</body>
+</html>

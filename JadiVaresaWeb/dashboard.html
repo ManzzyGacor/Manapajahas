@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - JadiVaresa</title>
+    <!-- Ganti versi cache ke 6.0 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#171226">
+    <link rel="icon" href="/icons/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="style.css?v=21.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="has-sidebar">
+    
+    <!-- Navbar Top -->
+    <nav class="navbar">
+        <div class="nav-left">
+            <i class="fa-solid fa-bars hamburger" id="btnHamburger"></i>
+        </div>
+        <div class="nav-right">
+            <i class="fa-regular fa-bell icon-btn" onclick="document.getElementById('updateModal').classList.add('active')"></i>
+            <i class="fa-regular fa-sun icon-btn" id="themeToggleBtn"></i>
+            <div class="profile-container">
+                <div class="avatar-circle" id="profileAvatarBtn">M</div>
+                
+                <!-- Dropdown Profil -->
+                <div class="profile-dropdown" id="profileDropdown">
+                    <div class="profile-dropdown-header">
+                        <strong id="dropName">Manzzy</strong>
+                        <span id="dropEmail">manzzy92us@gmail.com</span>
+                    </div>
+                    <ul class="profile-dropdown-list">
+                        <li class="nav-btn" data-target="setting"><i class="fa-solid fa-gear"></i> Profile</li>
+                        <li class="nav-btn" data-target="upgrade"><i class="fa-solid fa-dollar-sign"></i> Pricing</li>
+                        <li id="btnLogoutDrop" style="color: #ef4444;"><i class="fa-solid fa-right-from-bracket"></i> Keluar</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Sidebar Menu Mobile -->
+    <div class="mobile-menu-overlay" id="mobileMenu">
+        <div class="mobile-menu-content">
+            <div class="menu-brand">
+                <span style="color: var(--primary); font-size: 24px;"><i class="fa-solid fa-layer-group"></i></span>
+                <span style="font-weight: 800; font-size: 20px; color: var(--text-main);">JadiVaresa.</span>
+            </div>
+            <ul class="menu-list">
+                <li class="nav-btn" data-target="dashboard"><i class="fa-solid fa-border-all"></i> Dashboard</li>
+                <li class="nav-btn" data-target="upgrade"><i class="fa-solid fa-dollar-sign"></i> Pricing</li>
+                
+                <li class="menu-label">BOT</li>
+                <li class="nav-btn" data-target="config"><i class="fa-solid fa-pen-nib"></i> Config</li>
+                <li class="nav-btn" data-target="mess"><i class="fa-regular fa-comment-dots"></i> Pesan Otomatis</li>
+                <li class="nav-btn" data-target="cmd"><i class="fa-solid fa-terminal"></i> Perintah Kustom</li>
+                <li class="nav-btn" data-target="welcome"><i class="fa-solid fa-door-open"></i> Sambutan</li>
+                <li class="nav-btn" data-target="broadcast"><i class="fa-solid fa-tower-broadcast"></i> Siaran Pesan</li>
+                <li class="nav-btn" data-target="menu"><i class="fa-solid fa-layer-group"></i> Menu</li>
+                <li class="nav-btn" data-target="statistik"><i class="fa-solid fa-chart-line"></i> Statistik</li>
+                
+                <li class="menu-label">USER</li>
+                <li class="nav-btn" data-target="setting"><i class="fa-solid fa-gear"></i> Setting</li>
+                <li class="nav-btn" data-target="addons"><i class="fa-solid fa-puzzle-piece"></i> Add-Ons</li>
+                <!-- Referral dinonaktifkan sementara. Di skala sekarang (user masih
+                     sedikit) hadiahnya terlalu kecil untuk memotivasi orang, jadi
+                     hanya menambah kerumitan tanpa hasil. Backend-nya tetap ada
+                     dan siap dipakai; hapus komentar ini untuk menyalakannya lagi.
+                <li class="nav-btn" data-target="referral"><i class="fa-solid fa-user-plus"></i> Ajak Teman</li>
+                -->
+                <li class="nav-btn" data-target="invoice"><i class="fa-solid fa-file-invoice"></i> Invoice</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Modal Notifikasi (Stay Updated) -->
+    <div class="modal-overlay" id="updateModal">
+        <div class="modal-content update-modal-box">
+            <i class="fa-solid fa-xmark modal-close-top" onclick="document.getElementById('updateModal').classList.remove('active')"></i>
+            <div class="update-icon"><i class="fa-regular fa-bell"></i></div>
+            <h3>Stay Updated</h3>
+            <p>Gabung ke saluran komunitas kami untuk info update fiturnya, status core server, dan tips trik menarik lainnya.</p>
+            
+            <a href="https://whatsapp.com/channel/0029VbCIEdlLNSZyA97fD222" target="_blank" class="btn-channel wa">
+                <i class="fa-brands fa-whatsapp"></i>
+                <div class="channel-text">
+                    <strong>SALURAN WHATSAPP</strong>
+                    <span>Update Resmi / Official Channel</span>
+                </div>
+                <i class="fa-solid fa-chevron-right arrow"></i>
+            </a>
+
+            <a href="#" class="btn-channel tg">
+                <i class="fa-brands fa-telegram"></i>
+                <div class="channel-text">
+                    <strong>SALURAN TELEGRAM</strong>
+                    <span>Diskusi & Request / Community</span>
+                </div>
+                <i class="fa-solid fa-chevron-right arrow"></i>
+            </a>
+
+            <label class="hide-update-label">
+                <input type="checkbox" id="chkHideUpdate"> Jangan tampilkan lagi selama 24 jam
+            </label>
+        </div>
+    </div>
+
+    <!-- Konten Utama Halaman -->
+    <main class="container">
+        
+        <!-- === 1. DASHBOARD === -->
+        <section id="view-dashboard" class="view-section active">
+            <div class="alert-banner" id="freeAlert">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <p>Kamu lagi pakai paket <strong>Free</strong>. Upgrade paket untuk custom bot. <a class="nav-btn" data-target="upgrade">Lihat paket &rarr;</a></p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-info"><p>Status</p><h3 id="statStatus">Offline</h3></div>
+                    <div class="stat-icon icon-status"><i class="fa-solid fa-wave-square"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info"><p>Server</p><h3 id="statServer">-</h3></div>
+                    <div class="stat-icon icon-server"><i class="fa-solid fa-server"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info"><p>Role</p><h3 id="statRole">Free</h3></div>
+                    <div class="stat-icon icon-role"><i class="fa-solid fa-star"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info"><p>Kedaluwarsa</p><h3 id="statExpire">-</h3></div>
+                    <div class="stat-icon icon-expire"><i class="fa-regular fa-calendar"></i></div>
+                </div>
+            </div>
+
+            <div class="terminal-card">
+                <div class="terminal-header">
+                    <div class="mac-dots"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                    <span id="termHeaderTitle">varesa.mom@bot... &nbsp; <span style="color: #f87171;">● disconnected</span></span>
+                </div>
+                <div class="terminal-body" id="terminalLogs">
+                    <div class="log-line">$ menunggu log dari bot...<span style="animation: blink 1s step-end infinite;">_</span></div>
+                </div>
+            </div>
+
+            <h2 class="section-title">Kontrol Bot</h2>
+            <p class="section-subtitle">Sambungkan WhatsApp kamu</p>
+            
+            <div class="control-panel">
+                <input type="number" id="inputWaNumber" class="control-input" placeholder="Masukkan nomor WA (Cth: 62812...)">
+                <div class="btn-group">
+                    <button class="btn btn-start" id="btnStartBot">Start</button>
+                    <button class="btn btn-stop" id="btnStopBot">Stop</button>
+                    <button class="btn btn-delete" id="btnDeleteSession">Hapus Sesi</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- === 2. CONFIG === -->
+        <section id="view-config" class="view-section">
+            <div class="upgrade-header">
+                <i class="fa-solid fa-arrow-left nav-btn" data-target="dashboard"></i>
+                <span>Config Bot</span>
+            </div>
+            
+            <div class="control-panel" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <p style="color: var(--text-muted); font-size: 13px;">Status Langganan</p>
+                    <h4 style="color: var(--primary);" id="configTierText">Paket: FREE</h4>
+                </div>
+                <button class="btn btn-primary nav-btn" data-target="upgrade" style="width: auto; padding: 8px 15px;">Upgrade</button>
+            </div>
+
+            <div class="control-panel">
+                <h3 style="font-size: 15px; margin-bottom: 5px;">Jangkauan Bot</h3>
+                <div class="input-box-dark">
+                    <div style="flex: 1;">
+                        <strong style="font-size: 14px;">Mode Publik</strong>
+                        <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Bot merespon semua pesan.</p>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="modePublik" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-panel relative-box">
+                <div class="locked-overlay" id="identityLockOverlay">
+                    <div class="lock-circle"><i class="fa-solid fa-lock"></i></div>
+                </div>
+                <h3 style="font-size: 15px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px;">
+                    Identitas Bot <span class="badge-tier-only">CORE KE ATAS</span>
+                </h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">Atur nama dan informasi yang muncul pada stiker.</p>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 13px; font-weight: 500;">Nama Bot</label>
+                    <input type="text" id="cfgBotName" class="control-input input-left" style="margin-top: 8px;" maxlength="32" placeholder="Cth: Varesa Assistant">
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">Kosongkan untuk memakai nama bawaan. Maksimal 32 karakter.</p>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 13px; font-weight: 500;">Nomor Owner <span style="font-size: 11px; color: var(--primary);">(Pisahkan dgn koma)</span></label>
+                    <input type="text" id="cfgOwnerNumber" class="control-input input-left" style="margin-top: 8px;" placeholder="628xxx,628xxx">
+                    <p id="ownerLimitHint" style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">Paket kamu: maks 1 nomor owner.</p>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 13px; font-weight: 500;">Watermark Stiker <span style="color: var(--danger);">*</span></label>
+                    <input type="text" id="cfgWatermark" class="control-input input-left" style="margin-top: 8px;" placeholder="Nama pembuat stiker">
+                </div>
+
+                <div>
+                    <label style="font-size: 13px; font-weight: 500;">Teks Footer Stiker <span style="color: var(--danger);">*</span></label>
+                    <input type="text" id="cfgFooter" class="control-input input-left" style="margin-top: 8px;" placeholder="Contoh: jadivaresa.com">
+                </div>
+            </div>
+
+            <div class="bottom-bar">
+                <span class="info">* Wajib diisi</span>
+                <button class="btn btn-primary" id="btnSaveConfig" style="width: auto; padding: 10px 20px;">Simpan Config</button>
+            </div>
+        </section>
+
+        <!-- === 3. MENU (EDIT KUSTOM) === -->
+        <section id="view-menu" class="view-section">
+            <div class="upgrade-header">
+                <i class="fa-solid fa-arrow-left nav-btn" data-target="dashboard"></i>
+                <span>Edit Menu</span>
+            </div>
+            <p class="section-subtitle">Kreasikan tampilan menu bot kamu sendiri. Pastikan tidak menghapus command bawaan sistem agar bot tetap berfungsi normal.</p>
+
+            <div class="control-panel relative-box">
+                <div class="locked-overlay" id="menuLockOverlay">
+                    <div class="lock-circle"><i class="fa-solid fa-lock"></i></div>
+                </div>
+                
+                <textarea class="textarea-code" id="cfgCustomMenu" rows="15">
+{ucapanWaktu}
+
+*User:* {pushname}
+*Status:* {statusUser}
+*Date:* {date}
+
+*MAIN*
+- {prefix}jadibot
+- {prefix}statistik
+- {prefix}ping
+                </textarea>
+            </div>
+
+            <div class="control-panel" id="boosterImageBox" style="display: none;">
+                <h3 style="font-size: 15px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px;">
+                    Foto / GIF Menu <span class="tier-badge zenith"><i class="fa-solid fa-crown"></i> Zenith</span>
+                </h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">Link gambar/GIF yang muncul di kepala menu bot kamu.</p>
+                <input type="text" id="cfgMenuImage" class="control-input input-left" placeholder="https://contoh.com/gambar-menu.jpg">
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" id="btnResetMenu" style="background: var(--bg-dark); color: var(--text-muted); border: 1px solid var(--border-color);">Reset Default</button>
+                <button class="btn btn-primary" id="btnSaveMenu">Simpan Menu</button>
+            </div>
+        </section>
+
+        <!-- === 4. STATISTIK === -->
+        <section id="view-statistik" class="view-section">
+            <div class="upgrade-header">
+                <i class="fa-solid fa-arrow-left nav-btn" data-target="dashboard"></i>
+                <span>Statistik</span>
+            </div>
+            <p class="section-subtitle">Aktivitas sesi bot kamu, diperbarui langsung tiap 5 detik.</p>
+
+            <div class="stats-list">
+                <div class="stat-card">
+                    <div class="stat-info"><p>Pesan diproses</p><h3 id="stMessages">0</h3></div>
+                    <div class="stat-icon icon-status"><i class="fa-regular fa-comment-dots"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info"><p>Perintah dijalankan</p><h3 id="stCommands">0</h3></div>
+                    <div class="stat-icon icon-role"><i class="fa-solid fa-code"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info"><p>Total grup</p><h3 id="stGroups">0</h3></div>
+                    <div class="stat-icon icon-server"><i class="fa-solid fa-user-group"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info"><p>Grup / Pribadi</p><h3 id="stSplit">0 / 0</h3></div>
+                    <div class="stat-icon icon-expire"><i class="fa-regular fa-object-group"></i></div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="panel-head">
+                    <div>
+                        <h3 class="panel-title">Aktivitas Terakhir</h3>
+                        <p class="panel-sub" style="margin-bottom:0;">Ringkasan pesan yang baru diproses bot ini.</p>
+                    </div>
+                    <span class="live-tag" id="statsLiveTag"><span class="status-live-dot"></span>live</span>
+                </div>
+                <div id="activityFeed" class="activity-feed">
+                    <p class="feed-empty">Belum ada aktivitas. Jalankan bot dan kirim pesan ke grup untuk melihatnya di sini.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- === 5. SETTING (PROFIL) === -->
+        <section id="view-setting" class="view-section">
+            <div class="upgrade-header">
+                <i class="fa-solid fa-arrow-left nav-btn" data-target="dashboard"></i>
+                <span>Pengaturan</span>
+            </div>
+            
+            <div class="control-panel">
+                <h3 class="panel-title">Profil</h3>
+                <p class="panel-sub">Banner menyesuaikan paket kamu secara otomatis.</p>
+
+                <div class="profile-banner" id="profileBanner">
+                    <span class="banner-tier" id="bannerTier">Free</span>
+                    <div class="profile-identity">
+                        <div class="profile-avatar-lg" id="profileAvatarPreview">M</div>
+                        <div style="min-width: 0;">
+                            <h4 id="previewName">-</h4>
+                            <p id="previewEmail">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="inputProfileName">Username</label>
+                    <input type="text" id="inputProfileName" class="control-input input-left" placeholder="Nama kamu" maxlength="40">
+                </div>
+
+                <div class="field">
+                    <label for="cfgAvatarUrl">URL Foto Profil</label>
+                    <input type="text" id="cfgAvatarUrl" class="control-input input-left" placeholder="https://contoh.com/foto.jpg">
+                    <p class="field-hint">Kosongkan untuk memakai inisial nama.</p>
+                </div>
+
+                <button class="btn btn-primary" id="btnSaveProfile" style="width: auto;">Simpan profil</button>
+            </div>
+
+            <div class="control-panel">
+                <h3 class="panel-title">Notifikasi &amp; Aplikasi</h3>
+                <p class="panel-sub">Dapat kabar saat bot terputus, pairing code muncul, atau pembayaran masuk.</p>
+                <button class="btn btn-primary" id="btnEnableNotif" style="width: auto;">
+                    <i class="fa-regular fa-bell"></i> Aktifkan notifikasi
+                </button>
+
+                <div id="installBox" style="display:none; margin-top: 16px;">
+                    <p class="panel-sub" style="margin-bottom: 10px;">Pasang JadiVaresa sebagai aplikasi di HP kamu.</p>
+                    <button class="btn" id="btnInstallApp" style="width: auto; background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border-color);">
+                        <i class="fa-solid fa-mobile-screen"></i> Pasang aplikasi
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h3 class="panel-title">Cadangkan Setelan</h3>
+                <p class="panel-sub">Simpan setelan bot ke file, atau pulihkan dari file lama. Tidak berisi data sesi WhatsApp, jadi aman disimpan.</p>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn" id="btnBackup" style="width:auto; background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border-color);">
+                        <i class="fa-solid fa-download"></i> Unduh cadangan
+                    </button>
+                    <button class="btn" id="btnRestore" style="width:auto; background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border-color);">
+                        <i class="fa-solid fa-upload"></i> Pulihkan
+                    </button>
+                    <input type="file" id="restoreFile" accept="application/json,.json" style="display:none;">
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h3 class="panel-title">Akun</h3>
+                <p class="panel-sub">Keluar dari sesi dashboard ini.</p>
+                <button class="btn btn-delete" id="btnLogoutSetting" style="width: auto;">Logout</button>
+            </div>
+        </section>
+
+        <!-- === 6. SAMBUTAN ANGGOTA (WELCOME & LEAVE) === -->
+        <section id="view-welcome" class="view-section">
+            <div class="upgrade-header">
+                <i class="fa-solid fa-arrow-left nav-btn" data-target="dashboard"></i>
+                <span>Sambutan Anggota</span>
+            </div>
+            <p class="section-subtitle">Pesan otomatis saat ada anggota masuk atau keluar. Diterapkan ke semua grup yang diikuti bot ini.</p>
+
+            <div class="control-panel relative-box">
+                <div class="locked-overlay" id="welcomeLockOverlay">
+                    <div class="lock-circle"><i class="fa-solid fa-lock"></i></div>
+                </div>
+
+                <div class="input-box-dark" style="margin-bottom: 18px;">
+                    <span style="font-size: 14px; font-weight: 500;">Aktifkan Sambutan <span class="badge-tier-only">CORE KE ATAS</span></span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="welcomeEnabled" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="font-size: 13px; font-weight: 500;">Pesan Selamat Datang</label>
+                    <textarea id="welcomeText" class="control-input input-left" rows="2" style="margin-top: 8px; resize: vertical;" placeholder="Selamat datang, {mention}!"></textarea>
+                </div>
+                <div style="margin-bottom: 14px;">
+                    <label style="font-size: 13px; font-weight: 500;">Pesan Selamat Tinggal</label>
+                    <textarea id="leaveText" class="control-input input-left" rows="2" style="margin-top: 8px; resize: vertical;" placeholder="Sampai jumpa, {mention}."></textarea>
+                </div>
+                <div style="margin-bottom: 14px;">
+                    <label style="font-size: 13px; font-weight: 500;">Tampilan</label>
+                    <select id="welcomeMode" class="control-input input-left" style="margin-top: 8px;">
+                        <option value="image">Gambar bawaan (kartu otomatis)</option>
+                        <option value="text">Teks saja</option>
+                        <option value="custom">Foto/GIF sendiri</option>
+                    </select>
+                </div>
+                <div id="welcomeMediaBox" style="display: none; margin-bottom: 6px;">
+                    <label style="font-size: 13px; font-weight: 500;">Link Foto/GIF <span class="tier-badge zenith"><i class="fa-solid fa-crown"></i> Zenith</span></label>
+                    <input type="text" id="welcomeMedia" class="control-input input-left" style="margin-top: 8px;" placeholder="https://contoh.com/banner.jpg">
+                </div>
+
+                <button class="btn btn-primary" id="btnSaveWelcome" style="width: auto;">Terapkan ke semua grup</button>
+            </div>
+        </section>
+
+        <!-- === 7. SIARAN PESAN (BROADCAST) === -->
+        <section id="view-broadcast" class="view-section">
+            <div class="upgrade-header">
+                <i class="fa-solid fa-arrow-left nav-btn" data-target="dashboard"></i>
+                <span>Siaran Pesan</span>
+            </div>
+            <p class="section-subtitle">Kirim satu pesan ke semua grup yang sedang diikuti bot ini sekaligus.</p>
+
+            <div class="control-panel relative-box">
+                <div class="locked-overlay" id="broadcastLockOverlay">
+                    <div class="lock-circle"><i class="fa-solid fa-lock"></i></div>
+                </div>
+
+                <label style="font-size: 13px; font-weight: 500;">Isi Pesan <span class="badge-tier-only">CORE KE ATAS</span></label>
+                <textarea id="broadcastText" class="control-input input-left" rows="5" style="margin-top: 8px; resize: vertical;" maxlength="1000" placeholder="Contoh: Server maintenance malam ini pukul 23.00-00.00 WIB, mohon maaf atas ketidaknyamanannya."></textarea>
+                <p style="font-size: 11.5px; color: var(--text-muted); margin: 8px 0 15px;">Ada jeda 1.5 detik antar grup supaya bot tidak dianggap spam oleh WhatsApp. Maksimal 60 grup per pengiriman.</p>
+
+                <button class="btn btn-primary" id="btnSendBroadcast" style="width: auto;">Kirim ke semua grup</button>
+            </div>
+        </section>
+
+        <!-- === 8. PESAN OTOMATIS (AUTO-REPLY) === -->
+        <section id="view-mess" class="view-section">
+            <div class="upgrade-header">
+                <i class="fa-solid fa-arrow-left nav-btn" data-target="dashboard"></i>
+                <span>Pesan Otomatis</span>
+            </div>
+            <p class="section-subtitle">Bot akan membalas otomatis saat ada pesan yang cocok dengan kata kunci. Tanpa perlu prefix titik.</p>
+
+            <div class="control-panel relative-box">
+                <div class="locked-overlay" id="messLockOverlay">
+                    <div class="lock-circle"><i class="fa-solid fa-lock"></i></div>
+                </div>
+
+                <h3 style="font-size: 15px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px;">
+                    Tambah Balasan <span class="badge-tier-only">CORE KE ATAS</span>
+                </h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">Maksimal <span id="messQuotaText">10</span> aturan sesuai paket kamu.</p>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 13px; font-weight: 500;">Kata Kunci</label>
+                    <input type="text" id="arKeyword" class="control-input input-left" style="margin-top: 8px;" placeholder="Cth: harga">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 13px; font-weight: 500;">Balasan</label>
+                    <textarea id="arReply" class="control-input input-left" rows="3" style="margin-top: 8px; resize: vertical;" placeholder="Cth: Harga paket kami mulai Rp 7.500/bulan."></textarea>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 13px; font-weight: 500;">Tipe Pencocokan</label>
+                    <select id="arMatch" class="control-input input-left" style="margin-top: 8px;">
+                        <option value="contains">Mengandung kata kunci</option>
+                        <option value="exact">Sama persis</option>
+                        <option value="startsWith">Diawali kata kunci</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" id="btnAddAutoReply" style="width: auto;">Tambah</button>
+            </div>
+
+            <div class="control-panel">
+                <h3 style="font-size: 15px; margin-bottom: 15px;">Daftar Balasan Otomatis</h3>
+                <div id="autoReplyList">
+                    <p style="color: var(--text-muted); font-size: 13px;">Belum ada balasan otomatis.</p>
+                </div>
+            </div>
+
+            <div class="bottom-bar">
+                <span class="info" id="autoReplyCount">0 aturan</span>
+                <button class="btn btn-primary" id="btnSaveAutoReply" style="width: auto; padding: 10px 20px;">Simpan</button>
+            </div>
+        </section>
+
+        <!-- === PERINTAH KUSTOM === -->
+        <section id="view-cmd" class="view-section">
+            <div class="upgrade-header">
+                <i class="fa-solid fa-arrow-left nav-btn" data-target="dashboard"></i>
+                <span>Perintah Kustom</span>
+            </div>
+            <p class="section-subtitle">Buat perintah sendiri untuk bot kamu. Hanya muncul di bot ini, tidak di bot orang lain.</p>
+
+            <div class="control-panel relative-box">
+                <div class="locked-overlay" id="cmdLockOverlay">
+                    <div class="lock-circle"><i class="fa-solid fa-lock"></i></div>
+                </div>
+
+                <h3 class="panel-title">Tambah Perintah <span class="badge-tier-only">PRIME KE ATAS</span></h3>
+                <p class="panel-sub">Kuota paket kamu: <span id="cmdQuotaText">0</span> perintah.</p>
+
+                <div class="field">
+                    <label for="cmdName">Nama Perintah</label>
+                    <input type="text" id="cmdName" class="control-input input-left" maxlength="30" placeholder="harga">
+                    <p class="field-hint">Nanti dipanggil dengan titik di depan, contoh: <code>.harga</code></p>
+                </div>
+
+                <div class="field">
+                    <label for="cmdResponse">Balasan</label>
+                    <textarea id="cmdResponse" class="control-input input-left" rows="4" style="resize: vertical;" placeholder="Halo {pushname}, daftar harga kami:&#10;- Paket A: Rp 10.000"></textarea>
+                    <p class="field-hint">Bisa pakai <code>{pushname}</code> (nama pengirim) dan <code>{prefix}</code>.</p>
+                </div>
+
+                <div class="field" id="cmdImageBox" style="display:none;">
+                    <label for="cmdImage">Link Gambar <span class="tier-badge zenith"><i class="fa-solid fa-crown"></i> Zenith</span></label>
+                    <input type="text" id="cmdImage" class="control-input input-left" placeholder="https://contoh.com/gambar.jpg">
+                </div>
+
+                <label class="tos" style="margin-bottom: 16px; color: var(--text-muted); font-size: 13px; display:flex; gap:10px; align-items:center;">
+                    <input type="checkbox" id="cmdShowMenu" checked style="width:16px;height:16px;accent-color:var(--primary);">
+                    <span>Tampilkan di menu bot</span>
+                </label>
+
+                <button class="btn btn-primary" id="btnAddCmd" style="width: auto;">Tambah</button>
+            </div>
+
+            <div class="control-panel">
+                <h3 class="panel-title">Daftar Perintah</h3>
+                <div id="cmdList">
+                    <p class="feed-empty">Belum ada perintah kustom.</p>
+                </div>
+            </div>
+
+            <div class="bottom-bar">
+                <span class="info" id="cmdCount">0 perintah</span>
+                <button class="btn btn-primary" id="btnSaveCmd" style="width: auto; padding: 10px 20px;">Simpan</button>
+            </div>
+        </section>
+
+        <!-- === REFERRAL === -->
+        <section id="view-referral" class="view-section">
+            <div class="upgrade-header">
+                <i class="fa-solid fa-arrow-left nav-btn" data-target="dashboard"></i>
+                <span>Ajak Teman</span>
+            </div>
+            <p class="section-subtitle">Ajak teman pakai JadiVaresa, dapat kredit yang bisa dipakai beli paket.</p>
+
+            <div class="control-panel ref-hero">
+                <p class="ref-label">Kode referral kamu</p>
+                <div class="ref-code" id="refCode">—</div>
+                <div class="ref-actions">
+                    <button class="btn" id="btnCopyRef"><i class="fa-regular fa-copy"></i> Salin link</button>
+                    <button class="btn" id="btnShareRef"><i class="fa-brands fa-whatsapp"></i> Bagikan</button>
+                </div>
+            </div>
+
+            <div class="stats-list">
+                <div class="stat-card">
+                    <div class="stat-info"><p>Kredit kamu</p><h3 id="refCredit">Rp 0</h3></div>
+                    <div class="stat-icon icon-role"><i class="fa-solid fa-wallet"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info"><p>Teman yang bergabung</p><h3 id="refCount">0</h3></div>
+                    <div class="stat-icon icon-server"><i class="fa-solid fa-user-group"></i></div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h3 class="panel-title">Cara kerjanya</h3>
+                <ol class="ref-steps">
+                    <li>Bagikan link referral kamu ke teman.</li>
+                    <li>Teman daftar dan memasukkan kode kamu.</li>
+                    <li>Teman dapat potongan <strong id="refDiscPct">10</strong>% untuk pembelian pertamanya.</li>
+                    <li>Setelah pembayarannya lunas, kamu dapat kredit <strong id="refRewardPct">20</strong>% dari nilai transaksi itu.</li>
+                </ol>
+                <p class="panel-sub" style="margin: 14px 0 0;">
+                    Kredit otomatis memotong tagihan saat kamu beli paket berikutnya.
+                    Kredit tidak bisa dicairkan jadi uang.
+                </p>
+            </div>
+
+            <div class="control-panel" id="refClaimBox">
+                <h3 class="panel-title">Punya kode dari teman?</h3>
+                <p class="panel-sub">Masukkan sebelum transaksi pertama untuk dapat potongan.</p>
+                <div class="voucher-row">
+                    <input type="text" id="refClaimInput" class="control-input input-left" placeholder="Masukkan kode referral">
+                    <button class="btn btn-primary" id="btnClaimRef" style="width: auto; padding: 12px 20px;">Pakai</button>
+                </div>
+                <p id="refClaimMsg" style="font-size: 12px; margin-top: 8px;"></p>
+            </div>
+
+            <div class="control-panel">
+                <h3 class="panel-title">Riwayat Kredit</h3>
+                <div id="refHistory"><p class="feed-empty">Belum ada teman yang bergabung.</p></div>
+            </div>
+        </section>
+
+        <!-- === ADD-ONS === -->
+        <section id="view-addons" class="view-section">
+            <div class="upgrade-header">
+                <i class="fa-solid fa-arrow-left nav-btn" data-target="dashboard"></i>
+                <span>Add-Ons</span>
+            </div>
+            <p class="section-subtitle">Tambahan yang bisa dibeli terpisah, tanpa mengubah paket langganan kamu.</p>
+
+            <div id="activeAddons"></div>
+
+            <div class="addon-card">
+                <div class="addon-head">
+                    <div class="addon-icon"><i class="fa-solid fa-infinity"></i></div>
+                    <div style="min-width:0;">
+                        <h3 class="addon-title">Unlimited Access</h3>
+                        <p class="addon-desc">Bot kamu bebas dari semua batasan selama masa aktif. Berlaku untuk seluruh anggota grup bot ini.</p>
+                    </div>
+                </div>
+
+                <ul class="addon-perks">
+                    <li><i class="fa-solid fa-check"></i> Tanpa jeda anti-spam 45 detik</li>
+                    <li><i class="fa-solid fa-check"></i> Tanpa limit harian cek MLBB (biasanya 2&times; free / 15&times; premium)</li>
+                    <li><i class="fa-solid fa-check"></i> Tanpa potongan limit di seluruh perintah bot</li>
+                </ul>
+
+                <div class="addon-note">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Perintah MLBB sendiri tetap butuh paket <strong>Zenith</strong>. Add-on ini menghapus batasannya, bukan membuka fiturnya.</span>
+                </div>
+
+                <div class="addon-options" id="addonOptions">
+                    <p class="feed-empty">Memuat pilihan...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- === 7. INVOICE === -->
+        <section id="view-invoice" class="view-section">
+            <div class="upgrade-header">
+                <i class="fa-solid fa-arrow-left nav-btn" data-target="dashboard"></i>
+                <span>Invoice</span>
+            </div>
+            <p class="section-subtitle">Semua transaksi upgrade paket kamu.</p>
+
+            <div class="control-panel">
+                <div id="orderHistory" class="order-history">
+                    <p style="color: var(--text-muted); font-size: 13px;">Memuat...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- === 6. UPGRADE (PRICING) === -->
+        <section id="view-upgrade" class="view-section">
+            <div class="upgrade-header">
+                <i class="fa-solid fa-arrow-left nav-btn" data-target="dashboard"></i>
+                <span>Upgrade Paket Bot Kamu</span>
+            </div>
+
+            <div class="control-panel lb-panel">
+                <div class="panel-head">
+                    <div>
+                        <h3 class="panel-title">Hall of Loyalty</h3>
+                        <p class="panel-sub" style="margin-bottom:0;">Sepuluh pelanggan dengan masa berlangganan terlama.</p>
+                    </div>
+                    <span class="lb-crown"><i class="fa-solid fa-crown"></i></span>
+                </div>
+                <div id="leaderboard" class="leaderboard">
+                    <p class="feed-empty">Memuat peringkat...</p>
+                </div>
+            </div>
+            
+            <div class="pricing-card" style="margin-top: 20px;">
+                <h3 class="pricing-title">Free</h3>
+                <div class="price-free">Gratis</div>
+                <ul class="feature-list">
+                    <li><i class="fa-solid fa-check"></i> Mode Bot: Publik atau Grup Saja</li>
+                    <li><i class="fa-solid fa-check"></i> 1 grup (member bebas) <em style="color:var(--text-muted);font-style:normal;">atau</em> 2 grup (&lt;15 member)</li>
+                    <li><i class="fa-solid fa-xmark" style="color: var(--text-muted);"></i> Ada Watermark Iklan Bot</li>
+                    <li><i class="fa-solid fa-xmark" style="color: var(--text-muted);"></i> Fitur Cek MLBB terkunci</li>
+                </ul>
+                <button class="btn-upgrade-green nav-btn" data-target="config">Atur Config Bot</button>
+            </div>
+
+            <div class="pricing-card">
+                <h3 class="pricing-title">Core <span class="tier-badge core"><i class="fa-solid fa-bolt"></i> Core</span></h3>
+                <div class="price-box">
+                    <div class="price-top"><span class="price-strike" data-strike="basic"></span><span class="badge-discount">HEMAT 25%</span></div>
+                    <div class="price-big" data-price="basic">&mdash; <span class="price-period">/ bln</span></div>
+                </div>
+                <ul class="feature-list">
+                    <li><i class="fa-solid fa-check"></i> 1 Nomor Owner Premium</li>
+                    <li><i class="fa-solid fa-check"></i> Bebas Iklan Bot</li>
+                    <li><i class="fa-solid fa-check"></i> Kustomisasi Bot Dasar</li>
+                </ul>
+                <a class="link-more trigger-modal" data-paket="Core">Lihat semua manfaat (8) &gt;</a>
+                <button class="btn-upgrade-blue btn-order" data-tier="basic">Order Now</button>
+            </div>
+
+            <div class="pricing-card popular">
+                <h3 class="pricing-title">Prime <span class="tier-badge prime"><i class="fa-solid fa-gem"></i> Prime</span></h3>
+                <div class="price-box">
+                    <div class="price-top"><span class="price-strike" data-strike="plus"></span><span class="badge-discount">HEMAT 25%</span></div>
+                    <div class="price-big" data-price="plus">&mdash; <span class="price-period">/ bln</span></div>
+                </div>
+                <ul class="feature-list">
+                    <li><i class="fa-solid fa-check"></i> Semua fitur Core</li>
+                    <li><i class="fa-solid fa-check"></i> 3 Nomor Owner Premium</li>
+                    <li><i class="fa-solid fa-check"></i> Kustomisasi Bot Lebih Lengkap</li>
+                </ul>
+                <a class="link-more trigger-modal" data-paket="Prime">Lihat semua manfaat (6) &gt;</a>
+                <button class="btn-upgrade-blue btn-order" data-tier="plus">Order Now</button>
+            </div>
+
+            <div class="pricing-card">
+                <h3 class="pricing-title">Zenith <span class="tier-badge zenith"><i class="fa-solid fa-crown"></i> Zenith</span></h3>
+                <div class="price-box">
+                    <div class="price-top"><span class="price-strike" data-strike="booster"></span><span class="badge-discount">HEMAT</span></div>
+                    <div class="price-big" data-price="booster">&mdash; <span class="price-period">/ bln</span></div>
+                </div>
+                <ul class="feature-list">
+                    <li><i class="fa-solid fa-check"></i> Semua fitur Prime</li>
+                    <li><i class="fa-solid fa-check"></i> 5 Nomor Owner Premium</li>
+                    <li><i class="fa-solid fa-check"></i> Akses Fitur Cek MLBB</li>
+                </ul>
+                <a class="link-more trigger-modal" data-paket="Zenith">Lihat semua manfaat (8) &gt;</a>
+                <button class="btn-upgrade-blue btn-order" data-tier="booster" style="background: #ec4899;">Order Now</button>
+            </div>
+        </section>
+
+        <!-- ================= MODAL BELI ADD-ON ================= -->
+        <div class="modal-overlay" id="addonModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Beli Add-On</h3>
+                    <div class="modal-close" id="btnCloseAddon"><i class="fa-solid fa-xmark"></i></div>
+                </div>
+
+                <div class="order-field">
+                    <label>Add-On</label>
+                    <input type="text" id="addonName" class="control-input input-left" readonly>
+                </div>
+
+                <div class="order-field">
+                    <label>Durasi <span style="color: var(--danger);">*</span></label>
+                    <select id="addonDays" class="control-input input-left"></select>
+                </div>
+
+                <div class="order-field">
+                    <label>Metode pembayaran <span style="color: var(--danger);">*</span></label>
+                    <select class="control-input input-left"><option>QRIS (Otomatis)</option></select>
+                </div>
+
+                <div class="order-field">
+                    <label>Kode voucher</label>
+                    <div class="voucher-row">
+                        <input type="text" id="addonVoucher" class="control-input input-left" placeholder="PUNYA KODE? MASUKKAN DI SINI">
+                        <button class="btn btn-primary" id="btnApplyAddonVoucher" style="width: auto; padding: 12px 20px;">Terapkan</button>
+                    </div>
+                    <p id="addonVoucherMsg" style="font-size: 12px; margin-top: 8px;"></p>
+                </div>
+
+                <div class="order-summary">
+                    <div class="inv-row"><span>Subtotal</span><strong id="addonSubtotal">Rp 0</strong></div>
+                    <div class="inv-row" id="addonDiscountRow" style="display:none;"><span>Diskon</span><strong id="addonDiscount" style="color:#34d399;">Rp 0</strong></div>
+                    <div class="inv-row"><span>Biaya admin</span><strong id="addonFee">Rp 0</strong></div>
+                    <div class="inv-row total"><span>Total</span><strong id="addonTotal">Rp 0</strong></div>
+                </div>
+
+                <div class="order-actions">
+                    <button class="btn" id="btnCancelAddon" style="background: transparent; color: var(--text-main); border: 1px solid var(--border-color);">Batal</button>
+                    <button class="btn btn-primary" id="btnCreateAddon">Buat pesanan</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MODAL ORDER DETAIL ================= -->
+        <div class="modal-overlay" id="orderModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Order Detail</h3>
+                    <div class="modal-close" id="btnCloseOrder"><i class="fa-solid fa-xmark"></i></div>
+                </div>
+
+                <div class="order-field">
+                    <label>Paket <span style="color: var(--danger);">*</span></label>
+                    <select id="orderPaket" class="control-input input-left">
+                        <option value="basic">Core (30 hari)</option>
+                        <option value="plus">Prime (30 hari)</option>
+                        <option value="booster">Zenith (30 hari)</option>
+                    </select>
+                </div>
+
+                <div class="order-field">
+                    <label>Jumlah <span style="color: var(--danger);">*</span></label>
+                    <select id="orderMonths" class="control-input input-left">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="6">6</option>
+                        <option value="12">12</option>
+                    </select>
+                </div>
+
+                <div class="order-field">
+                    <label>Metode pembayaran <span style="color: var(--danger);">*</span></label>
+                    <select id="orderMethod" class="control-input input-left">
+                        <option value="qris">QRIS (Otomatis)</option>
+                    </select>
+                </div>
+
+                <div class="order-field">
+                    <label>Kode voucher</label>
+                    <div class="voucher-row">
+                        <input type="text" id="orderVoucher" class="control-input input-left" placeholder="PUNYA KODE? MASUKKAN DI SINI">
+                        <button class="btn btn-primary" id="btnApplyVoucher" style="width: auto; padding: 12px 20px;">Terapkan</button>
+                    </div>
+                    <p id="voucherMsg" style="font-size: 12px; margin-top: 8px;"></p>
+                </div>
+
+                <div class="order-summary">
+                    <div class="inv-row"><span>Subtotal</span><strong id="sumSubtotal">Rp 0</strong></div>
+                    <div class="inv-row" id="sumDiscountRow" style="display: none;"><span>Diskon</span><strong id="sumDiscount" style="color: #34d399;">Rp 0</strong></div>
+                    <div class="inv-row"><span>Biaya admin <i class="fa-regular fa-circle-question" title="Biaya tetap per transaksi"></i></span><strong id="sumFee">Rp 0</strong></div>
+                    <div class="inv-row total"><span>Total</span><strong id="sumTotal">Rp 0</strong></div>
+                </div>
+
+                <div class="order-actions">
+                    <button class="btn" id="btnCancelOrder" style="background: transparent; color: var(--text-main); border: 1px solid var(--border-color);">Batal</button>
+                    <button class="btn btn-primary" id="btnCreateOrder">Buat pesanan</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MODAL BOTTOM SHEET ================= -->
+        <div class="modal-overlay" id="benefitModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h3 id="modalTitle">Semua Manfaat</h3>
+                    </div>
+                    <div class="modal-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></div>
+                </div>
+                <ul class="feature-list" id="modalFeatureList" style="margin-bottom: 30px;">
+                    <!-- List dirender via JS -->
+                </ul>
+                <button class="btn-upgrade-blue" id="btnTutupModal">Tutup</button>
+            </div>
+        </div>
+
+        <div class="faq-section">
+            <h2 class="section-title">FAQ</h2>
+            <p class="section-subtitle">Pertanyaan yang sering ditanyakan</p>
+
+            <div class="faq-item active">
+                <div class="faq-question"><span>Bagaimana cara mengaktifkan bot WhatsApp?</span><i class="fa-solid fa-chevron-down"></i></div>
+                <div class="faq-answer"><div class="faq-answer-inner">
+                    1. Masukkan nomor WhatsApp yang akan dijadikan bot, lalu tekan tombol <strong>Start</strong>.<br>
+                    2. Tunggu beberapa saat hingga <strong>Pairing Code</strong> muncul di terminal.<br>
+                    3. Buka WhatsApp kamu. Tap menu titik tiga &rarr; <strong>Perangkat Tertaut</strong> &rarr; <strong>Tautkan Perangkat</strong>.<br>
+                    4. Pilih <strong>Tautkan dengan nomor telepon saja</strong>, lalu masukkan kode pairing tersebut.
+                </div></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question"><span>Bagaimana kalau bot tiba-tiba offline?</span><i class="fa-solid fa-chevron-down"></i></div>
+                <div class="faq-answer"><div class="faq-answer-inner">
+                    Biasanya karena sesi WhatsApp terputus (logout dari HP, ganti perangkat, atau koneksi internet server). Buka Dashboard, tekan <strong>Start</strong> lagi dengan nomor yang sama untuk memunculkan pairing code baru.
+                </div></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question"><span>Apakah saya bisa pakai nomor WhatsApp utama untuk bot?</span><i class="fa-solid fa-chevron-down"></i></div>
+                <div class="faq-answer"><div class="faq-answer-inner">
+                    Bisa, tapi tidak disarankan. WhatsApp bisa membatasi/banned nomor yang mengirim pesan otomatis dalam jumlah besar. Lebih aman pakai nomor cadangan khusus bot.
+                </div></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question"><span>Apa bedanya paket Free dan paket berbayar?</span><i class="fa-solid fa-chevron-down"></i></div>
+                <div class="faq-answer"><div class="faq-answer-inner">
+                    Paket <strong>Free</strong> hanya bisa atur mode Publik atau Grup saja, dan bot akan menyisipkan watermark iklan JadiVaresa di grup. Paket berbayar (<strong>Core</strong>, <strong>Prime</strong>, <strong>Zenith</strong>) membuka nomor owner custom, bebas iklan, dan kustomisasi bot sesuai level paketnya.
+                </div></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question"><span>Bagaimana cara upgrade paket?</span><i class="fa-solid fa-chevron-down"></i></div>
+                <div class="faq-answer"><div class="faq-answer-inner">
+                    Buka menu <strong>Upgrade</strong> di sidebar, pilih paket yang kamu mau, lalu tekan <strong>Order Now</strong>.
+                </div></div>
+            </div>
+        </div>
+
+        <footer class="app-footer">
+            <p>&copy; 2026 JadiVaresa. All rights reserved.</p>
+            <p>Dikelola oleh <a href="https://www.instagram.com/manzz_wakeup?stkn=OHIzazZoNXBjM2Vr" target="_blank" rel="noopener">@ManzzyID</a></p>
+        </footer>
+
+    </main>
+    <script src="app.js"></script>
+</body>
+</html>
