@@ -2,109 +2,148 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invoice - JadiVaresa</title>
-  <link rel="stylesheet" href="style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Invoice · Varesa</title>
+  <!-- Halaman pribadi per pesanan: jangan diindeks mesin pencari. -->
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#08090a">
+  <link rel="icon" href="/assets/logo-mark.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/favicon.ico" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/assets/varesa.css?v=31">
+  <link rel="stylesheet" href="/invoice.css?v=1">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
-<body>
-  <nav class="navbar">
-    <div class="brand">
-      <div class="logo-box">JV</div>
-      <span class="brand-name">JadiVaresa</span>
-    </div>
-    <a href="/dashboard" class="nav-item"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
-  </nav>
+<body class="inv">
 
-  <main class="container" style="max-width: 620px;">
-    <div id="invoiceLoading" class="control-panel" style="text-align: center; padding: 50px 20px;">
-      <i class="fa-solid fa-spinner fa-spin" style="font-size: 26px; color: var(--primary);"></i>
-      <p style="color: var(--text-muted); margin-top: 15px; font-size: 14px;">Memuat invoice...</p>
+  <header class="inv-nav">
+    <div class="inv-nav__in">
+      <a class="v-logo" href="/" aria-label="Varesa — beranda">
+        <img src="/assets/logo-mark.svg" alt="" width="30" height="30"> VARESA
+      </a>
+      <a href="/dashboard" class="v-btn v-btn--ghost v-btn--sm"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+    </div>
+  </header>
+
+  <main class="inv-main">
+    <!-- Memuat -->
+    <div id="invoiceLoading" class="v-card inv-loading" role="status">
+      <span class="inv-spinner" aria-hidden="true"></span>
+      <p>Memuat invoice…</p>
     </div>
 
     <div id="invoiceBox" style="display: none;">
+      <!-- Kepala invoice -->
       <div class="invoice-head">
-        <div>
-          <p class="inv-label">Invoice</p>
-          <h2 id="invOrderId" class="inv-id">-</h2>
+        <div class="invoice-head__id">
+          <p class="v-eyebrow">Invoice · QRIS</p>
+          <h1 id="invOrderId" class="inv-id">-</h1>
         </div>
-        <span id="invStatusBadge" class="inv-status pending">Menunggu Pembayaran</span>
+        <span id="invStatusBadge" class="inv-status pending"><span class="v-dot"></span><span id="invStatusText">Menunggu Pembayaran</span></span>
       </div>
 
-      <!-- Panel QRIS (saat pending) -->
-      <div class="control-panel" id="qrisPanel">
-        <div id="countdownBox" class="countdown-box">
-          <i class="fa-regular fa-clock"></i> Bayar dalam <strong id="countdown">--:--</strong>
+      <!-- Langkah: dibuat -> dibayar -> aktif -->
+      <ol class="inv-steps" id="invSteps" aria-label="Status pesanan">
+        <li class="is-done"><i class="fa-solid fa-check"></i><span>Invoice dibuat</span></li>
+        <li class="is-now" id="stepPay"><i class="fa-solid fa-qrcode"></i><span id="stepPayText">Bayar via QRIS</span></li>
+        <li id="stepActive"><i class="fa-solid fa-bolt"></i><span>Paket aktif</span></li>
+      </ol>
+
+      <div class="inv-grid">
+        <div class="inv-col">
+          <!-- Panel QRIS (saat pending) -->
+          <section class="v-card inv-pay" id="qrisPanel" aria-label="Pembayaran QRIS">
+            <div id="countdownBox" class="countdown-box">
+              <div class="countdown-box__row">
+                <span><i class="fa-regular fa-clock"></i> Bayar dalam</span>
+                <strong id="countdown" class="v-num">--:--</strong>
+              </div>
+              <div class="v-meter" id="countdownMeter"><i></i></div>
+            </div>
+
+            <div class="qr-stage">
+              <div class="qr-wrap">
+                <div class="qr-wrap__brand"><span>QRIS</span><span>Varesa</span></div>
+                <div id="qrcode"></div>
+                <div class="qr-wrap__amount"><span>Total</span><strong id="qrAmount">-</strong></div>
+              </div>
+
+              <ol class="qr-howto">
+                <li>Buka aplikasi e-wallet atau m-banking apa pun yang mendukung <b>QRIS</b>.</li>
+                <li>Scan kode di samping — atau unduh gambarnya lalu pilih dari galeri.</li>
+                <li>Pastikan nominalnya sama persis dengan <b>Total bayar</b>, lalu konfirmasi.</li>
+              </ol>
+            </div>
+
+            <div class="qr-actions">
+              <button type="button" class="v-btn v-btn--outline" id="btnCopyQr"><i class="fa-regular fa-copy"></i> Salin kode QR</button>
+              <button type="button" class="v-btn v-btn--outline" id="btnDownloadQr"><i class="fa-solid fa-download"></i> Unduh QR</button>
+            </div>
+
+            <div class="checking-live">
+              <span class="v-dot v-dot--live"></span> Otomatis mengecek pembayaran… halaman ini berubah sendiri begitu lunas.
+            </div>
+          </section>
+
+          <!-- Panel sukses -->
+          <section class="v-card inv-state success-panel" id="successPanel" style="display: none;">
+            <div class="state-icon state-icon--ok"><i class="fa-solid fa-check"></i></div>
+            <h2>Pembayaran berhasil!</h2>
+            <p>Paket <strong id="successTier">-</strong> kamu sudah aktif. Bot langsung memakai fitur barunya — tidak perlu restart.</p>
+            <a href="/dashboard" class="v-btn v-btn--primary v-btn--lg">Buka Dashboard <i class="fa-solid fa-arrow-right"></i></a>
+          </section>
+
+          <!-- Panel gagal/expired -->
+          <section class="v-card inv-state" id="failedPanel" style="display: none;">
+            <div class="state-icon state-icon--off"><i class="fa-solid fa-xmark"></i></div>
+            <h2 id="failedTitle">Invoice Kedaluwarsa</h2>
+            <p>Invoice ini sudah tidak bisa dibayar. Silakan buat pesanan baru dari halaman Upgrade.</p>
+            <a href="/dashboard" class="v-btn v-btn--primary v-btn--lg">Kembali ke Dashboard</a>
+          </section>
         </div>
 
-        <div class="qr-wrap">
-          <div id="qrcode"></div>
-        </div>
+        <!-- Rincian -->
+        <aside class="v-card inv-summary" aria-label="Rincian pesanan">
+          <div class="inv-summary__head">
+            <h2>Rincian pesanan</h2>
+            <span class="v-help" id="invCreated"></span>
+          </div>
+          <div class="inv-rows">
+            <div class="inv-row"><span>Paket</span><strong id="invTier">-</strong></div>
+            <div class="inv-row"><span>Durasi</span><strong id="invMonths">-</strong></div>
+            <div class="inv-row"><span>Metode</span><strong>QRIS</strong></div>
+            <div class="inv-row inv-row--sep"><span>Subtotal</span><strong id="invSubtotal">-</strong></div>
+            <div class="inv-row" id="rowDiscount" style="display: none;"><span>Diskon <span id="invPromo" class="promo-tag"></span></span><strong id="invDiscount" class="is-minus">-</strong></div>
+            <div class="inv-row" id="rowRef" style="display: none;"><span>Diskon referral</span><strong id="invRef" class="is-minus">-</strong></div>
+            <div class="inv-row" id="rowCredit" style="display: none;"><span>Kredit dipakai</span><strong id="invCredit" class="is-minus">-</strong></div>
+            <div class="inv-row"><span>Biaya admin</span><strong id="invFee">-</strong></div>
+            <div class="inv-row total"><span>Total bayar</span><strong id="invTotal">-</strong></div>
+          </div>
 
-        <p style="text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 14px;">
-          Scan pakai aplikasi e-wallet / m-banking apa pun yang mendukung QRIS.
-        </p>
-
-        <div class="qr-actions">
-          <button class="btn" id="btnCopyQr" style="background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border-color);">
-            <i class="fa-regular fa-copy"></i> Salin Kode QR
-          </button>
-          <button class="btn" id="btnDownloadQr" style="background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border-color);">
-            <i class="fa-solid fa-download"></i> Unduh QR
-          </button>
-        </div>
-
-        <div class="checking-live">
-          <span class="status-live-dot"></span> Otomatis mengecek pembayaran...
-        </div>
-      </div>
-
-      <!-- Panel sukses -->
-      <div class="control-panel success-panel" id="successPanel" style="display: none;">
-        <div class="success-icon"><i class="fa-solid fa-check"></i></div>
-        <h3 style="text-align: center; margin-bottom: 8px;">Pembayaran Berhasil!</h3>
-        <p style="text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">
-          Paket <strong id="successTier" style="color: var(--text-main);">-</strong> kamu sudah aktif.
-        </p>
-        <a href="/dashboard" class="btn btn-primary" style="text-decoration: none; text-align: center; display: block;">Buka Dashboard</a>
-      </div>
-
-      <!-- Panel gagal/expired -->
-      <div class="control-panel" id="failedPanel" style="display: none;">
-        <div class="failed-icon"><i class="fa-solid fa-xmark"></i></div>
-        <h3 style="text-align: center; margin-bottom: 8px;" id="failedTitle">Invoice Kedaluwarsa</h3>
-        <p style="text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">
-          Silakan buat pesanan baru dari halaman Upgrade.
-        </p>
-        <a href="/dashboard" class="btn btn-primary" style="text-decoration: none; text-align: center; display: block;">Kembali ke Dashboard</a>
-      </div>
-
-      <!-- Rincian -->
-      <div class="control-panel">
-        <h3 style="font-size: 15px; margin-bottom: 15px;">Rincian Pesanan</h3>
-        <div class="inv-row"><span>Paket</span><strong id="invTier">-</strong></div>
-        <div class="inv-row"><span>Durasi</span><strong id="invMonths">-</strong></div>
-        <div class="inv-row"><span>Metode</span><strong>QRIS</strong></div>
-        <div class="inv-row"><span>Subtotal</span><strong id="invSubtotal">-</strong></div>
-        <div class="inv-row" id="rowDiscount" style="display: none;"><span>Diskon <span id="invPromo" class="promo-tag"></span></span><strong id="invDiscount" style="color: #34d399;">-</strong></div>
-        <div class="inv-row"><span>Biaya admin</span><strong id="invFee">-</strong></div>
-        <div class="inv-row total"><span>Total Bayar</span><strong id="invTotal">-</strong></div>
-      </div>
-
-      <div style="display: flex; gap: 10px; margin-bottom: 30px;" id="cancelWrap">
-        <button class="btn btn-delete" id="btnCancelInvoice" style="font-size: 13px;">Batalkan Invoice</button>
+          <div class="inv-summary__foot" id="cancelWrap">
+            <button type="button" class="v-btn v-btn--ghost v-btn--sm inv-cancel" id="btnCancelInvoice"><i class="fa-solid fa-ban"></i> Batalkan invoice</button>
+          </div>
+          <p class="inv-note"><i class="fa-solid fa-shield-halved"></i> Pembayaran diproses payment gateway resmi. Varesa tidak pernah meminta transfer ke rekening pribadi.</p>
+        </aside>
       </div>
     </div>
   </main>
 
-  <footer class="app-footer">
-    <p>&copy; 2026 JadiVaresa. All rights reserved.</p>
-    <p>Dikelola oleh <a href="https://www.instagram.com/manzz_wakeup?stkn=OHIzazZoNXBjM2Vr" target="_blank" rel="noopener">@ManzzyID</a></p>
+  <footer class="inv-foot">
+    <p>&copy; 2026 Varesa · Dikelola oleh <a href="https://www.instagram.com/manzz_wakeup" target="_blank" rel="noopener">@ManzzyID</a></p>
+    <p><a href="/status">Status server</a></p>
   </footer>
 
+  <div class="v-toast-wrap" id="toastWrap" aria-live="polite"></div>
+
   <script>
+    // Logika halaman ini SAMA dengan versi lama (order_id, polling status
+    // tiap 5 detik, batal, QR dari gambar gateway atau qrcodejs, redirect).
+    // Yang berubah hanya tampilan + notifikasi kecil (toast) pengganti alert
+    // untuk pesan informatif.
     const TIER_LABEL = { free: 'Free', basic: 'Core', plus: 'Prime', booster: 'Zenith' };
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('order_id');
@@ -113,6 +152,16 @@
     let pollTimer = null, countdownTimer = null, qrRendered = false;
 
     const rupiah = n => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    function toast(message, type) {
+      const wrap = document.getElementById('toastWrap');
+      const el = document.createElement('div');
+      el.className = 'v-toast' + (type ? ' v-toast--' + type : '');
+      el.textContent = message;
+      wrap.appendChild(el);
+      setTimeout(() => el.remove(), 3500);
+    }
 
     if (!currentUser) window.location.href = '/login';
     if (!orderId) window.location.href = '/dashboard';
@@ -123,7 +172,9 @@
         const result = await res.json();
         if (!result.success) {
           document.getElementById('invoiceLoading').innerHTML =
-            `<p style="color: #f87171;">${result.message || 'Invoice tidak ditemukan.'}</p>`;
+            `<div class="state-icon state-icon--off"><i class="fa-solid fa-file-circle-xmark"></i></div>
+             <p class="inv-loading__err">${esc(result.message || 'Invoice tidak ditemukan.')}</p>
+             <a href="/dashboard" class="v-btn v-btn--outline v-btn--sm">Kembali ke Dashboard</a>`;
           return;
         }
         render(result.order);
@@ -132,11 +183,24 @@
       }
     }
 
+    function setStatus(kind, text) {
+      const badge = document.getElementById('invStatusBadge');
+      badge.className = 'inv-status ' + kind;
+      document.getElementById('invStatusText').innerText = text;
+      const steps = document.getElementById('invSteps');
+      steps.dataset.state = kind;
+    }
+
     function render(order) {
       document.getElementById('invoiceLoading').style.display = 'none';
       document.getElementById('invoiceBox').style.display = 'block';
 
       document.getElementById('invOrderId').innerText = order.orderId;
+      if (order.createdAt) {
+        const d = new Date(order.createdAt);
+        if (!isNaN(d)) document.getElementById('invCreated').innerText =
+          d.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      }
       // Invoice bisa berupa paket ATAU add-on; labelnya disesuaikan.
       if (order.kind === 'addon') {
         document.getElementById('invTier').innerText = order.addonType === 'mlbb_unlimited'
@@ -149,22 +213,32 @@
       document.getElementById('invSubtotal').innerText = rupiah(order.subtotal);
       document.getElementById('invFee').innerText = rupiah(order.fee);
       document.getElementById('invTotal').innerText = rupiah(order.totalPayment || order.amount);
+      document.getElementById('qrAmount').innerText = rupiah(order.totalPayment || order.amount);
 
       if (order.discount > 0) {
         document.getElementById('rowDiscount').style.display = 'flex';
         document.getElementById('invDiscount').innerText = '- ' + rupiah(order.discount);
         document.getElementById('invPromo').innerText = order.promoCode;
       }
+      // Potongan referral & kredit ikut ditampilkan supaya rincian
+      // benar-benar menjumlah ke Total bayar (dulu tidak terlihat).
+      if (order.refDiscount > 0) {
+        document.getElementById('rowRef').style.display = 'flex';
+        document.getElementById('invRef').innerText = '- ' + rupiah(order.refDiscount);
+      }
+      if (order.creditUsed > 0) {
+        document.getElementById('rowCredit').style.display = 'flex';
+        document.getElementById('invCredit').innerText = '- ' + rupiah(order.creditUsed);
+      }
 
-      const badge = document.getElementById('invStatusBadge');
       const qrisPanel = document.getElementById('qrisPanel');
       const successPanel = document.getElementById('successPanel');
       const failedPanel = document.getElementById('failedPanel');
       const cancelWrap = document.getElementById('cancelWrap');
 
       if (order.status === 'completed') {
-        badge.className = 'inv-status completed';
-        badge.innerText = 'Lunas';
+        setStatus('completed', 'Lunas');
+        document.getElementById('stepPayText').innerText = 'Pembayaran diterima';
         qrisPanel.style.display = 'none';
         failedPanel.style.display = 'none';
         cancelWrap.style.display = 'none';
@@ -196,8 +270,8 @@
       }
 
       if (order.status === 'cancelled' || order.status === 'expired') {
-        badge.className = 'inv-status failed';
-        badge.innerText = order.status === 'cancelled' ? 'Dibatalkan' : 'Kedaluwarsa';
+        setStatus('failed', order.status === 'cancelled' ? 'Dibatalkan' : 'Kedaluwarsa');
+        document.getElementById('stepPayText').innerText = order.status === 'cancelled' ? 'Dibatalkan' : 'Waktu habis';
         qrisPanel.style.display = 'none';
         successPanel.style.display = 'none';
         cancelWrap.style.display = 'none';
@@ -209,6 +283,7 @@
       }
 
       // --- status pending ---
+      setStatus('pending', 'Menunggu Pembayaran');
       if (!qrRendered && (order.qrUrl || order.paymentNumber)) {
         const box = document.getElementById('qrcode');
 
@@ -228,7 +303,7 @@
                 correctLevel: QRCode.CorrectLevel.M
               });
             } else {
-              box.innerHTML = '<p style="color:#171226;font-size:12px;padding:20px;">Gagal memuat QR. Muat ulang halaman.</p>';
+              box.innerHTML = '<p class="qr-fail">Gagal memuat QR. Muat ulang halaman.</p>';
             }
           };
           box.appendChild(img);
@@ -242,8 +317,9 @@
         qrRendered = true;
 
         document.getElementById('btnCopyQr').onclick = () => {
-          navigator.clipboard.writeText(order.paymentNumber);
-          alert('Kode QR (QRIS string) disalin.');
+          navigator.clipboard.writeText(order.paymentNumber)
+            .then(() => toast('Kode QR (QRIS string) disalin.', 'ok'))
+            .catch(() => toast('Gagal menyalin. Unduh gambar QR-nya saja.', 'err'));
         };
         document.getElementById('btnDownloadQr').onclick = () => {
           const img = document.querySelector('#qrcode img') || document.querySelector('#qrcode canvas');
@@ -255,7 +331,7 @@
         };
       }
 
-      if (order.expiredAt) startCountdown(new Date(order.expiredAt));
+      if (order.expiredAt) startCountdown(new Date(order.expiredAt), order.createdAt ? new Date(order.createdAt) : null);
       if (!pollTimer) pollTimer = setInterval(loadInvoice, 5000);
 
       document.getElementById('btnCancelInvoice').onclick = async () => {
@@ -266,18 +342,22 @@
             body: JSON.stringify({ orderId: order.orderId, userId: currentUser.id })
           });
           const result = await res.json();
-          alert(result.message || 'Selesai.');
+          toast(result.message || 'Selesai.', result.success ? 'ok' : 'err');
           loadInvoice();
         } catch (e) {}
       };
     }
 
-    function startCountdown(expiry) {
+    function startCountdown(expiry, created) {
       if (countdownTimer) return;
+      // Panjang batas waktu untuk bilah sisa waktu (bawaan gateway 5 menit).
+      const total = created && expiry - created > 0 ? expiry - created : 5 * 60000;
+      const meter = document.getElementById('countdownMeter');
       const tick = () => {
         const diff = expiry - new Date();
         if (diff <= 0) {
           document.getElementById('countdown').innerText = '00:00';
+          meter.style.setProperty('--v', '0%');
           clearInterval(countdownTimer); countdownTimer = null;
           loadInvoice();
           return;
@@ -285,6 +365,10 @@
         const m = Math.floor(diff / 60000), s = Math.floor((diff % 60000) / 1000);
         document.getElementById('countdown').innerText =
           `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        const pct = Math.max(0, Math.min(100, (diff / total) * 100));
+        meter.style.setProperty('--v', pct.toFixed(1) + '%');
+        // Sisa < 1 menit: tandai supaya user bergegas.
+        document.getElementById('countdownBox').classList.toggle('is-urgent', diff < 60000);
       };
       tick();
       countdownTimer = setInterval(tick, 1000);
