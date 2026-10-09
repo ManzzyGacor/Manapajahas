@@ -58,6 +58,39 @@ curl -L -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest
 chmod +x cloudflared
 ```
 
+## Kapasitas server
+
+`lib/monitor.js` memperkirakan berapa bot yang masih muat, lalu menampilkannya di landing page,
+halaman status, dan dashboard. Saat penuh, `POST /api/bot/start` menolak bot baru (`503 SERVER_FULL`); admin tetap bisa.
+
+```
+batas RAM   = min(jatah RAM container, MAX_MEMORY_MB / batas PM2 1200 MB)
+terpakai    = baseline proses (diukur saat 0 bot, awal 160 MB)
+per bot     = rata-rata tambahan RAM per sesi (diukur, awal 70 MB)
+kapasitas   = min( (batas RAM × (1 − cadangan%) − baseline) ÷ per bot,  core CPU × 25,  batas admin )
+```
+
+Cadangan (default 15%) dan batas manual bisa diatur di panel admin → **Kapasitas Server**.
+
+## Monitor real-time
+
+- `GET /api/public/live` — performa server, lalu lintas, kapasitas, dan log command (nomor bot disensor, isi pesan tidak pernah dicatat).
+- `GET /api/admin/live` — sama, plus nomor lengkap & statistik per bot (khusus admin).
+- Halaman `/status` menampilkan semuanya dengan grafik 10 menit terakhir.
+
+## API kirim pesan
+
+Token tiap bot dibuat dari dashboard (menu **API**). Kuota harian: Free 50, Core 1.000, Prime 5.000, Zenith 20.000; maksimal 1 pesan/detik.
+
+```bash
+curl -X POST https://varesa.mom/api/v1/text \
+  -H "x-varesa-token: vrs_TOKEN_KAMU" \
+  -H "Content-Type: application/json" \
+  -d '{"number":"6281234567890","text":"Halo dari Varesa 👋"}'
+```
+
+Endpoint lain: `POST /api/v1/image` (`{ number, url, caption }`) dan `GET /api/v1/me`.
+
 ## Data runtime
 
 File database pengguna (`database/users.json`, `database/jadibot.json`, dll.) dibuat otomatis kosong saat instalasi baru
