@@ -116,13 +116,17 @@
     el._raf = requestAnimationFrame(step);
   }
 
+  // Nilai kosong ditandai .is-empty supaya "—" tampil redup, bukan garis
+  // tebal raksasa di angka besar saat server belum terjangkau.
+  function setEmpty(el) { el.textContent = '—'; el._v = undefined; el.classList.add('is-empty'); }
   function setVal(el, v, f) {
     el.classList.remove('v-skel');
-    if (v == null || v === '') { el.textContent = '—'; el._v = undefined; return; }
+    if (v == null || v === '') { setEmpty(el); return; }
+    el.classList.remove('is-empty');
     if (f === 'text') { el.textContent = String(v); return; }
     if (f === 'node') { el.textContent = 'Node.js ' + String(v).replace(/^v/i, ''); return; }
     const n = num(v);
-    if (n == null) { el.textContent = '—'; return; }
+    if (n == null) { setEmpty(el); return; }
     if (f === 'uptime') { el.textContent = fmtUptime(n); return; }
     countTo(el, n, FMT[f] || FMT.int);
   }
@@ -248,9 +252,17 @@
     const countEl = $('#stageCount', root);
     const toggle = $('#stageToggle', root);
     const interval = clamp(num(intervalMs) || 6000, 2500, 60000);
+    const MAX_DWELL = 90000;
     const slides = [];
-    let idx = -1, timer = 0, startedAt = 0, remaining = 0, prevTimer = 0;
+    // Waktu tayang memakai "jam virtual": startedAt digeser saat jeda/lanjut,
+    // jadi sisa waktu & progres bar tetap akurat walau banner dijeda berkali-
+    // kali atau durasi video baru diketahui setelah metadata termuat.
+    let idx = -1, timer = 0, startedAt = 0, playedAtPause = 0, prevTimer = 0;
     let userPaused = REDUCED, sysPaused = false, inView = true, dead = false;
+    let wasPaused = userPaused;
+    const now = () => performance.now();
+    const isPaused = () => userPaused || sysPaused;
+    const elapsed = () => (isPaused() ? playedAtPause : now() - startedAt);
 
     const list = (Array.isArray(banners) ? banners : [])
       .filter((b) => b && b.active !== false && safeUrl(b.src, { allowHash: false }))
@@ -270,7 +282,8 @@
       el.setAttribute('role', 'group');
       el.setAttribute('aria-roledescription', 'slide');
       el.setAttribute('aria-label', `${i + 1} dari ${list.length}`);
-      const s = { b, el, media: null, seg: null, broken: false };
+      const s = { b, el, media: null, seg: null, broken: false, started: false };
+      const ready = () => el.classList.add('is-ready');
       let media;
       if (b.type === 'video') {
         media = document.createElement('video');
@@ -282,7 +295,16 @@
         const poster = safeUrl(b.poster, { allowHash: false });
         if (poster) media.poster = poster;
         media.addEventListener('error', () => fail(s));
-        media.addEventListener('loadedmetadata', () => { if (slides[idx] === s) plan(true); });
+        media.addEventListener('loadeddata', ready);
+        // Durasi baru diketahui di sini → hitung ulang lama tayang.
+        media.addEventListener('loadedmetadata', () => { if (slides[idx] === s) plan(); });
+        // Video yang telat mulai (buffer/jaringan lambat) jangan sampai
+        // "kehilangan" jatah tayang: jam diulang saat video benar-benar jalan.
+        media.addEventListener('playing', () => {
+          if (slides[idx] !== s || s.started) return;
+          s.started = true;
+          if (!isPaused() && elapsed() > 250 && elapsed() < 8000) { startedAt = now(); plan(); }
+        });
         media.addEventListener('ended', () => { if (slides[idx] === s && multi) next(); });
         media.src = b.src;
       } else {
@@ -290,8 +312,10 @@
         media.decoding = 'async';
         media.alt = b.title || 'Banner Varesa';
         media.addEventListener('error', () => fail(s));
+        media.addEventListener('load', ready);
         if (i > 1) media.loading = 'lazy';
         media.src = b.src;
+        if (media.complete && media.naturalWidth) ready();
       }
       s.media = media;
       el.appendChild(media);
@@ -346,8 +370,8 @@
     }
     document.addEventListener('visibilitychange', () => { sysPaused = document.hidden || !inView; syncPause(); });
 
+    syncToggle();
     show(0);
-    syncPause();
 
     function valid() { return slides.filter((s) => !s.broken); }
     function fail(s) {
@@ -394,7 +418,6 @@
           s.seg.setAttribute('aria-selected', k === i ? 'true' : 'false');
         }
       });
-      if (cur.seg) { void cur.seg.offsetWidth; cur.seg.classList.add('is-on'); }
       // Slide lama tetap di bawah sampai slide baru selesai muncul.
       if (old && old !== cur) {
         prevTimer = setTimeout(() => {
@@ -403,63 +426,79 @@
         }, 850);
       }
       updateCount();
+      startedAt = now(); playedAtPause = 0; cur.started = false;
       if (cur.media.tagName === 'VIDEO') {
         try { if (cur.media.currentTime) cur.media.currentTime = 0; } catch (e) {}
-        if (!userPaused && !sysPaused) playSafe(cur.media);
+        if (!isPaused()) playSafe(cur.media);
       }
-      plan(false);
+      plan();
     }
     function playSafe(v) { try { const p = v.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
-    // Lama tampil: gambar = interval. Video pendek diulang sampai interval
-    // terpenuhi (dibulatkan ke akhir putaran supaya tidak terpotong), video
-    // panjang diputar sampai selesai (maks 90 detik).
+    // Lama tayang → { bar: durasi progres bar, hard: batas timer }.
+    // Gambar = interval. Video pendek diulang sampai interval terpenuhi
+    // (dibulatkan ke akhir putaran supaya tidak terpotong). Video panjang
+    // diputar sampai selesai — event 'ended' yang memindah slide, timer
+    // hanya jaring pengaman kalau video tersendat (maks 90 detik).
     function dwellFor(s) {
-      if (s.media.tagName !== 'VIDEO') return interval;
-      const d = s.media.duration;
-      if (!isFinite(d) || d <= 0) return interval;
+      const v = s.media.tagName === 'VIDEO' ? s.media : null;
+      const d = v ? v.duration : NaN;
+      if (!v || !isFinite(d) || d <= 0) return { bar: interval, hard: interval };
       const ms = d * 1000;
-      if (ms >= interval) { s.media.loop = false; return Math.min(ms + 400, 90000); }
-      s.media.loop = true;
-      return Math.min(Math.ceil(interval / ms) * ms, interval * 2);
-    }
-    function plan(fromMeta) {
-      if (!multi || dead) return;
-      const total = dwellFor(slides[idx]);
-      const elapsed = fromMeta && startedAt ? performance.now() - startedAt : 0;
-      schedule(Math.max(400, total - elapsed), total, elapsed);
-    }
-    function schedule(ms, total, elapsed) {
-      clearTimeout(timer); timer = 0;
-      remaining = ms;
-      if (!elapsed) startedAt = performance.now();
-      const s = slides[idx];
-      if (s && s.seg) {
-        const bar = s.seg.querySelector('i');
-        s.seg.style.setProperty('--dur', Math.round(total) + 'ms');
-        bar.style.animationDelay = elapsed ? `-${Math.round(elapsed)}ms` : '0ms';
+      if (ms >= interval) {
+        v.loop = false;
+        if (ms >= MAX_DWELL) return { bar: MAX_DWELL, hard: MAX_DWELL };
+        return { bar: ms, hard: Math.min(ms + 4000, MAX_DWELL) };
       }
-      if (!userPaused && !sysPaused) timer = setTimeout(next, ms);
+      v.loop = true;
+      const t = Math.min(Math.ceil(interval / ms) * ms, interval * 2);
+      return { bar: t, hard: t };
+    }
+    function plan() {
+      clearTimeout(timer); timer = 0;
+      if (!multi || dead) return;
+      const d = dwellFor(slides[idx]);
+      const el = elapsed();
+      setBar(d.bar, el);
+      if (!isPaused()) timer = setTimeout(next, Math.max(300, d.hard - el));
+    }
+    // Animasi bar diulang dari awal dengan delay negatif = waktu yang sudah
+    // berlalu; lebih andal daripada mengubah durasi animasi yang sedang jalan.
+    function setBar(total, el) {
+      const s = slides[idx];
+      if (!s || !s.seg) return;
+      const bar = s.seg.querySelector('i');
+      s.seg.classList.remove('is-on');
+      s.seg.style.setProperty('--dur', Math.round(total) + 'ms');
+      bar.style.animationDelay = `-${Math.round(clamp(el, 0, total))}ms`;
+      void s.seg.offsetWidth;
+      s.seg.classList.add('is-on');
+    }
+    function syncToggle() {
+      root.classList.toggle('is-paused', isPaused());
+      if (!toggle) return;
+      toggle.setAttribute('aria-label', userPaused ? 'Putar banner' : 'Jeda banner');
+      const u = toggle.querySelector('use');
+      if (u) u.setAttribute('href', userPaused ? '#i-play' : '#i-pause');
+      const svg = toggle.querySelector('svg');
+      if (svg) svg.classList.toggle('i-play', userPaused);
     }
     function syncPause() {
-      const paused = userPaused || sysPaused;
-      root.classList.toggle('is-paused', paused);
-      if (toggle) {
-        toggle.setAttribute('aria-label', userPaused ? 'Putar banner' : 'Jeda banner');
-        const u = toggle.querySelector('use');
-        if (u) u.setAttribute('href', userPaused ? '#i-play' : '#i-pause');
-        const svg = toggle.querySelector('svg');
-        if (svg) svg.classList.toggle('i-play', userPaused);
-      }
+      const paused = isPaused();
+      syncToggle();
+      if (paused === wasPaused || dead) { wasPaused = paused; return; }
       const s = slides[idx];
-      if (!s || dead) return;
       if (paused) {
-        if (timer) { clearTimeout(timer); timer = 0; remaining = Math.max(300, remaining - (performance.now() - startedAt)); }
-        if (s.media.tagName === 'VIDEO') { try { s.media.pause(); } catch (e) {} }
+        // elapsed() sudah membaca mode jeda, jadi hitung manual di sini.
+        playedAtPause = now() - startedAt;
+        clearTimeout(timer); timer = 0;
+        if (s && s.media.tagName === 'VIDEO') { try { s.media.pause(); } catch (e) {} }
       } else {
         if (REDUCED) root.classList.remove('is-static');
-        if (s.media.tagName === 'VIDEO') playSafe(s.media);
-        if (multi && !timer) { startedAt = performance.now(); timer = setTimeout(next, remaining || interval); }
+        startedAt = now() - playedAtPause;
+        if (s && s.media.tagName === 'VIDEO') playSafe(s.media);
+        plan();
       }
+      wasPaused = paused;
     }
     function next() { show(idx + 1); }
     function prev() {
@@ -603,7 +642,7 @@
       if (row) row.innerHTML = '<a class="v-pill" href="/login">Daftar fitur ada di dashboard</a>';
       const grid = $('#catGrid');
       if (grid) grid.innerHTML = '<div class="catgrid__err">Daftar kategori belum bisa dimuat. Server mungkin sedang sibuk — coba muat ulang sebentar lagi.</div>';
-      $$('[data-feat-stat]').forEach((el) => { el.classList.remove('v-skel'); el.textContent = '—'; });
+      $$('[data-feat-stat]').forEach((el) => { el.classList.remove('v-skel'); setEmpty(el); });
     }
   }
 
@@ -945,7 +984,7 @@ func main() {
     offline: { text: 'Tidak terhubung ke server', pill: 'Offline', badge: 'v-badge--danger', dot: 'v-dot--off' },
     stale: { text: 'Koneksi terputus, mencoba lagi…', pill: 'Menghubungkan', badge: 'v-badge--warn', dot: 'v-dot--warn' },
   };
-  const LIVE = { data: null, hist: [], logs: [], lastId: 0, fails: 0, timer: 0, inflight: false, lastHistAt: 0, okAt: 0 };
+  const LIVE = { data: null, hist: [], logs: [], lastId: 0, fails: 0, timer: 0, inflight: false, lastHistAt: 0, okAt: 0, rtt: null };
 
   function renderServerState(key) {
     const s = SRV[key] || SRV.operational;
@@ -962,6 +1001,7 @@ func main() {
       dots.forEach((el) => { el.className = 'v-dot v-dot--off'; });
       $$('[data-cap-num]').forEach((el) => { el.textContent = '—'; el._v = undefined; });
       $$('[data-cap-sentence]').forEach((el) => { el.textContent = 'Kapasitas server belum bisa dicek. Coba lagi sebentar lagi.'; });
+      $$('[data-cap-basis]').forEach((el) => { el.textContent = ''; });
       if (card) card.dataset.state = 'unknown';
       return;
     }
@@ -986,6 +1026,9 @@ func main() {
     $$('[data-cap-note]').forEach((el) => { if (c.note) el.textContent = String(c.note).slice(0, 200); });
     $$('[data-cap-cta]').forEach((a) => {
       const lab = a.querySelector('[data-auth-label]') || a.querySelector('span');
+      // Di halaman status sendiri, tautan "pantau slot" ke /status tidak ada
+      // gunanya — tombolnya disembunyikan saja selama server penuh.
+      a.hidden = state === 'full' && PAGE === 'status';
       if (state === 'full') { a.href = '/status'; if (lab) lab.textContent = 'Pantau slot kosong'; }
       else { a.href = AUTH_HREF; if (lab) lab.textContent = LOGGED_IN ? 'Buka Dashboard' : 'Amankan slot kamu'; }
     });
@@ -1123,6 +1166,8 @@ func main() {
   function onLiveError(err) {
     const retry = Math.round(nextDelay() / 1000);
     if (!LIVE.data) {
+      // Teks bawaan (mis. host "varesa.mom") dibiarkan; hanya angka yang dikosongkan.
+      $$('[data-k]').forEach((el) => { if (el.dataset.f === 'text' && el.textContent.trim() !== '—') return; el.classList.remove('v-skel'); setEmpty(el); });
       renderServerState('offline');
       renderCapacity(null);
       renderLogs([], true);
@@ -1144,9 +1189,11 @@ func main() {
     if (LIVE.inflight) return;
     LIVE.inflight = true;
     const wantHist = !LIVE.lastHistAt || Date.now() - LIVE.lastHistAt > HISTORY_EVERY_MS;
+    const t0 = performance.now();
     try {
       const d = await getJSON(`/api/public/live?since=${LIVE.lastId}${wantHist ? '&history=1' : ''}`, 6000);
       LIVE.fails = 0;
+      LIVE.rtt = Math.round(performance.now() - t0);
       if (wantHist && Array.isArray(d.history)) LIVE.lastHistAt = Date.now();
       try { onLive(d, wantHist); } catch (e) { /* data aneh tidak boleh menghentikan polling */ console.warn('[varesa] render live:', e); }
     } catch (e) {
@@ -1179,22 +1226,69 @@ func main() {
      HALAMAN STATUS
      ================================================================= */
   function initStatusPage() {
-    const svcMap = { operational: ['v-badge--ok', '', 'Normal'], idle: ['v-badge--warn', 'v-dot--warn', 'Siaga'], down: ['v-badge--danger', 'v-dot--danger', 'Gangguan'], unknown: ['', 'v-dot--off', 'Memeriksa…'] };
-    const setSvc = (key, state) => {
-      const el = $(`[data-svc="${key}"]`);
-      if (!el) return;
-      const [b, d, t] = svcMap[state] || svcMap.down;
-      el.className = `v-badge ${b}`;
-      el.innerHTML = `<span class="v-dot ${d}"></span>${t}`;
+    const SVC = {
+      operational: ['v-badge--ok', '', 'Normal'],
+      idle: ['v-badge--warn', 'v-dot--warn', 'Siaga'],
+      busy: ['v-badge--warn', 'v-dot--warn', 'Sibuk'],
+      down: ['v-badge--danger', 'v-dot--danger', 'Gangguan'],
+      unknown: ['', 'v-dot--off', 'Memeriksa…'],
     };
-    let apiStatus = null, apiOk = null, liveOk = null, liveSrv = null;
+    const setSvc = (key, state, note) => {
+      const el = $(`[data-svc="${key}"]`);
+      if (el) {
+        const [b, d, t] = SVC[state] || SVC.down;
+        el.className = `v-badge ${b}`;
+        el.innerHTML = `<span class="v-dot ${d}"></span>${t}`;
+        const row = el.closest('.svc__row');
+        if (row) row.dataset.state = state;
+      }
+      const n = $(`[data-svc-note="${key}"]`);
+      if (n && note) n.textContent = note;
+    };
+    // Dua sumber data: /api/status (ringkas, tiap 15 dtk) dan /api/public/live
+    // (lengkap, tiap 3 dtk). Kalau salah satu gagal, yang lain tetap dipakai
+    // supaya halaman ini tidak langsung bilang "semua mati".
+    let apiStatus = null, apiOk = null, apiMs = null, liveOk = null, live = null;
     const banner = $('#stBanner');
-    function overall() {
+    const ms = (v) => (v == null ? '' : `respons ${nfInt.format(v)} ms`);
+
+    function render() {
+      const liveSrv = live ? get(live, 'server.status') || 'operational' : null;
+      const lay = (apiStatus && apiStatus.layanan) || {};
+      const anyOk = apiOk || liveOk;
+
+      // Website & dashboard
+      const webMs = [apiMs, liveOk ? LIVE.rtt : null].filter((v) => v != null);
+      if (anyOk) setSvc('web', 'operational', webMs.length ? ms(Math.min(...webMs)) : 'Merespons');
+      else if (apiOk === false && liveOk === false) setSvc('web', 'down', 'Tidak merespons');
+      else setSvc('web', 'unknown');
+
+      // Database: status "degraded" di data live berarti DB terputus.
+      const dbDown = apiOk ? lay.database === 'down' : liveSrv === 'degraded';
+      if (apiOk || liveOk) setSvc('database', dbDown ? 'down' : 'operational', dbDown ? 'Terputus — login & pembayaran bisa tertunda' : 'Tersambung');
+      else if (apiOk === false && liveOk === false) setSvc('database', 'down', 'Tidak bisa dicek');
+      else setSvc('database', 'unknown');
+
+      // Mesin bot
+      const online = num(get(live, 'bots.online')) ?? num(apiStatus && apiStatus.botAktif);
+      const conn = num(get(live, 'bots.connecting'));
+      const botNote = online == null ? '' : `${nfInt.format(online)} bot online${conn ? ` · ${nfInt.format(conn)} menghubungkan` : ''}`;
+      if (apiOk && lay.bot) setSvc('bot', lay.bot === 'idle' ? 'idle' : lay.bot === 'operational' ? 'operational' : 'down', botNote || 'Belum ada bot aktif');
+      else if (liveOk) setSvc('bot', online > 0 ? 'operational' : 'idle', botNote || 'Belum ada bot aktif');
+      else if (apiOk === false && liveOk === false) setSvc('bot', 'down', 'Tidak bisa dicek');
+      else setSvc('bot', 'unknown');
+
+      // Monitor real-time
+      if (liveOk) setSvc('live', liveSrv === 'busy' ? 'busy' : 'operational', `${ms(LIVE.rtt)}${LIVE.rtt != null ? ' · ' : ''}tiap ${POLL_MS / 1000} dtk`);
+      else if (liveOk === false) setSvc('live', 'down', 'Mencoba lagi…');
+      else setSvc('live', 'unknown');
+
       if (!banner) return;
       let state = 'ok', title = 'Semua sistem berjalan normal', sub = 'Bot, dashboard, dan API bekerja seperti biasa.', ic = 'check';
       if (apiOk === false && liveOk === false) { state = 'bad'; title = 'Server tidak dapat dihubungi'; sub = 'Kami sedang menanganinya. Halaman ini akan mencoba lagi otomatis.'; ic = 'alert'; }
-      else if ((apiStatus && apiStatus.status && apiStatus.status !== 'operational') || liveSrv === 'degraded') { state = 'bad'; title = 'Sebagian layanan terganggu'; sub = 'Bot yang sudah aktif umumnya tetap berjalan. Fitur yang butuh database mungkin tertunda.'; ic = 'alert'; }
+      else if (dbDown || liveSrv === 'degraded' || (apiStatus && apiStatus.status === 'degraded')) { state = 'bad'; title = 'Sebagian layanan terganggu'; sub = 'Database sedang bermasalah: login, pembayaran & pengaturan bisa tertunda. Bot yang sudah aktif umumnya tetap berjalan.'; ic = 'alert'; }
       else if (liveSrv === 'busy') { state = 'warn'; title = 'Server sedang sibuk'; sub = 'Respons bot mungkin sedikit lebih lambat dari biasanya.'; ic = 'activity'; }
+      else if (apiOk === false || liveOk === false) { state = 'warn'; title = 'Sebagian data status belum bisa dimuat'; sub = 'Layanan utama masih merespons. Halaman ini mencoba lagi otomatis.'; ic = 'activity'; }
       else if (apiOk == null && liveOk == null) { state = ''; title = 'Memeriksa status…'; sub = 'Mengambil data terbaru dari server.'; ic = 'clock'; }
       banner.dataset.state = state;
       $('#stTitle').textContent = title;
@@ -1202,29 +1296,21 @@ func main() {
       $('#stIcon').innerHTML = icon(ic);
     }
     async function loadStatus() {
+      const t0 = performance.now();
       try {
-        const d = await getJSON('/api/status', 8000);
-        apiStatus = d; apiOk = true;
-        const l = d.layanan || {};
-        setSvc('web', l.web || 'operational');
-        setSvc('database', l.database || 'down');
-        setSvc('bot', l.bot || 'down');
+        apiStatus = await getJSON('/api/status', 8000);
+        apiOk = true; apiMs = Math.round(performance.now() - t0);
       } catch (e) {
-        apiOk = false; apiStatus = null;
-        ['web', 'database', 'bot'].forEach((k) => setSvc(k, 'down'));
+        apiOk = false; apiStatus = null; apiMs = null;
       }
-      overall();
+      render();
     }
-    document.addEventListener('varesa:live', (e) => {
-      liveOk = true; liveSrv = get(e.detail, 'server.status') || 'operational';
-      setSvc('live', liveSrv === 'degraded' ? 'idle' : 'operational');
-      overall();
-    });
-    document.addEventListener('varesa:live-error', () => { liveOk = false; setSvc('live', 'down'); overall(); });
-    ['web', 'database', 'bot', 'live'].forEach((k) => setSvc(k, 'unknown'));
-    overall();
+    document.addEventListener('varesa:live', (e) => { liveOk = true; live = e.detail; render(); });
+    document.addEventListener('varesa:live-error', () => { liveOk = false; render(); });
+    render();
     loadStatus();
     setInterval(() => { if (!document.hidden) loadStatus(); }, 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) loadStatus(); });
   }
 
   /* ------------------------------------------------- service worker */

@@ -19,7 +19,7 @@ const mess = {
     isGroup: "👥 _Perintah ini hanya bisa dijalankan di dalam grup._",
 
     limit:
-      "🚨 *LIMIT KAMU HABIS!* 🚨\n\nKamu kehabisan Limit untuk menjalankan perintah ini.\n\n✨ *Solusi:*\n* Klaim Limit Gratis: Ketik *.claim*\n* Upgrade ke .Premium: Dapatkan Limit *TANPA BATAS*!",
+      "🚨 *LIMIT KAMU HABIS!* 🚨\n\nKamu kehabisan Limit untuk menjalankan perintah ini.\n\n✨ *Solusi:*\n* Klaim Limit Gratis: Ketik *.claim*\n* Mau *TANPA BATAS*? Ketik *.premium* — pemilik bot bisa aktifkan add-on Unlimited Access di dashboard.",
 
     success: "✨ _Berhasil, kak!_",
     isBlocked: "⛔ _Akses kamu ke bot ini sedang diblokir._",

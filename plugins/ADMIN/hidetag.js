@@ -26,7 +26,9 @@ async function handle(sock, messageInfo) {
       (p) => (p.phoneNumber === sender || p.id === sender) && p.admin
     );
 
-    const isOwnerUsers = isOwner(sender);
+    // messageInfo.isOwner (dari autoresbot.js) sudah mencakup owner bot
+    // ini yang diisi di dashboard, bukan cuma owner utama server.
+    const isOwnerUsers = messageInfo.isOwner ?? isOwner(sender);
 
     if (!isAdmin && !isOwnerUsers) {
       await sock.sendMessage(

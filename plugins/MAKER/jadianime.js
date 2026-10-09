@@ -109,7 +109,7 @@ async function handle(sock, messageInfo) {
         // Kirim Gambar Hasil (Pesan Baru)
         await sock.sendMessage(remoteJid, {
             image: { url: data.result.img_1 },
-            caption: `✨ *JADIANIME SUKSES* ✨\n\n👤 *Creator:* ${data.creator}\n🚀 *Powered By:* Varesa MultiDevice`,
+            caption: `✨ *JADIANIME SUKSES* ✨\n\n👤 *Creator:* ${data.creator}\n🚀 *Powered By:* ${(messageInfo.sessionConfig?.botName || "").trim() || config.bot_name}`,
             contextInfo: adReplyContext
         }, { quoted: message });
 

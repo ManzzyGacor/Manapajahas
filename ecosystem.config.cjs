@@ -7,15 +7,20 @@
 //  sudah cukup — itu yang terbukti jalan di server ini. `pm2-runtime` hanya
 //  diperlukan kalau egg-nya tidak melakukan itu.)
 //
-// TOKEN CLOUDFLARE:
-//   Panel -> Startup / Variables:  CF_TUNNEL_TOKEN=token_kamu
-//   atau buat file cf-token.txt (isi tokennya saja, satu baris).
+// TOKEN CLOUDFLARE (dicek berurutan):
+//   1. Panel -> Startup / Variables:  CF_TUNNEL_TOKEN=token_kamu
+//   2. File .env:                     CF_TUNNEL_TOKEN=token_kamu
+//   3. File cf-token.txt (isi tokennya saja, satu baris).
 
 const fs = require("fs");
 const path = require("path");
 
 function readTunnelToken() {
-  const fromEnv = (process.env.CF_TUNNEL_TOKEN || "").trim();
+  // .env ikut dibaca karena .env.example menuliskan CF_TUNNEL_TOKEN di
+  // sana — sebelumnya nilai di .env diam-diam diabaikan (file ini
+  // dievaluasi PM2, bukan lewat lib/env.js) dan tunnel gagal tanpa sebab
+  // yang jelas.
+  const fromEnv = (process.env.CF_TUNNEL_TOKEN || readEnvFileValue("CF_TUNNEL_TOKEN") || "").trim();
   if (fromEnv) return fromEnv;
 
   const tokenFile = path.join(__dirname, "cf-token.txt");
@@ -27,6 +32,7 @@ function readTunnelToken() {
   throw new Error(
     "\n\n⛔ TOKEN CLOUDFLARE TUNNEL BELUM DIISI.\n" +
     "   Panel -> Startup / Variables:  CF_TUNNEL_TOKEN=token_kamu\n" +
+    "   atau isi CF_TUNNEL_TOKEN di file .env,\n" +
     "   atau buat file cf-token.txt di folder ini.\n"
   );
 }
@@ -45,7 +51,10 @@ function readEnvFileValue(key) {
   try {
     const envFile = path.join(__dirname, ".env");
     if (!fs.existsSync(envFile)) return "";
-    const m = new RegExp(`^\\s*(?:export\\s+)?${key}\\s*=\\s*["']?([^"'\\r\\n#]*)`, "m").exec(fs.readFileSync(envFile, "utf8"));
+    // Hanya spasi/tab yang dilewati, bukan semua whitespace: whitespace
+    // ikut memakan baris baru, sehingga "KUNCI=" yang kosong malah membaca
+    // isi baris BERIKUTNYA sebagai nilainya.
+    const m = new RegExp(`^[ \\t]*(?:export[ \\t]+)?${key}[ \\t]*=[ \\t]*["']?([^"'\\r\\n#]*)`, "m").exec(fs.readFileSync(envFile, "utf8"));
     return m ? m[1].trim() : "";
   } catch {
     return "";

@@ -136,6 +136,7 @@ code {
   transition: color .18s, border-color .18s, background .18s;
 }
 .icon-btn:hover { color: var(--text); border-color: var(--line-2); background: var(--surface-2); }
+.icon-btn:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
 
 .srv-chip {
   display: none; align-items: center; gap: 8px;
@@ -282,6 +283,20 @@ code {
 .notice--warn { border-color: rgba(245, 181, 68, .35); background: var(--warn-soft); color: #ffe0a6; }
 .notice--warn > i { color: var(--warn); }
 
+/* Isi toast (kerangka & warnanya dari varesa.css) */
+.v-toast { display: flex; align-items: flex-start; gap: 10px; line-height: 1.45; transition: opacity .25s, transform .25s var(--ease); }
+.v-toast > i { flex: none; margin-top: 3px; color: var(--info); }
+.v-toast--ok > i { color: var(--ok); }
+.v-toast--err > i { color: var(--danger); }
+.v-toast > span { flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; }
+.v-toast > button {
+  flex: none; width: 24px; height: 24px; margin: -2px -6px 0 0;
+  display: grid; place-items: center; border: 0; border-radius: 7px;
+  background: none; color: var(--text-3); cursor: pointer; font-size: 12px;
+}
+.v-toast > button:hover { background: var(--surface-3); color: var(--text); }
+.v-toast.is-out { opacity: 0; transform: translateY(6px); }
+
 .alert-banner {
   display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px;
   padding: 12px 12px 12px 16px; border-radius: 14px;
@@ -413,6 +428,14 @@ code {
 .mps-row .mini-tile__value { flex: none; min-width: 64px; }
 .spark { flex: 1; min-width: 0; height: 40px; overflow: visible; }
 .spark__line { fill: none; stroke: var(--accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.bots-row {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px;
+  background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+}
+.bots-row__cell { display: grid; gap: 2px; padding: 10px 12px; background: var(--bg-soft); min-width: 0; }
+.bots-row__cell b { font-size: 17px; line-height: 1.2; }
+.bots-row__cell span { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 480px) { .bots-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .live-card__foot {
   display: flex; flex-wrap: wrap; gap: 6px 16px;
   padding: 11px 18px; border-top: 1px solid var(--line);
@@ -468,14 +491,14 @@ code {
   display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px;
   padding: 12px 16px; border-top: 1px solid var(--line);
 }
-.cmd-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
+.cmd-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 260px; min-width: 0; }
 .cmd-chip {
   display: inline-flex; align-items: baseline; gap: 4px;
   padding: 3px 8px; border-radius: 7px; border: 1px solid var(--line-2); background: var(--surface);
   font-family: var(--font-mono); font-size: 12px; color: var(--text);
 }
 .cmd-chip em { font-style: normal; color: var(--text-3); font-size: 11px; }
-.cmdlog__note { font-size: 11px; color: var(--text-3); }
+.cmdlog__note { margin-left: auto; font-size: 11px; color: var(--text-3); }
 @media (max-width: 720px) {
   .cmdlog__head, .cl-row { grid-template-columns: 58px 92px minmax(0, 1fr) 46px; gap: 8px; padding-left: 12px; padding-right: 12px; }
   .cl-tag, .cl-chat, .cmdlog__head span:nth-child(2), .cl-hide-sm { display: none; }
@@ -484,6 +507,8 @@ code {
   .cmdlog__tools { width: 100%; }
   .cmdlog__tools .seg { flex: 1; }
   .cmdlog__tools .seg__btn { flex: 1; }
+  .cmdlog__foot { display: grid; gap: 10px; }
+  .cmdlog__note { margin-left: 0; }
 }
 
 /* --- FAQ --- */
@@ -529,6 +554,7 @@ code {
 }
 .v-input:disabled, .v-textarea:disabled, .v-select:disabled { opacity: .55; cursor: not-allowed; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.card-title + .switch-row { margin-top: 14px; }
 .switch-row strong { font-size: 14px; }
 .switch-row .v-help { margin-top: 2px; }
 .switch-row--boxed { padding: 14px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-soft); }
@@ -799,6 +825,13 @@ code {
   border-color: var(--accent-line);
   background: linear-gradient(180deg, rgba(92, 240, 180, .06), transparent 45%), var(--surface);
   box-shadow: 0 0 0 1px rgba(92, 240, 180, .1), 0 24px 60px -36px rgba(92, 240, 180, .5);
+}
+.pricing-card.is-current { border-color: var(--line-3); }
+.pricing-card.is-current::after {
+  content: "Paket kamu"; position: absolute; top: 18px; right: 18px;
+  height: 22px; padding: 0 9px; display: inline-flex; align-items: center; border-radius: 99px;
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text); background: var(--surface-3); border: 1px solid var(--line-2);
 }
 .popular-tag {
   position: absolute; top: -11px; left: 20px;
@@ -1255,6 +1288,14 @@ body.light-mode .locked-overlay { background: rgba(244, 245, 246, .7); }
 body.light-mode .side { background: rgba(10, 12, 14, .35); }
 body.light-mode .profile-banner, body.light-mode .profile-banner * { color: #fff; }
 body.light-mode .profile-banner p { color: rgba(255, 255, 255, .75); }
+/* Warna status bawaan varesa.css dibuat untuk latar gelap; di latar terang
+   perlu versi lebih pekat supaya tetap terbaca. */
+body.light-mode { --ok: #16a34a; --warn: #b7791f; --danger: #dc2626; --info: #2563eb; }
+body.light-mode .v-btn--danger { --_fg: #c62828; --_bd: rgba(220, 38, 38, .32); }
+body.light-mode .v-badge--danger, body.light-mode .is-err, body.light-mode .notice--danger { color: #b91c1c !important; }
+body.light-mode .notice--warn { color: #8a5a00; }
+body.light-mode .cap-sentence.is-danger { color: #b91c1c; }
+body.light-mode .profile-dropdown-list li.is-danger, body.light-mode .profile-dropdown-list li.is-danger i { color: #c62828; }
 body.light-mode .tier-badge.core { color: #2f5fc4; }
 body.light-mode .tier-badge.prime { color: #9a6a00; }
 body.light-mode .term, body.light-mode .v-panel, body.light-mode .textarea-code, body.light-mode .token-box {

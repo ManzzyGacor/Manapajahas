@@ -1,6 +1,6 @@
 import { doFind } from '../../lib/mlbb-api.js';
 import { createCanvas } from 'canvas';
-import { guardTier } from '../../lib/tier-guard.js';
+import { guardTier, upgradeUrl } from '../../lib/tier-guard.js';
 import { hasActiveAddon } from '../../lib/addons.js';
 
 function cleanText(str) {
@@ -142,12 +142,26 @@ async function handle(sock, messageInfo) {
   const unlimited = messageInfo.hasUnlimitedAddon
     ?? await hasActiveAddon(botNum, 'mlbb_unlimited');
 
-  // Fitur MLBB khusus paket Nitro Booster.
-  if (await guardTier(sock, messageInfo, 'booster', 'Cari ID MLBB')) return;
-
   const { remoteJid, message, command, content, senderLid, sender } = messageInfo;
   const userJid = senderLid || sender || remoteJid;
   const now = Date.now();
+
+  // Cari ID tidak punya limit harian, jadi tetap dibatasi: pengguna Premium,
+  // owner bot, ATAU bot dengan add-on Unlimited Access. Dulu plugin ini
+  // memakai OnlyPremium saja — padahal status Premium tidak bisa dibeli
+  // lewat website, sehingga anggota grup bot Zenith yang sudah membeli
+  // add-on tetap tertolak, bertentangan dengan janji "akses penuh MLBB".
+  if (!unlimited && !messageInfo.isPremium && !messageInfo.isOwner) {
+    return await sock.sendMessage(
+      remoteJid,
+      {
+        text:
+          `🔒 *${command}* khusus pengguna Premium atau bot dengan add-on *Unlimited Access*.\n\n` +
+          `Pemilik bot bisa mengaktifkannya di ${upgradeUrl()}`,
+      },
+      { quoted: message }
+    );
+  }
 
   const channelContext = {
     forwardingScore: 999,
@@ -202,4 +216,5 @@ async function handle(sock, messageInfo) {
   }
 }
 
-export default { handle, Commands: ["find", "cariid", "findnick"], OnlyPremium: true, OnlyOwner: false };
+// OnlyPremium dimatikan: pembatasan Premium/add-on dicek di dalam handle().
+export default { handle, Commands: ["find", "cariid", "findnick"], OnlyPremium: false, OnlyOwner: false };

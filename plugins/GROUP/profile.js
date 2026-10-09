@@ -259,14 +259,17 @@ async function handle(sock, messageInfo) {
     if (!user) {
       return sock.sendMessage(
         remoteJid,
-        { text: "Anda belum terdaftar. Ketik .daftar untuk mendaftar." },
+        // Pendaftaran otomatis di handle/usersHandle.js — perintah .daftar
+        // tidak pernah ada, jadi cukup minta user mencoba lagi.
+        { text: "_Data kamu belum tersimpan. Coba ketik perintah ini sekali lagi, ya._" },
         { quoted: message }
       );
     }
 
     const [userId, userData] = user;
 
-    const role = isOwner(sender)
+    // Owner bot dari dashboard juga tampil sebagai Owner (lihat autoresbot.js).
+    const role = (messageInfo.isOwner ?? isOwner(sender))
       ? "Owner"
       : isPremiumUser(sender)
       ? "Premium"

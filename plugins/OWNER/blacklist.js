@@ -32,7 +32,8 @@ _Fitur *blacklist* akan membuat user akan di kick di semua grub (wajib .on detec
     }
 
     targetNumber = extractNumber(targetNumber);
-    const botNumber = extractNumber(config.phone_number_bot);
+    // Nomor bot SESI INI (bot utama maupun jadibot), bukan selalu BOT_NUMBER.
+    const botNumber = extractNumber(messageInfo.botNumber || config.phone_number_bot);
 
     if (botNumber == targetNumber) {
       return await sock.sendMessage(
@@ -42,7 +43,9 @@ _Fitur *blacklist* akan membuat user akan di kick di semua grub (wajib .on detec
       );
     }
 
-    if (isOwner(targetNumber)) {
+    // isOwner() membandingkan JID lengkap; dulu diberi angka saja sehingga
+    // nomor owner tetap bisa di-blacklist.
+    if (isOwner(`${targetNumber}@s.whatsapp.net`)) {
       return await sock.sendMessage(
         remoteJid,
         { text: `⚠️ _Tidak dapat blacklist nomor owner_` },

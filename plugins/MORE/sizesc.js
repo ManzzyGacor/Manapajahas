@@ -1,3 +1,4 @@
+import config from "../../config.js";
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -108,7 +109,7 @@ _Note: Folder node_modules, .git, .npm, & .cache diabaikan dari perhitungan._
                         title: "💾 SCRIPT SIZE INFO",
                         body: `Varesa System Info`,
                         thumbnailUrl: "https://autoresbot.com/tmp_files/f1d90ac1-89d5-4303-a4d9-46991586bd06.jpg", 
-                        sourceUrl: "https://autoresbot.com",
+                        sourceUrl: config.web_url, // link kartu pratinjau -> website Varesa
                         mediaType: 1,
                         renderLargerThumbnail: true
                     }

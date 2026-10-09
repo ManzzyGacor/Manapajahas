@@ -23,7 +23,7 @@ async function handle(sock, messageInfo) {
   if (!userToBan) {
     return await sock.sendMessage(
       remoteJid,
-      { text: `_⚠️ Format Penggunaan:_ \n\n_💬 Contoh:_ _*${prefix + command} 6285246154386*_` },
+      { text: `_⚠️ Format Penggunaan:_ \n\n_💬 Contoh:_ _*${prefix + command} 628xxxxxxxxxx*_` },
       { quoted: message }
     );
   }

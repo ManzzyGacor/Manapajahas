@@ -14,10 +14,17 @@ async function handle(sock, messageInfo) {
       );
     }
 
-    // Membuat grup
-    const creategc = await sock.groupCreate(content, [
-      "6285246154386@s.whatsapp.net",
-    ]);
+    // Membuat grup. Peserta awal = owner yang mengetik perintah ini.
+    // Dulu nomor milik orang lain (pembuat script asal) ditulis langsung di
+    // sini, jadi SETIAP grup yang dibuat bot mana pun ikut memasukkan nomor
+    // orang asing itu. Pesan dari HP bot sendiri (fromMe) tidak perlu
+    // peserta tambahan.
+    const nomorBot = String(sock.user?.id || "").split(":")[0].split("@")[0];
+    const peserta =
+      messageInfo.sender && !messageInfo.sender.startsWith(`${nomorBot}@`)
+        ? [messageInfo.sender]
+        : [];
+    const creategc = await sock.groupCreate(content, peserta);
 
     // // Mengunci pengaturan grup untuk admin saja
     await sock

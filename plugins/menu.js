@@ -22,7 +22,10 @@ const IS_VIDEO_MEDIA = true;
 // Link .mp4/.webm/.mov dikirim sebagai video berulang (gifPlayback),
 // selain itu sebagai gambar.
 function resolveMenuMedia(menuImage) {
-    const url = String(menuImage || "").trim();
+    let url = String(menuImage || "").trim();
+    // Path file di website sendiri ("/uploads/...") dijadikan link penuh
+    // ke web Varesa, supaya file yang diunggah lewat website juga bisa dipakai.
+    if (url.startsWith("/") && !url.startsWith("//")) url = `${config.web_url}${url}`;
     if (!/^https?:\/\//i.test(url)) {
         return { url: MENU_MEDIA_URL, isVideo: IS_VIDEO_MEDIA };
     }
@@ -221,8 +224,18 @@ async function handle(sock, messageInfo) {
     
     const category = (content || "").toLowerCase().trim();
     
-    const menuData = await loadMenuOnce();
+    // Menu bawaan (dikelompokkan per folder plugin oleh database/menu.js)
+    // ditambah kategori "perintah khusus" berisi perintah kustom bot ini,
+    // supaya ikut muncul di daftar tombol, .menu perintah_khusus, dan
+    // .allmenu — bukan cuma di kepala menu.
+    const menuBawaan = await loadMenuOnce();
+    const menuData = perintahKustom.length
+        ? { "perintah khusus": perintahKustom.map(c => c.cmd), ...menuBawaan }
+        : menuBawaan;
     const totalFeatures = Object.values(menuData).flat().length;
+    // Baris penutup yang sama di semua tampilan menu (nama bot + footer
+    // dari dashboard), bukan cuma di menu tombol.
+    const penutupMenu = `\n\n_${botName} • ${footerMenu}_`;
     
     const { titleGreeting, emoji, audioFile } = getGreetingInfo();
     const runtime = getRuntime(process.uptime()); 
@@ -243,7 +256,7 @@ async function handle(sock, messageInfo) {
             remoteJid,
             {
                 ...mediaMessage,
-                caption: style(response),
+                caption: style(response) + penutupMenu,
             },
             { quoted: message }
         );
@@ -310,7 +323,7 @@ Silahkan pilih kategori di bawah, atau ketik ${prefix}allmenu.${daftarPerintahKu
             
             listKategori += `┣⌬ ${prefix}allmenu\n┗━━━━━━━◧`;
 
-            const fullText = headerTampil + listKategori;
+            const fullText = headerTampil + listKategori + penutupMenu;
 
             result = await sock.sendMessage(
                 remoteJid,
@@ -387,7 +400,7 @@ Silahkan pilih kategori di bawah, atau ketik ${prefix}allmenu.${daftarPerintahKu
                 result = await sock.sendMessage(
                     remoteJid,
                     {
-                        text: `${headerTampil}\n\n┏━『 *DAFTAR KATEGORI* 』\n┃\n${kategori}\n┣⌬ ${prefix}allmenu\n┗━━━━━━━◧\n\n_${botName} • ${footerMenu}_`,
+                        text: `${headerTampil}\n\n┏━『 *DAFTAR KATEGORI* 』\n┃\n${kategori}\n┣⌬ ${prefix}allmenu\n┗━━━━━━━◧${penutupMenu}`,
                     },
                     { quoted: message }
                 );
@@ -412,7 +425,7 @@ ${Object.keys(menuData)
             remoteJid, 
             {
                 ...mediaMessage,
-                caption: style(allMenuResponse),
+                caption: style(allMenuResponse) + penutupMenu,
             }, 
             { quoted: message }
         );

@@ -1,8 +1,10 @@
-# robots.txt — JadiVaresa
+# robots.txt — Varesa (varesa.mom)
 User-agent: *
 Allow: /$
 Allow: /login
 Allow: /status
+Allow: /assets/
+Allow: /icons/
 
 # Halaman berikut tidak ada gunanya di hasil pencarian: butuh login,
 # isinya berbeda tiap user, dan invoice bahkan bersifat pribadi.
@@ -10,5 +12,6 @@ Disallow: /dashboard
 Disallow: /admin
 Disallow: /invoice
 Disallow: /api/
+Disallow: /uploads/
 
 Sitemap: https://varesa.mom/sitemap.xml

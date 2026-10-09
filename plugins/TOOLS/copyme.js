@@ -1,9 +1,13 @@
 import BaileysHelper from "baileys_helper";
+import config from "../../config.js";
 
 const { sendInteractiveMessage } = BaileysHelper;
 
 async function handle(sock, messageInfo) {
-    const { remoteJid, message, sender } = messageInfo;
+    const { remoteJid, message, sender, sessionConfig } = messageInfo;
+
+    // Nama bot dari dashboard (Core ke atas), kalau kosong nama bawaan.
+    const botName = (sessionConfig?.botName || "").trim() || config.bot_name;
 
     // Ambil nomor
     const number = sender.replace(/[^0-9]/g, "");
@@ -11,7 +15,7 @@ async function handle(sock, messageInfo) {
     // Header seperti di menu.js
     const header = {
         title: "📋 Salin Nomor Anda",
-        subtitle: "Varesa MultiDevice",
+        subtitle: botName,
         hasMediaAttachment: false
     };
 
@@ -38,7 +42,7 @@ async function handle(sock, messageInfo) {
         remoteJid,
         {
             text: caption,
-            footer: "Varesa MultiDevice",
+            footer: botName,
             header,
             interactiveButtons
         },

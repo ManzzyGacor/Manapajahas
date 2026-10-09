@@ -84,7 +84,7 @@ async function handle(sock, messageInfo) {
       {
         text:
           `_*Bot Sudah Bergabung*_` +
-          `\nNomor Bot : ${config.phone_number_bot}` +
+          `\nNomor Bot : ${messageInfo.botNumber || config.phone_number_bot}` +
           `\nExpired : *${selisihHari(timestampExpiration)}*` +
           `\n\n_Untuk Mengecek status sewa ketik *.ceksewa* pada grub tersebut_`,
       },

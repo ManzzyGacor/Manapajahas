@@ -55,7 +55,7 @@ async function handle(sock, messageInfo) {
       {
         text: `_⚠️ Format Penggunaan:_ \n\n_💬 Contoh:_ _*${
           prefix + command
-        } 6285246154386*_`,
+        } 628xxxxxxxxxx*_`,
       },
       { quoted: message }
     );

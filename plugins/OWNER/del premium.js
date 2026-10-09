@@ -10,7 +10,7 @@ async function handle(sock, messageInfo) {
     if (!content || content.trim() === "") {
       const tex = `_⚠️ Format Penggunaan:_ \n\n_💬 Contoh:_ _*${
         prefix + command
-      } 6285246154386*_`;
+      } 628xxxxxxxxxx*_`;
       return await sock.sendMessage(
         remoteJid,
         { text: tex },
@@ -22,7 +22,7 @@ async function handle(sock, messageInfo) {
 
     // Validasi input lebih lanjut
     if (!nomorHp) {
-      const tex = "_Pastikan format yang benar : .delprem 6285246154386_";
+      const tex = "_Pastikan format yang benar : .delprem 628xxxxxxxxxx_";
       return await sock.sendMessage(
         remoteJid,
         { text: tex },

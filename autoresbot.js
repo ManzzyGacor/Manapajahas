@@ -139,6 +139,27 @@ function namaPlugin(plugin, command) {
   if (plugin?.__file) return plugin.__file.replace(/^plugins[\\/]/, "");
   return command || "";
 }
+
+// Jeda pesan otomatis (auto-reply) dari dashboard: aturan yang sama di chat
+// yang sama paling cepat sekali per JEDA_AUTOREPLY_MS. Tanpa jeda ini, dua
+// bot Varesa di satu grup yang balasannya saling memuat kata kunci bot lain
+// akan saling membalas tanpa henti, dan grup ramai bisa dibanjiri balasan.
+const JEDA_AUTOREPLY_MS = 8000;
+const lastAutoReply = new Map(); // "bot|chat|keyword" -> timestamp
+
+function bolehAutoReply(kunci) {
+  const now = Date.now();
+  const terakhir = lastAutoReply.get(kunci) || 0;
+  if (now - terakhir < JEDA_AUTOREPLY_MS) return false;
+  lastAutoReply.set(kunci, now);
+  // Bersihkan entri lama sesekali supaya Map tidak tumbuh terus.
+  if (lastAutoReply.size > 5000) {
+    for (const [k, t] of lastAutoReply) {
+      if (now - t > JEDA_AUTOREPLY_MS) lastAutoReply.delete(k);
+    }
+  }
+  return true;
+}
 // ==========================================================
 
 handler.initHandlers();
@@ -420,7 +441,19 @@ async function processMessage(sock, messageInfo) {
     // Pesan yang diketik pemilik bot sendiri (fromMe) tidak dibalas —
     // bot tidak perlu menjawab pemiliknya, dan ini mencegah balasan
     // berantai kalau teks balasan memuat kata kunci yang sama.
-    if (!fromMe && sessionConfig.autoReply.length) {
+    //
+    // Perintah yang memang ada (plugin bawaan atau perintah kustom) tidak
+    // ikut dicocokkan: dulu aturan "menu" (cocok "mengandung") membuat
+    // ".menu" dijawab balasan otomatis dan menu aslinya tidak pernah muncul.
+    const cmdKecil = String(command || "").toLowerCase();
+    const perintahDikenal =
+      !!prefix &&
+      !!cmdKecil &&
+      (plugins.some((p) => p.Commands.includes(cmdKecil)) ||
+        sessionConfig.customCommands.some(
+          (c) => String(c.cmd || "").toLowerCase() === cmdKecil
+        ));
+    if (!fromMe && !perintahDikenal && sessionConfig.autoReply.length) {
       const teks = (fullText || "").trim().toLowerCase();
       if (teks) {
         const hit = sessionConfig.autoReply.find((r) => {
@@ -431,7 +464,9 @@ async function processMessage(sock, messageInfo) {
           return teks.includes(k);
         });
         if (hit) {
-          await sock.sendMessage(remoteJid, { text: hit.reply }, { quoted: message });
+          if (bolehAutoReply(`${botNumber}|${remoteJid}|${hit.keyword}`)) {
+            await sock.sendMessage(remoteJid, { text: hit.reply }, { quoted: message });
+          }
           return;
         }
       }
@@ -676,12 +711,16 @@ async function participantUpdate(sock, messageInfo) {
     }
     // Jika grup ditemukan
     if (settingGroups) {
-      if (lastSent_participantUpdate[id]) {
-        if (now - lastSent_participantUpdate[id] < config.rate_limit) {
+      // Kunci per bot + per grup (sama seperti rate limit pesan). Dulu hanya
+      // per grup: kalau dua bot Varesa ada di grup yang sama, sambutan bot
+      // kedua selalu dianggap "rate limit" karena bot pertama baru mengirim.
+      const rateKey = `${getnumberbot(sock.user?.id || "")}|${id}`;
+      if (lastSent_participantUpdate[rateKey]) {
+        if (now - lastSent_participantUpdate[rateKey] < config.rate_limit) {
           return console.log(chalk.redBright(`Rate limit : ${id}`));
         }
       }
-      lastSent_participantUpdate[id] = now;
+      lastSent_participantUpdate[rateKey] = now;
 
       await handleActiveFeatures(sock, messageInfo, settingGroups.fitur);
     }

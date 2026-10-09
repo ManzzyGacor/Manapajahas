@@ -2,125 +2,327 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Status Layanan — JadiVaresa</title>
-<meta name="description" content="Status layanan JadiVaresa secara langsung: web, database, dan bot WhatsApp.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Status &amp; Performa — Varesa</title>
+<meta name="description" content="Status layanan Varesa secara langsung: website, database, mesin bot WhatsApp, beban CPU & RAM, pesan per detik, dan sisa slot bot di server.">
+<link rel="canonical" href="https://varesa.mom/status">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Varesa">
+<meta property="og:locale" content="id_ID">
+<meta property="og:url" content="https://varesa.mom/status">
+<meta property="og:title" content="Status &amp; Performa — Varesa">
+<meta property="og:description" content="Pantau kesehatan server Varesa secara real-time: layanan, beban, dan sisa slot bot.">
+<meta property="og:image" content="https://varesa.mom/icons/icon-512.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#08090a">
+<link rel="icon" type="image/svg+xml" href="/assets/logo-mark.svg">
 <link rel="icon" href="/icons/favicon.ico" sizes="any">
-<meta name="theme-color" content="#171226">
-<style>
-  :root{--ink:#171226;--rise:#211936;--line:#322549;--paper:#FBF8FF;--dim:#A79BC4;
-        --coral:#FF6B5B;--mint:#3DDC97;--amber:#FFC46B}
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:var(--ink);color:var(--paper);font-family:'IBM Plex Sans',system-ui,sans-serif;
-       min-height:100vh;padding:28px 20px;line-height:1.6}
-  .shell{max-width:620px;margin:0 auto}
-  .brand{display:flex;align-items:center;gap:11px;margin-bottom:30px}
-  .mark{width:34px;height:34px;border-radius:11px;background:var(--coral);display:grid;place-items:center;
-        font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:14px;color:#fff}
-  .brand span{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:18px}
-
-  .banner{border-radius:18px;padding:24px;margin-bottom:22px;border:1px solid var(--line);background:var(--rise)}
-  .banner.ok{border-color:rgba(61,220,151,.4);background:rgba(61,220,151,.08)}
-  .banner.bad{border-color:rgba(255,107,91,.4);background:rgba(255,107,91,.08)}
-  .banner h1{font-family:'Bricolage Grotesque',sans-serif;font-size:1.35rem;margin-bottom:6px}
-  .banner p{color:var(--dim);font-size:.9rem}
-
-  .row{display:flex;justify-content:space-between;align-items:center;gap:14px;
-       padding:15px 18px;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;background:var(--rise)}
-  .row b{font-weight:600;font-size:.95rem}
-  .pill{display:inline-flex;align-items:center;gap:7px;font-size:.78rem;font-weight:700;
-        padding:5px 12px;border-radius:20px;white-space:nowrap}
-  .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
-  .up{background:rgba(61,220,151,.13);color:var(--mint)}
-  .idle{background:rgba(255,196,107,.13);color:var(--amber)}
-  .down{background:rgba(255,107,91,.13);color:var(--coral)}
-
-  .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:20px}
-  .box{border:1px solid var(--line);border-radius:14px;padding:15px;background:var(--rise)}
-  .box small{color:var(--dim);font-size:.75rem;display:block;margin-bottom:5px}
-  .box strong{font-family:'JetBrains Mono',monospace;font-size:1.05rem}
-
-  footer{margin-top:30px;text-align:center;color:var(--dim);font-size:.8rem}
-  footer a{color:var(--coral);text-decoration:none;font-weight:600}
-  .muted{color:var(--dim);font-size:.78rem;text-align:center;margin-top:16px}
-</style>
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="stylesheet" href="/assets/varesa.css?v=31">
+<link rel="stylesheet" href="/landing.css?v=31">
 </head>
-<body>
-<div class="shell">
-  <div class="brand"><span class="mark">JV</span><span>JadiVaresa</span></div>
+<body data-page="status">
 
-  <div class="banner" id="banner">
-    <h1 id="judul">Memeriksa status…</h1>
-    <p id="subjudul">Mengambil data terbaru dari server.</p>
+<!-- Ikon dipakai ulang lewat <use>, jadi tidak perlu font ikon -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-arrow-up-right" viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3 10 14"/><path d="m21 3-7 18-4-7-7-4z"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="3.5"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M9 13.5v1.5M15 13.5v1.5M2 13v3M22 13v3"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="m7 9.5 3 2.5-3 2.5M12.5 15H17"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 2.5V6M15 2.5V6M9 18v3.5M15 18v3.5M2.5 9H6M2.5 15H6M18 9h3.5M18 15h3.5"/></symbol>
+    <symbol id="i-memory" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="10" rx="2"/><path d="M7 10v2M11 10v2M15 10v2M7 16v3M12 16v3M17 16v3"/></symbol>
+    <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v13c0 1.55 3.36 2.8 7.5 2.8s7.5-1.25 7.5-2.8v-13"/><path d="M4.5 12c0 1.55 3.36 2.8 7.5 2.8s7.5-1.25 7.5-2.8"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.4A8.5 8.5 0 1 1 21 11.5z"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="19" height="13" rx="2.5"/><path d="M8 21h8M12 16.5V21"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.2 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4M12 17h.01"/></symbol>
+  </defs>
+</svg>
+
+<a class="skip" href="#main">Langsung ke konten</a>
+
+<!-- ============ NAVIGASI ============ -->
+<header class="nav" id="nav">
+  <div class="v-container nav__in">
+    <a class="v-logo nav__logo" href="/" aria-label="Varesa — beranda">
+      <img src="/assets/logo-mark.svg" alt="" width="30" height="30">
+      <span>VARESA</span>
+    </a>
+    <nav class="nav__links" aria-label="Navigasi utama">
+      <a href="/#fitur">Fitur</a>
+      <a href="/#harga">Harga</a>
+      <a href="/#api">API</a>
+      <a href="/status" class="is-active" aria-current="page">Status</a>
+    </nav>
+    <div class="nav__right">
+      <a class="v-btn v-btn--ghost v-btn--sm nav__login" href="/login" data-auth-link>Masuk</a>
+      <a class="v-btn v-btn--primary v-btn--sm nav__cta" href="/login" data-auth-cta><span data-auth-label>Mulai Gratis</span><svg class="i"><use href="#i-arrow-up-right"/></svg></a>
+      <button class="v-btn v-btn--outline v-btn--sm v-btn--icon nav__menu" id="menuBtn" type="button" aria-label="Buka menu" aria-expanded="false" aria-controls="menuSheet"><svg class="i"><use href="#i-menu"/></svg></button>
+    </div>
   </div>
+</header>
 
-  <div class="row"><b>Website &amp; Dashboard</b><span class="pill idle" id="pWeb"><span class="dot"></span>…</span></div>
-  <div class="row"><b>Database</b><span class="pill idle" id="pDb"><span class="dot"></span>…</span></div>
-  <div class="row"><b>Layanan Bot WhatsApp</b><span class="pill idle" id="pBot"><span class="dot"></span>…</span></div>
-
-  <div class="meta">
-    <div class="box"><small>Bot sedang aktif</small><strong id="mBot">—</strong></div>
-    <div class="box"><small>Server menyala</small><strong id="mUp">—</strong></div>
+<div class="msheet" id="menuSheet" hidden>
+  <div class="msheet__scrim" data-close-menu></div>
+  <div class="msheet__panel" role="dialog" aria-modal="true" aria-label="Menu">
+    <nav class="msheet__links">
+      <a href="/"><span>Beranda</span><small>Halaman utama</small></a>
+      <a href="/#fitur"><span>Fitur</span><small>Kategori command</small></a>
+      <a href="/#harga"><span>Harga</span><small>Free · Core · Prime · Zenith</small></a>
+      <a href="/#api"><span>API</span><small>Kirim pesan dari aplikasi</small></a>
+      <a href="/status" data-close-menu><span>Status</span><small>Halaman ini</small></a>
+    </nav>
+    <div class="msheet__foot">
+      <a class="v-btn v-btn--outline v-btn--block" href="/login" data-auth-link>Masuk</a>
+      <a class="v-btn v-btn--primary v-btn--block" href="/login" data-auth-cta><span data-auth-label>Mulai Gratis</span><svg class="i"><use href="#i-arrow-up-right"/></svg></a>
+    </div>
   </div>
-
-  <p class="muted">Halaman ini menyegarkan sendiri tiap 30 detik. Tidak ada data pribadi atau nomor bot yang ditampilkan di sini.</p>
-
-  <footer>
-    <p>&copy; 2026 JadiVaresa &middot; <a href="/">Halaman utama</a></p>
-  </footer>
 </div>
 
-<script>
-  const setPill = (el, kelas, teks) => {
-    el.className = 'pill ' + kelas;
-    el.innerHTML = '<span class="dot"></span>' + teks;
-  };
+<main id="main" class="st-page">
 
-  const durasi = (d) => {
-    const j = Math.floor(d / 3600), m = Math.floor((d % 3600) / 60);
-    if (j >= 24) return Math.floor(j / 24) + ' hari ' + (j % 24) + ' jam';
-    return j > 0 ? j + ' jam ' + m + ' mnt' : m + ' menit';
-  };
+  <!-- ============ JUDUL + RINGKASAN STATUS ============ -->
+  <section class="st-head">
+    <div class="hero__bg" aria-hidden="true"></div>
+    <div class="v-container st-head__in">
+      <span class="sec-eyebrow">Status · real-time</span>
+      <h1 class="v-display st-h1">Status &amp; performa <span class="v-fade-text">server Varesa</span></h1>
+      <p class="sec-lead">Kesehatan layanan, beban server, dan sisa slot bot — angka asli dari mesin yang sedang jalan, diperbarui tiap 3 detik. Nomor bot selalu disamarkan dan isi pesan tidak pernah ditampilkan.</p>
 
-  async function muat() {
-    try {
-      const r = await fetch('/api/status', { cache: 'no-store' });
-      const d = await r.json();
-      if (!d.success) throw new Error();
+      <div class="st-banner" id="stBanner" data-state="" role="status" aria-live="polite">
+        <span class="st-banner__icon" id="stIcon"><svg class="i"><use href="#i-clock"/></svg></span>
+        <div class="st-banner__text">
+          <h2 id="stTitle">Memeriksa status…</h2>
+          <p id="stSub">Mengambil data terbaru dari server.</p>
+        </div>
+        <div class="st-banner__live">
+          <span class="v-dot v-dot--live" data-srv-dot></span>
+          <span class="live__tag" data-live-tag>LIVE · 3 dtk</span>
+          <span class="st-banner__upd" data-updated>Menunggu data…</span>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      const banner = document.getElementById('banner');
-      const semuaBaik = d.status === 'operational';
-      banner.className = 'banner ' + (semuaBaik ? 'ok' : 'bad');
-      document.getElementById('judul').innerText = semuaBaik
-        ? 'Semua layanan berjalan normal'
-        : 'Ada layanan yang sedang terganggu';
-      document.getElementById('subjudul').innerText =
-        'Terakhir diperiksa ' + new Date(d.waktu).toLocaleTimeString('id-ID');
+  <!-- ============ LAYANAN + KAPASITAS ============ -->
+  <section class="st-section">
+    <div class="v-container st-grid2">
+      <div class="st-col">
+        <div class="st-title"><h2>Layanan</h2><span><span data-srv-name>Server 1</span> · <span data-k="server.region" data-f="text">Indonesia</span></span></div>
+        <div class="v-card svc">
+          <div class="svc__row" data-state="unknown">
+            <div class="svc__name"><span class="svc__icon"><svg class="i"><use href="#i-monitor"/></svg></span><div><b>Website &amp; dashboard</b><small data-svc-note="web">Memeriksa…</small></div></div>
+            <span class="v-badge" data-svc="web"><span class="v-dot v-dot--off"></span>Memeriksa…</span>
+          </div>
+          <div class="svc__row" data-state="unknown">
+            <div class="svc__name"><span class="svc__icon"><svg class="i"><use href="#i-database"/></svg></span><div><b>Database</b><small data-svc-note="database">Akun, paket &amp; pengaturan bot</small></div></div>
+            <span class="v-badge" data-svc="database"><span class="v-dot v-dot--off"></span>Memeriksa…</span>
+          </div>
+          <div class="svc__row" data-state="unknown">
+            <div class="svc__name"><span class="svc__icon"><svg class="i"><use href="#i-bot"/></svg></span><div><b>Mesin bot WhatsApp</b><small data-svc-note="bot">Sesi bot &amp; pemrosesan command</small></div></div>
+            <span class="v-badge" data-svc="bot"><span class="v-dot v-dot--off"></span>Memeriksa…</span>
+          </div>
+          <div class="svc__row" data-state="unknown">
+            <div class="svc__name"><span class="svc__icon"><svg class="i"><use href="#i-activity"/></svg></span><div><b>Monitor real-time</b><small data-svc-note="live">Data di halaman ini</small></div></div>
+            <span class="v-badge" data-svc="live"><span class="v-dot v-dot--off"></span>Memeriksa…</span>
+          </div>
+          <div class="svc__foot">
+            <span><svg class="i"><use href="#i-clock"/></svg>Server menyala <b data-k="server.uptimeSec" data-f="uptime">—</b></span>
+            <span class="v-mono" data-clock>--:--:--</span>
+          </div>
+        </div>
+      </div>
 
-      const peta = { operational: ['up', 'Normal'], idle: ['idle', 'Siaga'], down: ['down', 'Gangguan'] };
-      const p = (k) => peta[k] || ['down', 'Gangguan'];
+      <div class="st-col">
+        <div class="st-title"><h2>Kapasitas</h2><span data-cap-basis>dihitung dari RAM</span></div>
+        <article class="capcard v-card" data-cap-card data-state="unknown">
+          <span class="v-eyebrow">Slot bot tersedia</span>
+          <div class="capcard__big">
+            <span class="capcard__num" data-cap-num>—</span>
+            <span class="capcard__unit">bot lagi</span>
+          </div>
+          <p class="capcard__sentence" data-cap-sentence>Memeriksa kapasitas server…</p>
+          <div class="capbar" data-cap-bar aria-hidden="true"></div>
+          <div class="capcard__legend">
+            <span><i class="sw sw--used"></i><b data-k="capacity.used" data-f="int">—</b> terpakai</span>
+            <span><i class="sw sw--free"></i><b data-k="capacity.remaining" data-f="int">—</b> tersisa</span>
+            <span>dari <b data-k="capacity.max" data-f="int">—</b> slot</span>
+          </div>
+          <p class="capcard__note" data-cap-note>Perkiraan dari RAM tersisa &amp; rata-rata pemakaian per bot.</p>
+          <div class="capcard__cta">
+            <a class="v-btn v-btn--primary" href="/login" data-auth-cta data-cap-cta><span data-auth-label>Amankan slot kamu</span><svg class="i"><use href="#i-arrow-up-right"/></svg></a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
 
-      setPill(document.getElementById('pWeb'), ...p(d.layanan.web));
-      setPill(document.getElementById('pDb'), ...p(d.layanan.database));
-      setPill(document.getElementById('pBot'), ...p(d.layanan.bot));
+  <!-- ============ ANGKA RINGKAS ============ -->
+  <section class="st-section">
+    <div class="v-container">
+      <div class="st-title"><h2>Ringkasan hari ini</h2><span data-updated>—</span></div>
+      <div class="v-card st-tiles">
+        <div class="v-stat">
+          <span class="v-stat__label"><svg class="i"><use href="#i-bot"/></svg>Bot online</span>
+          <span class="v-stat__value" data-k="bots.online" data-f="int">—</span>
+          <span class="v-stat__sub"><span data-k="bots.registered" data-f="int">—</span> terdaftar</span>
+        </div>
+        <div class="v-stat">
+          <span class="v-stat__label"><svg class="i"><use href="#i-layers"/></svg>Sesi aktif</span>
+          <span class="v-stat__value"><span data-k="capacity.used" data-f="int">—</span><small>/<span data-k="capacity.max" data-f="int">—</span></small></span>
+          <span class="v-stat__sub">slot server</span>
+        </div>
+        <div class="v-stat">
+          <span class="v-stat__label"><svg class="i"><use href="#i-zap"/></svg>Pesan / detik</span>
+          <span class="v-stat__value" data-k="traffic.msgPerSec" data-f="dec1">—</span>
+          <span class="v-stat__sub">puncak <span data-k="traffic.peakMsgPerSec" data-f="dec1">—</span></span>
+        </div>
+        <div class="v-stat">
+          <span class="v-stat__label"><svg class="i"><use href="#i-message"/></svg>Pesan hari ini</span>
+          <span class="v-stat__value" data-k="traffic.messagesToday" data-f="compact">—</span>
+          <span class="v-stat__sub">total <span data-k="traffic.totalMessages" data-f="compact">—</span></span>
+        </div>
+        <div class="v-stat">
+          <span class="v-stat__label"><svg class="i"><use href="#i-terminal"/></svg>Command hari ini</span>
+          <span class="v-stat__value" data-k="traffic.commandsToday" data-f="compact">—</span>
+          <span class="v-stat__sub">total <span data-k="traffic.totalCommands" data-f="compact">—</span></span>
+        </div>
+        <div class="v-stat">
+          <span class="v-stat__label"><svg class="i"><use href="#i-users"/></svg>Grup terhubung</span>
+          <span class="v-stat__value" data-k="bots.groups" data-f="compact">—</span>
+          <span class="v-stat__sub"><span data-k="users" data-f="compact">—</span> pengguna</span>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      document.getElementById('mBot').innerText = d.botAktif;
-      document.getElementById('mUp').innerText = durasi(d.uptimeSec);
-    } catch (e) {
-      // Kalau halaman ini saja tidak bisa menghubungi server, itu sendiri
-      // sudah informasi: berarti servernya memang sedang bermasalah.
-      document.getElementById('banner').className = 'banner bad';
-      document.getElementById('judul').innerText = 'Server tidak dapat dihubungi';
-      document.getElementById('subjudul').innerText = 'Kami sedang menanganinya. Coba lagi beberapa saat.';
-      ['pWeb', 'pDb', 'pBot'].forEach(id => setPill(document.getElementById(id), 'down', 'Gangguan'));
-    }
-  }
+  <!-- ============ GRAFIK 10 MENIT ============ -->
+  <section class="st-section">
+    <div class="v-container">
+      <div class="st-title"><h2>Performa</h2><span>10 menit terakhir · sampel tiap 5 dtk</span></div>
+      <div class="st-charts">
+        <article class="v-card chartcard">
+          <div class="chartcard__head">
+            <h3><svg class="i"><use href="#i-cpu"/></svg>Beban CPU</h3>
+            <div class="chartcard__val"><span data-k="server.cpu.percent" data-f="pct">—</span><span class="chartcard__sub"><span data-k="server.cpu.cores" data-f="int">—</span> core · load <span data-k="server.cpu.load1" data-f="dec1">—</span></span></div>
+          </div>
+          <div class="chartcard__plot" data-chart="cpu" role="img" aria-label="Grafik beban CPU 10 menit terakhir"></div>
+        </article>
+        <article class="v-card chartcard">
+          <div class="chartcard__head">
+            <h3><svg class="i"><use href="#i-memory"/></svg>Pemakaian RAM</h3>
+            <div class="chartcard__val"><span data-k="server.ram.percent" data-f="pct">—</span><span class="chartcard__sub"><span data-k="server.ram.usedMB" data-f="mb">—</span> / <span data-k="server.ram.limitMB" data-f="mb">—</span></span></div>
+          </div>
+          <div class="chartcard__plot" data-chart="ram" role="img" aria-label="Grafik pemakaian RAM 10 menit terakhir"></div>
+        </article>
+        <article class="v-card chartcard">
+          <div class="chartcard__head">
+            <h3><svg class="i"><use href="#i-send"/></svg>Pesan per detik</h3>
+            <div class="chartcard__val"><span data-k="traffic.msgPerSec" data-f="dec1">—</span><span class="chartcard__sub">puncak <span data-k="traffic.peakMsgPerSec" data-f="dec1">—</span></span></div>
+          </div>
+          <div class="chartcard__plot" data-chart="mps" role="img" aria-label="Grafik pesan per detik 10 menit terakhir"></div>
+        </article>
+      </div>
+    </div>
+  </section>
 
-  muat();
-  setInterval(muat, 30000);
-</script>
+  <!-- ============ SERVER + LOG ============ -->
+  <section class="st-section">
+    <div class="v-container st-grid2">
+      <div class="st-col">
+        <div class="st-title"><h2>Server</h2><span data-k="server.host" data-f="text">varesa.mom</span></div>
+        <article class="srv v-card">
+          <header class="srv__head">
+            <span class="srv__icon"><svg class="i"><use href="#i-server"/></svg></span>
+            <div class="srv__name">
+              <b data-srv-name>Server 1</b>
+              <span><svg class="i"><use href="#i-globe"/></svg><span data-k="server.region" data-f="text">—</span></span>
+            </div>
+            <span class="v-badge" data-srv-pill>Memeriksa…</span>
+          </header>
+          <div class="srv__meters">
+            <div class="meterrow">
+              <div class="meterrow__top"><span><svg class="i"><use href="#i-bot"/></svg>Kapasitas bot</span><b><span data-k="capacity.used" data-f="int">—</span> <i>/</i> <span data-k="capacity.max" data-f="int">—</span></b></div>
+              <div class="v-meter" data-meter="cap"><i></i></div>
+            </div>
+            <div class="meterrow">
+              <div class="meterrow__top"><span><svg class="i"><use href="#i-cpu"/></svg>CPU</span><b data-k="server.cpu.percent" data-f="pct">—</b></div>
+              <div class="v-meter" data-meter="cpu"><i></i></div>
+            </div>
+            <div class="meterrow">
+              <div class="meterrow__top"><span><svg class="i"><use href="#i-memory"/></svg>RAM</span><b><span data-k="server.ram.usedMB" data-f="mb">—</span> <i>/</i> <span data-k="server.ram.limitMB" data-f="mb">—</span></b></div>
+              <div class="v-meter" data-meter="ram"><i></i></div>
+            </div>
+          </div>
+          <dl class="srv__spec">
+            <div><dt><svg class="i"><use href="#i-globe"/></svg>Region</dt><dd data-k="server.region" data-f="text">—</dd></div>
+            <div><dt><svg class="i"><use href="#i-cpu"/></svg>Processor</dt><dd data-k="server.cpu.model" data-f="text">—</dd></div>
+            <div><dt><svg class="i"><use href="#i-terminal"/></svg>Sistem</dt><dd data-k="server.os" data-f="text">—</dd></div>
+            <div><dt><svg class="i"><use href="#i-zap"/></svg>Runtime</dt><dd data-k="server.node" data-f="node">—</dd></div>
+            <div><dt><svg class="i"><use href="#i-memory"/></svg>Memori aplikasi</dt><dd data-k="server.ram.processMB" data-f="mb">—</dd></div>
+            <div><dt><svg class="i"><use href="#i-clock"/></svg>Latensi proses</dt><dd><span data-k="server.eventLoopLagMs" data-f="dec1">—</span> ms</dd></div>
+          </dl>
+        </article>
+      </div>
+
+      <div class="st-col">
+        <div class="st-title"><h2>Log command</h2><span>nomor disamarkan · tanpa isi pesan</span></div>
+        <div class="live st-log">
+          <div class="live__bar">
+            <span class="live__title"><span class="v-dot v-dot--live" data-srv-dot></span>Command terbaru</span>
+            <span class="live__tag" data-live-tag>LIVE · 3 dtk</span>
+            <span class="live__clock v-mono" data-clock>--:--:--</span>
+          </div>
+          <div class="clog" data-live-log data-max="10" aria-live="off">
+            <div class="clog__empty">Menunggu aktivitas…</div>
+          </div>
+          <div class="topcmd">
+            <span class="topcmd__k">Terpakai hari ini</span>
+            <div class="topcmd__list" data-topcmd><span class="chip v-skel">.menu 00×</span><span class="chip v-skel">.tiktok 00×</span><span class="chip v-skel">.sticker 00×</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="v-container">
+      <p class="st-foot">Halaman ini memperbarui sendiri tiap 3 detik dan berhenti sementara saat tab tidak dibuka. Bot kamu bermasalah padahal semua normal? Cek status sesinya di <a href="/dashboard">dashboard</a>.</p>
+    </div>
+  </section>
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="foot foot--slim">
+  <div class="v-container">
+    <div class="foot__bottom">
+      <a class="v-logo" href="/"><img src="/assets/logo-mark.svg" alt="" width="30" height="30"><span>VARESA</span></a>
+      <nav class="foot__links" aria-label="Tautan bawah">
+        <a href="/">Beranda</a>
+        <a href="/#harga">Harga</a>
+        <a href="/#api">API</a>
+        <a href="/dashboard">Dashboard</a>
+      </nav>
+      <p>&copy; <span data-year>2026</span> Varesa</p>
+    </div>
+  </div>
+</footer>
+
+<div class="v-toast-wrap" id="toasts" aria-live="polite"></div>
+
+<script src="/landing.js?v=31" defer></script>
 </body>
 </html>

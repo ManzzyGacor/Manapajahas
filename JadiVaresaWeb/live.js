@@ -458,6 +458,11 @@
       setText('srvMps', fmt1(tr.msgPerSec));
       setText('srvMpsSub', `puncak ${fmt1(tr.peakMsgPerSec)} · ${fmtCompact(tr.messagesToday)} pesan hari ini`);
       drawSpark($('srvSpark'), history.slice(-60).map((h) => h.mps), { maxHint: 1 });
+      const bots = d.bots || {};
+      setText('srvBotsOnline', bots.online != null ? fmtInt(bots.online) : '–');
+      setText('srvBotsConn', bots.connecting != null ? fmtInt(bots.connecting) : '–');
+      setText('srvBotsReg', bots.registered != null ? fmtInt(bots.registered) : '–');
+      setText('srvGroups', bots.groups != null ? fmtCompact(bots.groups) : '–');
       setText('srvRegion', srv.region || '–');
       setText('srvUptime', srv.uptimeSec != null ? `uptime ${fmtUptime(srv.uptimeSec)}` : '–');
       setText('srvNode', srv.node || '–');

@@ -6,6 +6,9 @@
  * supaya tidak perlu menebak lagi. Salin seluruh outputnya.
  */
 
+// .env dimuat dulu (sama seperti index.js) supaya port, token, dan
+// MAX_MEMORY_MB yang ditampilkan di bawah sama dengan yang dipakai aplikasi.
+import "./lib/env.js";
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -29,7 +32,7 @@ line(`Platform      : ${process.platform} ${process.arch}`);
 line(`CWD           : ${process.cwd()}`);
 line(`SERVER_PORT   : ${process.env.SERVER_PORT || "(kosong)"}`);
 line(`PORT          : ${process.env.PORT || "(kosong)"}`);
-line(`CF_TUNNEL_TOKEN: ${process.env.CF_TUNNEL_TOKEN ? "ADA (" + process.env.CF_TUNNEL_TOKEN.length + " karakter)" : "KOSONG  <-- kalau kosong, tunnel pasti mati"}`);
+line(`CF_TUNNEL_TOKEN: ${process.env.CF_TUNNEL_TOKEN ? "ADA (" + process.env.CF_TUNNEL_TOKEN.length + " karakter)" : "KOSONG  <-- isi di panel/.env, atau pakai cf-token.txt"}`);
 
 const PORT = process.env.SERVER_PORT || process.env.PORT || 4526;
 
@@ -79,7 +82,13 @@ head("SUMBER DAYA CONTAINER");
 // yang sebenarnya ada di cgroup — angka inilah yang dipakai lib/monitor.js
 // untuk menghitung kapasitas bot.
 const readSys = (f) => { try { return fs.readFileSync(f, "utf8").trim(); } catch { return null; } };
-const toMB = (v) => (v && /^\d+$/.test(v) ? `${Math.round(Number(v) / 1048576)} MB` : v);
+// Batas cgroup v1 "tanpa batas" berupa angka raksasa (±8 EB), jadi apa pun
+// yang lebih besar dari RAM mesin ditampilkan sebagai "tidak dibatasi".
+const toMB = (v) => {
+  if (!v || !/^\d+$/.test(v)) return v;
+  if (Number(v) >= os.totalmem()) return "tidak dibatasi (ikut RAM mesin)";
+  return `${Math.round(Number(v) / 1048576)} MB`;
+};
 const cg2 = readSys("/sys/fs/cgroup/memory.current") !== null;
 line(`Mesin induk   : ${os.cpus().length} core, ${Math.round(os.totalmem() / 1048576)} MB RAM`);
 line(`cgroup        : ${cg2 ? "v2" : (readSys("/sys/fs/cgroup/memory/memory.usage_in_bytes") !== null ? "v1" : "tidak terbaca")}`);

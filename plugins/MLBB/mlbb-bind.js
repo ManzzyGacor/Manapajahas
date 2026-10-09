@@ -1,6 +1,6 @@
 import { doBind } from '../../lib/mlbb-api.js';
 import { createCanvas } from 'canvas';
-import { guardTier } from '../../lib/tier-guard.js';
+import { guardTier, upgradeUrl } from '../../lib/tier-guard.js';
 import { hasActiveAddon } from '../../lib/addons.js';
 import { isPremiumUser, findUser, updateUser } from '../../lib/users.js';
 
@@ -138,7 +138,7 @@ function formatNeatCaption(text, title, isPremium, sisaLimit, limitMax) {
   if (isPremium) {
     neat += `🌟 _Status Premium: Sisa Limit Harian ${sisaLimit}/${limitMax}_`;
   } else {
-    neat += `💡 _Sisa limit harian: ${sisaLimit}/${limitMax}_\n⭐ _Upgrade ke Premium sekarang untuk limit hingga 25x/hari!_`;
+    neat += `💡 _Sisa limit harian: ${sisaLimit}/${limitMax}_\n⭐ _Mau tanpa batas? Pemilik bot bisa aktifkan add-on Unlimited Access di ${upgradeUrl()}_`;
   }
   return neat;
 }
@@ -156,9 +156,6 @@ async function handle(sock, messageInfo) {
   const botNum = (sock.user?.id || '').split(':')[0].replace(/\D/g, '');
   const unlimited = messageInfo.hasUnlimitedAddon
     ?? await hasActiveAddon(botNum, 'mlbb_unlimited');
-
-  // Fitur MLBB khusus paket Nitro Booster.
-  if (await guardTier(sock, messageInfo, 'booster', 'Cek Bind MLBB')) return;
 
   const { remoteJid, message, command, content, senderLid, sender } = messageInfo;
   const userJid = senderLid || sender || remoteJid;
@@ -219,7 +216,7 @@ async function handle(sock, messageInfo) {
     cooldowns.delete(userJid);
     let limitMsg = `❌ *LIMIT BIND HABIS*\n\nBatas maksimal cek bind harian Anda (${limitMax}/${limitMax}) telah tercapai.\n_Reset otomatis jam 00:00 WIB._`;
     if (!isPremium) {
-      limitMsg += `\n\n⭐ _Upgrade Premium sekarang untuk mendapatkan ekstra limit hingga 15x/hari!_\n Beli Premium? .owner`;
+      limitMsg += `\n\n⭐ _Premium: limit hingga ${MAX_PREMIUM}x/hari. Add-on *Unlimited Access*: tanpa batas._\n🌐 Aktifkan di ${upgradeUrl()} • info: *.premium*`;
     }
     return await sock.sendMessage(
       remoteJid, 

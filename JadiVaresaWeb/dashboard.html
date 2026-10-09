@@ -18,8 +18,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Versi di query string wajib dinaikkan tiap rilis: sw.js menyimpan
          aset statis per-URL, jadi tanpa ini user bisa tertahan di CSS lama. -->
-    <link rel="stylesheet" href="/assets/varesa.css?v=30">
-    <link rel="stylesheet" href="/style.css?v=30">
+    <link rel="stylesheet" href="/assets/varesa.css?v=31">
+    <link rel="stylesheet" href="/style.css?v=31">
 </head>
 <body class="app has-tabbar">
 
@@ -250,6 +250,14 @@
                                 </div>
                                 <span class="mini-tile__sub v-mono" id="srvMpsSub">–</span>
                             </div>
+                        </div>
+
+                        <!-- Ringkasan armada bot di server ini -->
+                        <div class="bots-row">
+                            <div class="bots-row__cell"><b class="v-num" id="srvBotsOnline">–</b><span>bot online</span></div>
+                            <div class="bots-row__cell"><b class="v-num" id="srvBotsConn">–</b><span>menyambung</span></div>
+                            <div class="bots-row__cell"><b class="v-num" id="srvBotsReg">–</b><span>terdaftar</span></div>
+                            <div class="bots-row__cell"><b class="v-num" id="srvGroups">–</b><span>grup</span></div>
                         </div>
                     </div>
                     <footer class="live-card__foot v-mono" id="srvFoot">
@@ -794,6 +802,7 @@
                         </div>
                         <div class="btn-row">
                             <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnApiRotate"><i class="fa-solid fa-rotate"></i> <span>Buat ulang token</span></button>
+                            <button type="button" class="v-btn v-btn--ghost v-btn--sm" id="btnApiRevoke" title="Cabut token: API bot ini mati total sampai token baru dibuat"><i class="fa-solid fa-ban"></i> Matikan API</button>
                         </div>
                         <p class="v-help"><i class="fa-solid fa-shield-halved"></i> Jangan bagikan token ini. Kalau bocor, buat ulang — token lama langsung tidak berlaku.</p>
 
@@ -1213,7 +1222,7 @@
 
     <div class="v-toast-wrap" id="toastWrap" aria-live="polite"></div>
 
-    <script src="/live.js?v=30"></script>
-    <script src="/app.js?v=30"></script>
+    <script src="/live.js?v=31"></script>
+    <script src="/app.js?v=31"></script>
 </body>
 </html>

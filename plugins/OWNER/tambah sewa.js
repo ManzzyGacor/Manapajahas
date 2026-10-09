@@ -114,7 +114,7 @@ async function handle(sock, messageInfo) {
         text:
           `_*Perpanjangan Berhasil*_` +
           `\n\nName Grub : *${res_namegc}*` +
-          `\nNomor Bot : ${config.phone_number_bot}` +
+          `\nNomor Bot : ${messageInfo.botNumber || config.phone_number_bot}` +
           `\nExpired : *${selisihHari(totalSewa)}*` +
           `\n\n_Untuk Mengecek status sewa ketik *.ceksewa* pada grub tersebut_`,
       },

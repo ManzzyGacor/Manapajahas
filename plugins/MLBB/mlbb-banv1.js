@@ -155,9 +155,6 @@ async function handle(sock, messageInfo) {
   const unlimited = messageInfo.hasUnlimitedAddon
     ?? await hasActiveAddon(botNum, 'mlbb_unlimited');
 
-  // Fitur MLBB khusus paket Nitro Booster.
-  if (await guardTier(sock, messageInfo, 'booster', 'Cek Ban MLBB')) return;
-
   const { remoteJid, message, command, content, senderLid, sender } = messageInfo;
   
   // Konteks Saluran (Promosi)

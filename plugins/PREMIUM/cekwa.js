@@ -7,7 +7,7 @@ async function handle(sock, messageInfo) {
 
   // 1. Validasi Input Kosong
   if (!content) {
-    const usage = `_⚠️ Format Penggunaan:_\n\n_💬 Contoh:_ _*${prefix + command} 089682148180*_`;
+    const usage = `_⚠️ Format Penggunaan:_\n\n_💬 Contoh:_ _*${prefix + command} 08xxxxxxxxxx*_`;
     return await reply(m, usage);
   }
 

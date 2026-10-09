@@ -4,7 +4,9 @@ import moment from "moment-timezone";
 const CONNECTION = "pairing"; // qr atau pairing
 const OWNER_NAME = "Manzzy";
 const NOMOR_BOT = process.env.BOT_NUMBER || ""; // 628xx nomor wa
-const BOT_NAME = "Varesa MultiDevice"; 
+// Nama bawaan bot. Bot milik user yang mengisi "Nama bot" di dashboard
+// (paket Core ke atas) memakai nama itu — lihat sessionConfig.botName.
+const BOT_NAME = "Varesa"; 
 const BOT_MEDIA = "https://raw.githubusercontent.com/ManzzyGacor/Urlmanzzy/main/file_1763982754350_735.mp4"; // Bisa diisi link image atau video buat menu
 const DESTINATION = "group"; // group , private, both
 const APIKEY = process.env.AUTORESBOT_APIKEY || ""; // apikey dari autoresbot.com 
@@ -85,7 +87,7 @@ const config = {
   sticker_packname: OWNER_NAME,
   sticker_author: `Date: ${moment
     .tz("Asia/Jakarta")
-    .format("DD/MM/YY")}\nVaresa MultiDevice\nManzzy`,
+    .format("DD/MM/YY")}\n${BOT_NAME}\n${OWNER_NAME}`,
   mode: MODE,
   commandSimilarity: SIMILARITY,
   anticall: ANTI_CALL,

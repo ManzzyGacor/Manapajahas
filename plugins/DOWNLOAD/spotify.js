@@ -345,7 +345,7 @@ button { user-select: none; -webkit-user-select: none; cursor: pointer; }
     var listEl = document.getElementById('track-list-container');
     listEl.innerHTML = '<div style="text-align:center;color:#1db954;font-size:11px;padding:20px">Mencari lagu...</div>';
 
-    fetch('https://api.jerexd.my.id/api/search/spotify?apikey=VaresaMD&query=' + encodeURIComponent(q))
+    fetch('https://api.jerexd.my.id/api/search/spotify?apikey=${API_KEY}&query=' + encodeURIComponent(q))
     .then(function(res){ return res.json(); })
     .then(function(data){
       if (data.status && data.result && data.result.top_results && data.result.top_results.length > 0) {
@@ -467,7 +467,7 @@ button { user-select: none; -webkit-user-select: none; cursor: pointer; }
     loaderTxt.innerText = "MENGESTRAK STREAM AUDIO...";
 
     // Percobaan 1: JereXD API
-    fetch('https://api.jerexd.my.id/api/downloader/spotify?apikey=VaresaMD', {
+    fetch('https://api.jerexd.my.id/api/downloader/spotify?apikey=${API_KEY}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: spotiUrl })

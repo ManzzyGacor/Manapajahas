@@ -62,8 +62,11 @@ function applyProfileToUI() {
     const tier = currentUser.tier || 'free';
     const email = currentUser.email || '';
 
-    const avatarHTML = currentUser.avatarUrl
-        ? `<img src="${escapeHtml(currentUser.avatarUrl)}" alt="">`
+    // Foto dari akun Google (field `avatar`) dipakai kalau user belum
+    // mengisi URL foto sendiri, supaya avatar tidak selalu berupa inisial.
+    const avatarSrc = currentUser.avatarUrl || currentUser.avatar || '';
+    const avatarHTML = avatarSrc
+        ? `<img src="${escapeHtml(avatarSrc)}" alt="" referrerpolicy="no-referrer">`
         : escapeHtml(initial);
 
     document.querySelectorAll('.avatar-circle').forEach(el => { el.innerHTML = avatarHTML; });
@@ -120,6 +123,7 @@ async function refreshUserFromServer() {
         applyTierGating();
         renderExpiry();
         initNotifButton();
+        syncAdminLinks();
 
         // Buka dashboard dari perangkat baru: localStorage belum tahu nomor
         // bot-nya, padahal akun ini sudah punya. Pakai nomor dari server
@@ -134,6 +138,37 @@ async function refreshUserFromServer() {
             if (statRole) statRole.innerHTML = nitroBadgeHTML(currentUser.tier);
         }
     } catch (err) { /* offline: pakai data localStorage */ }
+}
+
+// Tautan ke /admin hanya untuk admin. Elemennya (#btnAdminPanel di menu
+// profil, #sideAdminLink di sidebar) sengaja TIDAK ada di HTML: dibuat di
+// sini saat role admin, dan dibuang lagi kalau server bilang bukan admin.
+// /admin sendiri tetap memverifikasi role ke server.
+function syncAdminLinks() {
+    const isAdmin = currentUser?.role === 'admin';
+    const dropItem = $id('btnAdminPanel');
+    const sideItem = $id('sideAdminLink');
+    if (!isAdmin) { dropItem?.remove(); sideItem?.remove(); return; }
+
+    const profileDropList = document.querySelector('.profile-dropdown-list');
+    if (profileDropList && !dropItem) {
+        const adminLi = document.createElement('li');
+        adminLi.id = 'btnAdminPanel';
+        adminLi.className = 'is-admin';
+        adminLi.innerHTML = `<i class="fa-solid fa-shield-halved"></i> Konsol admin`;
+        adminLi.addEventListener('click', () => { window.location.href = '/admin'; });
+        profileDropList.insertBefore(adminLi, profileDropList.firstChild);
+    }
+    // Pintasan yang sama di sidebar supaya admin tidak perlu membuka menu profil.
+    const sideNav = document.querySelector('.side__nav');
+    if (sideNav && !sideItem) {
+        const a = document.createElement('a');
+        a.id = 'sideAdminLink';
+        a.href = '/admin';
+        a.className = 'side__item is-admin';
+        a.innerHTML = '<i class="fa-solid fa-shield-halved"></i><span>Konsol admin</span>';
+        sideNav.appendChild(a);
+    }
 }
 
 // Kunci / buka fitur sesuai paket aktif.
@@ -215,6 +250,18 @@ function applyTierGating() {
     // Kuota API harian: tandai baris paket yang sedang aktif.
     document.querySelectorAll('.quota-table li[data-tier]').forEach(li => {
         li.classList.toggle('is-current', li.dataset.tier === tier);
+    });
+
+    // Kartu harga: user langsung tahu paket mana yang sedang dipakai, dan
+    // tombolnya jadi "Perpanjang" (bukan "Pilih") untuk paket yang sama.
+    document.querySelectorAll('.pricing-card[data-plan]').forEach(card => {
+        const isCurrent = card.dataset.plan === tier;
+        card.classList.toggle('is-current', isCurrent);
+        const btn = card.querySelector('.btn-order');
+        if (btn) {
+            if (!btn.dataset.label) btn.dataset.label = btn.textContent.trim();
+            btn.textContent = isCurrent ? `Perpanjang ${tierName(tier)}` : btn.dataset.label;
+        }
     });
 }
 
@@ -344,27 +391,7 @@ document.addEventListener("DOMContentLoaded", () => {
         renderExpiry();
         initNotifButton();
 
-        if (currentUser.role === 'admin') {
-            const profileDropList = document.querySelector('.profile-dropdown-list');
-            if (profileDropList && !$id('btnAdminPanel')) {
-                const adminLi = document.createElement('li');
-                adminLi.id = 'btnAdminPanel';
-                adminLi.className = 'is-admin';
-                adminLi.innerHTML = `<i class="fa-solid fa-shield-halved"></i> Konsol admin`;
-                adminLi.addEventListener('click', () => { window.location.href = '/admin'; });
-                profileDropList.insertBefore(adminLi, profileDropList.firstChild);
-            }
-            // Pintasan yang sama di sidebar supaya admin tidak perlu membuka menu profil.
-            const sideNav = document.querySelector('.side__nav');
-            if (sideNav && !$id('sideAdminLink')) {
-                const a = document.createElement('a');
-                a.id = 'sideAdminLink';
-                a.href = '/admin';
-                a.className = 'side__item is-admin';
-                a.innerHTML = '<i class="fa-solid fa-shield-halved"></i><span>Konsol admin</span>';
-                sideNav.appendChild(a);
-            }
-        }
+        syncAdminLinks();
     }
 
     $id('btnInstallApp')?.addEventListener('click', async () => {
@@ -379,6 +406,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- STATUS BOT & TERMINAL ---
     const terminalLogs = $id('terminalLogs');
     let botState = 'offline';
+    // Diisi di akhir (setelah semua fungsi siap). Dideklarasikan di sini
+    // supaya pemanggilan lebih awal tidak kena ReferenceError (TDZ).
+    let liveWidgets = null;
 
     const nowClock = () => new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/\./g, ':');
 
@@ -667,7 +697,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (res.status === 503 && result.code === 'SERVER_FULL') {
                 const cap = result.capacity || lastCapacity;
                 const angka = cap && cap.max != null ? ` (${cap.used ?? cap.max}/${cap.max} bot)` : '';
-                showStartNotice(`<strong>Server lagi penuh${angka}.</strong> Supaya semua bot tetap lancar, bot baru belum bisa dijalankan dulu. Coba lagi beberapa saat lagi — sisa slot terlihat di kartu Server. ${result.message ? `<br><span class="v-dim">${escapeHtml(result.message)}</span>` : ''}`);
+                // Pesan asli dari server sudah tampil di terminal; di sini cukup
+                // penjelasan yang ramah supaya tidak ada teks dobel.
+                showStartNotice(`<strong>Server lagi penuh${angka}.</strong> Supaya semua bot tetap lancar, bot baru belum bisa dijalankan dulu. Coba lagi beberapa saat lagi — sisa slot terlihat di kartu Server.`);
                 say('Server penuh — bot baru belum bisa dijalankan sekarang.', 'err');
                 termLine(`$ ${result.message || 'Server penuh. Coba lagi nanti.'}`, 't-warn');
                 setBotState('offline');
@@ -1037,7 +1069,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadBotStats() {
         if (!activeBotNumber) return;
         try {
-            const res = await fetch(`/api/bot/stats/${activeBotNumber}`);
+            const res = await fetch(`/api/bot/stats/${encodeURIComponent(activeBotNumber)}?userId=${encodeURIComponent(currentUser?.id || '')}`);
             const result = await res.json();
             if (result.success) renderBotStats(result.data);
         } catch (err) { /* statistik bersifat tambahan; diam saja */ }
@@ -1741,6 +1773,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (copy) copy.disabled = !api.token;
         const rotate = $id('btnApiRotate');
         if (rotate) rotate.querySelector('span').textContent = api.token ? 'Buat ulang token' : 'Buat token';
+        const revoke = $id('btnApiRevoke');
+        if (revoke) revoke.disabled = !api.token;
 
         const tierBadge = $id('apiTierBadge');
         if (tierBadge) { tierBadge.className = ''; tierBadge.innerHTML = nitroBadgeHTML(api.tier || currentUser.tier); }
@@ -1835,6 +1869,26 @@ document.addEventListener("DOMContentLoaded", () => {
             say('Gagal terhubung ke server.', 'err');
         } finally { done(); renderApi(); }
     });
+    // Cabut token tanpa membuat yang baru: untuk yang sudah tidak memakai
+    // API atau curiga tokennya bocor. Server mengosongkan token (revoke).
+    $id('btnApiRevoke')?.addEventListener('click', async (e) => {
+        if (!activeBotNumber || !api.token) return;
+        if (!confirm('Matikan API untuk bot ini?\n\nToken sekarang langsung tidak berlaku. Kamu bisa membuat token baru kapan saja.')) return;
+        const done = busy(e.currentTarget, 'Mematikan…');
+        try {
+            const res = await fetch('/api/bot/api-token', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, revoke: true })
+            });
+            let d = {};
+            try { d = await res.json(); } catch { d = {}; }
+            if (!res.ok || !d.success) { say(d.message || 'Gagal mematikan API.', 'err'); return; }
+            api.token = ''; api.revealed = false;
+            say('API dimatikan. Token lama sudah tidak berlaku.', 'ok');
+        } catch (err) {
+            say('Gagal terhubung ke server.', 'err');
+        } finally { done(); renderApi(); }
+    });
     document.querySelectorAll('.code-tab').forEach(t => t.addEventListener('click', () => { api.lang = t.dataset.lang; renderApi(); }));
     $id('btnApiSnippetCopy')?.addEventListener('click', async (e) => {
         // Yang disalin selalu berisi token asli (kalau ada), walau di layar disensor.
@@ -1858,7 +1912,10 @@ document.addEventListener("DOMContentLoaded", () => {
         // reconnect terus-menerus — terlihat jelas di log tunnel.
         if (!activeBotNumber) return;
 
-        sse = new EventSource(`/api/bot/events?number=${encodeURIComponent(activeBotNumber)}`);
+        // userId ikut dikirim: server hanya menyertakan cuplikan pesan &
+        // nama pengirim di bot_stats kalau yang menonton pemilik bot ini.
+        const uid = currentUser?.id ? `&userId=${encodeURIComponent(currentUser.id)}` : '';
+        sse = new EventSource(`/api/bot/events?number=${encodeURIComponent(activeBotNumber)}${uid}`);
         bindSSE(sse);
 
         sse.onopen = () => { sseRetry = 0; };
@@ -1906,7 +1963,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (liveOk) return;
             const stats = safeJSON(e.data);
             const statServer = $id('statServer');
-            if (stats && statServer) statServer.innerText = `${stats.cpu}% · ${stats.ram}%`;
+            if (stats && statServer) statServer.innerText = `${window.VLive.fmt1(stats.cpu)}% · ${window.VLive.fmt1(stats.ram)}%`;
+            // Sisa slot tetap terlihat sebelum Start walau polling live gagal.
+            if (stats?.capacity?.max != null) { lastCapacity = stats.capacity; renderSlotHint(stats.capacity); }
         });
 
         src.addEventListener('bot_stats', (e) => {
@@ -1986,7 +2045,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // --- WIDGET LIVE (kartu Server + log command) ---
-    const liveWidgets = window.VLive?.mountDashboard({ getMyBot: () => activeBotNumber }) || null;
+    liveWidgets = window.VLive?.mountDashboard({ getMyBot: () => activeBotNumber }) || null;
 
     connectSSE();
     if (activeBotNumber) loadBotStats();
