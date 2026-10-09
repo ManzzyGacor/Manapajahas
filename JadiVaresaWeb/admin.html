@@ -2,611 +2,849 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SaaS Admin - JadiVaresa</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Konsol Admin · Varesa</title>
+    <!-- Halaman internal: jangan sampai muncul di hasil pencarian. -->
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#08090a">
+    <link rel="icon" href="/assets/logo-mark.svg" type="image/svg+xml">
+    <link rel="icon" href="/icons/favicon.ico" sizes="any">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=21.0">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        /* Hanya gaya khusus halaman admin. Tabel, tab, dan badge
-           kini diatur di style.css supaya konsisten dengan dashboard. */
-        .action-select {
-            background: var(--bg-dark); color: var(--text-main);
-            border: 1px solid var(--border-color); padding: 6px 10px;
-            border-radius: 8px; font-size: 13px; cursor: pointer;
-        }
-        .admin-head { margin-bottom: 22px; }
-        .admin-head h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
-        .admin-head p { color: var(--text-muted); font-size: 13px; }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Versi di query string wajib dinaikkan tiap rilis: sw.js menyimpan
+         aset per-URL, jadi tanpa ini admin bisa tertahan di JS/CSS lama. -->
+    <link rel="stylesheet" href="/assets/varesa.css?v=31">
+    <link rel="stylesheet" href="/admin.css?v=3">
+    <!-- Penjaga awal: halaman disembunyikan sampai admin.js memastikan yang
+         membuka memang admin, supaya kerangka panel tidak sempat terlihat
+         (dan tidak berkedip) sebelum dialihkan ke /login atau /dashboard. -->
+    <script>
+        (function () {
+            try {
+                var u = JSON.parse(localStorage.getItem('currentUser') || 'null');
+                if (u && u.role === 'admin') return;
+            } catch (e) { /* data rusak = anggap belum login */ }
+            document.documentElement.className += ' adm-deny';
+        })();
+    </script>
 </head>
-<body>
-    <nav class="navbar">
-        <div class="nav-left">
-            <span style="font-weight: 800; font-size: 17px; display: flex; align-items: center; gap: 9px;">
-                <i class="fa-solid fa-shield-halved" style="color: var(--primary);"></i> Konsol Admin
-            </span>
-        </div>
-        <div class="nav-right">
-            <button class="btn" style="padding: 8px 16px; font-size: 13px; background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); flex: none;" onclick="window.location.href='/dashboard'">
-                <i class="fa-solid fa-arrow-left"></i> Kembali ke dashboard
-            </button>
-        </div>
-    </nav>
+<body class="adm">
 
-    <main class="container" style="max-width: 1060px; padding-top: 26px;">
+    <!-- ============ SIDEBAR (desktop) / DRAWER (HP) ============ -->
+    <aside class="side" id="sideMenu" aria-label="Navigasi admin">
+        <div class="side__panel">
+            <div class="side__brand">
+                <a class="v-logo" href="/" aria-label="Varesa — beranda">
+                    <img src="/assets/logo-mark.svg" alt="" width="30" height="30"> VARESA
+                </a>
+                <span class="adm-tag">Admin</span>
+                <button type="button" class="icon-btn icon-btn--sm side__close" id="btnSideClose" aria-label="Tutup menu"><i class="fa-solid fa-xmark"></i></button>
+            </div>
 
-        <div class="admin-head">
-            <h1>Konsol Admin</h1>
-            <p>Kelola pengguna, bot yang berjalan, transaksi, harga, dan kode promo.</p>
-        </div>
+            <nav class="side__nav">
+                <p class="side__label">Ringkasan</p>
+                <button type="button" class="side__item" data-view="overview"><i class="fa-solid fa-gauge-high"></i><span>Ikhtisar</span></button>
+                <button type="button" class="side__item" data-view="monitor"><i class="fa-solid fa-wave-square"></i><span>Monitor Live</span><span class="v-dot v-dot--live" id="navLiveDot"></span></button>
 
-        <div class="admin-tabs">
-            <div class="admin-tab active" onclick="switchAdminTab(event,'users')">Manajemen User</div>
-            <div class="admin-tab" onclick="switchAdminTab(event,'bots')">Bot Aktif</div>
-            <div class="admin-tab" onclick="switchAdminTab(event,'orders')">Invoice</div>
-            <div class="admin-tab" onclick="switchAdminTab(event,'pricing')">Pengaturan Harga</div>
-            <div class="admin-tab" onclick="switchAdminTab(event,'promo')">Kode Promo</div>
-            <div class="admin-tab" onclick="switchAdminTab(event,'audit')">Riwayat Admin</div>
-        </div>
+                <p class="side__label">Kelola</p>
+                <button type="button" class="side__item" data-view="users"><i class="fa-solid fa-users"></i><span>Pengguna</span></button>
+                <button type="button" class="side__item" data-view="bots"><i class="fa-solid fa-robot"></i><span>Bot &amp; Node</span></button>
+                <button type="button" class="side__item" data-view="orders"><i class="fa-solid fa-file-invoice"></i><span>Invoice</span></button>
+                <button type="button" class="side__item" data-view="pricing"><i class="fa-solid fa-tags"></i><span>Harga &amp; Promo</span></button>
 
-        <!-- TAB 1: MANAJEMEN USER -->
-        <section id="view-users" class="admin-view active">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-info"><p>Total Pengguna</p><h3 id="admTotalUser">0</h3></div>
-                    <div class="stat-icon" style="background: rgba(99, 102, 241, 0.1); color: #818cf8;"><i class="fa-solid fa-users"></i></div>
+                <p class="side__label">Situs</p>
+                <button type="button" class="side__item" data-view="site"><i class="fa-regular fa-images"></i><span>Tampilan Situs</span><em class="side__new">Baru</em></button>
+                <button type="button" class="side__item" data-view="capacity"><i class="fa-solid fa-server"></i><span>Kapasitas Server</span><em class="side__new">Baru</em></button>
+
+                <p class="side__label">Sistem</p>
+                <button type="button" class="side__item" data-view="audit"><i class="fa-solid fa-clock-rotate-left"></i><span>Riwayat Admin</span></button>
+            </nav>
+
+            <div class="side__foot">
+                <div class="side__srv">
+                    <div class="side__srv-top">
+                        <span class="v-dot v-dot--off" id="sideSrvDot"></span>
+                        <span class="side__srv-name" id="sideSrvName">Server</span>
+                        <span class="side__srv-state v-mono" id="sideSrvState">…</span>
+                    </div>
+                    <div class="v-meter" id="sideSrvMeter"><i></i></div>
+                    <p class="side__srv-cap v-mono" id="sideSrvCap">memuat kapasitas…</p>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-info"><p>Bot Aktif (Node)</p><h3 id="admActiveBot">0</h3></div>
-                    <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #34d399;"><i class="fa-solid fa-robot"></i></div>
+                <a class="v-btn v-btn--ghost v-btn--sm side__back" href="/dashboard"><i class="fa-solid fa-arrow-left"></i> Kembali ke dashboard</a>
+            </div>
+        </div>
+    </aside>
+
+    <div class="shell">
+        <!-- ============ TOP BAR ============ -->
+        <header class="topbar">
+            <button type="button" class="icon-btn topbar__menu" id="btnMenu" aria-label="Buka menu" aria-controls="sideMenu" aria-expanded="false"><i class="fa-solid fa-bars"></i></button>
+            <a class="v-logo topbar__logo" href="/" aria-label="Varesa"><img src="/assets/logo-mark.svg" alt="" width="28" height="28"></a>
+
+            <div class="topbar__title">
+                <span class="v-eyebrow" id="viewEyebrow">Konsol admin</span>
+                <h1 id="viewTitle">Ikhtisar</h1>
+            </div>
+
+            <div class="topbar__right">
+                <button type="button" class="srv-chip" data-view="monitor" title="Buka monitor live">
+                    <span class="v-dot v-dot--off" id="topSrvDot"></span>
+                    <span class="v-mono" id="topSrvText">server…</span>
+                </button>
+                <div class="who" title="Masuk sebagai admin">
+                    <span class="who__avatar" id="whoAvatar">A</span>
+                    <span class="who__name" id="whoName">Admin</span>
+                    <span class="adm-tag">Admin</span>
+                </div>
+                <a class="icon-btn" href="/dashboard" aria-label="Kembali ke dashboard" title="Kembali ke dashboard"><i class="fa-solid fa-arrow-right-from-bracket"></i></a>
+            </div>
+        </header>
+
+        <main class="main" id="main">
+
+        <!-- =========================================================
+             IKHTISAR
+             ========================================================= -->
+        <section class="view" id="view-overview" data-title="Ikhtisar" data-group="Ringkasan">
+            <div class="page-head">
+                <div>
+                    <p class="v-eyebrow">Konsol admin</p>
+                    <h2 class="hello__title">Halo, <span id="helloName">admin</span>.<span class="v-fade-text"> Pengguna, bot, dan server — semuanya dari sini.</span></h2>
                 </div>
             </div>
 
-            <div class="control-panel">
-                <h2 class="section-title">Database Pengguna & Bot</h2>
-                <div style="overflow-x: auto;">
-                    <table class="admin-table">
+            <div class="v-card tiles">
+                <div class="v-statgrid">
+                    <div class="v-stat">
+                        <span class="v-stat__label"><i class="fa-solid fa-users"></i> Total pengguna</span>
+                        <span class="v-stat__value" id="ovUsers">–</span>
+                        <span class="v-stat__sub" id="ovUsersSub">memuat…</span>
+                    </div>
+                    <div class="v-stat">
+                        <span class="v-stat__label"><i class="fa-solid fa-robot"></i> Bot aktif</span>
+                        <span class="v-stat__value" id="ovBots">–</span>
+                        <span class="v-stat__sub" id="ovBotsSub">sesi WhatsApp hidup</span>
+                    </div>
+                    <div class="v-stat">
+                        <span class="v-stat__label"><i class="fa-solid fa-coins"></i> Pendapatan lunas</span>
+                        <span class="v-stat__value" id="ovRevenue">–</span>
+                        <span class="v-stat__sub">total semua invoice lunas</span>
+                    </div>
+                    <div class="v-stat">
+                        <span class="v-stat__label"><i class="fa-regular fa-clock"></i> Invoice menunggu</span>
+                        <span class="v-stat__value" id="ovPending">–</span>
+                        <span class="v-stat__sub">dari 50 invoice terakhir</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-21">
+                <div class="stack">
+                    <div class="v-card">
+                        <div class="card-head">
+                            <div>
+                                <h3><span class="v-dot v-dot--off" id="ovSrvDot"></span> <span id="ovSrvName">Server</span></h3>
+                                <p id="ovSrvMeta">memuat status server…</p>
+                            </div>
+                            <button type="button" class="v-btn v-btn--outline v-btn--sm" data-view="monitor">Monitor live <i class="fa-solid fa-arrow-right"></i></button>
+                        </div>
+                        <div class="card-body health">
+                            <div>
+                                <p class="health__sentence" id="ovCapSentence">Menghitung kapasitas…</p>
+                                <div class="v-meter" id="ovCapMeter" style="margin-top:12px"><i></i></div>
+                                <div class="health__row"><span id="ovCapUsed">– bot aktif</span><span id="ovCapLeft">– slot kosong</span></div>
+                            </div>
+                            <div class="mini-metrics">
+                                <div><span>CPU</span><b id="ovCpu">–</b><div class="v-meter" id="ovCpuMeter"><i></i></div></div>
+                                <div><span>RAM</span><b id="ovRam">–</b><div class="v-meter" id="ovRamMeter"><i></i></div></div>
+                                <div><span>Pesan/detik</span><b id="ovMps">–</b><span id="ovMpsSub">–</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="v-card">
+                        <div class="card-head">
+                            <div><h3><i class="fa-solid fa-file-invoice"></i> Invoice terbaru</h3></div>
+                            <button type="button" class="v-btn v-btn--ghost v-btn--sm" data-view="orders">Lihat semua <i class="fa-solid fa-arrow-right"></i></button>
+                        </div>
+                        <div class="recent" id="ovOrders"><p class="recent__empty">Memuat transaksi…</p></div>
+                    </div>
+                </div>
+
+                <div class="stack">
+                    <div class="v-card">
+                        <div class="card-head"><div><h3><i class="fa-regular fa-gem"></i> Sebaran paket</h3><p>Dari 200 akun terbaru.</p></div></div>
+                        <div class="card-body dist" id="ovDist">
+                            <p class="v-help">Memuat…</p>
+                        </div>
+                    </div>
+                    <div class="v-card">
+                        <div class="card-head"><div><h3><i class="fa-solid fa-bolt"></i> Pintasan</h3></div></div>
+                        <div class="card-body shortcuts">
+                            <button type="button" class="shortcut" data-view="site"><i class="fa-regular fa-images"></i> Ganti banner</button>
+                            <button type="button" class="shortcut" data-view="capacity"><i class="fa-solid fa-server"></i> Atur kapasitas</button>
+                            <button type="button" class="shortcut" data-view="pricing"><i class="fa-solid fa-tags"></i> Ubah harga</button>
+                            <button type="button" class="shortcut" data-view="users"><i class="fa-solid fa-user-pen"></i> Ubah tier user</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =========================================================
+             MONITOR LIVE
+             ========================================================= -->
+        <section class="view" id="view-monitor" data-title="Monitor Live" data-group="Ringkasan">
+            <div class="page-head">
+                <div>
+                    <p class="v-eyebrow">Monitor live</p>
+                    <h2>Apa yang sedang dikerjakan server. <span class="v-fade-text">Angka asli, diperbarui tiap 3 detik.</span></h2>
+                </div>
+                <div class="page-head__tools">
+                    <span class="live-badge" id="liveBadge"><span class="v-dot v-dot--off" id="liveDot"></span> <span id="liveBadgeText">menghubungkan…</span></span>
+                </div>
+            </div>
+
+            <div class="v-card tiles tiles--8">
+                <div class="v-statgrid">
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-microchip"></i> CPU</span><span class="v-stat__value" id="mCpu">–</span><span class="v-stat__sub" id="mCpuSub">–</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-memory"></i> RAM</span><span class="v-stat__value" id="mRam">–</span><span class="v-stat__sub" id="mRamSub">–</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-bolt"></i> Pesan / detik</span><span class="v-stat__value" id="mMps">–</span><span class="v-stat__sub" id="mMpsSub">–</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-signal"></i> Bot online</span><span class="v-stat__value" id="mBots">–</span><span class="v-stat__sub" id="mBotsSub">–</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-regular fa-comments"></i> Pesan hari ini</span><span class="v-stat__value" id="mMsgToday">–</span><span class="v-stat__sub" id="mMsgTotal">–</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-terminal"></i> Command hari ini</span><span class="v-stat__value" id="mCmdToday">–</span><span class="v-stat__sub" id="mCmdTotal">–</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-regular fa-clock"></i> Uptime</span><span class="v-stat__value" id="mUptime">–</span><span class="v-stat__sub" id="mUptimeSub">–</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-gauge"></i> Event loop lag</span><span class="v-stat__value" id="mLag">–</span><span class="v-stat__sub" id="mHeap">–</span></div>
+                </div>
+            </div>
+
+            <div class="chart-grid">
+                <div class="v-card chart-card">
+                    <div class="chart-card__head"><span class="chart-card__label"><i class="fa-solid fa-microchip"></i> CPU</span><span class="chart-card__value" id="cCpuVal">–</span></div>
+                    <div class="chart" id="chartCpu" data-key="cpu" data-unit="%" data-max="100" role="img" aria-label="Grafik CPU 10 menit terakhir"></div>
+                    <div class="chart__foot"><span id="cCpuFrom">−10 mnt</span><span>sekarang</span></div>
+                </div>
+                <div class="v-card chart-card">
+                    <div class="chart-card__head"><span class="chart-card__label"><i class="fa-solid fa-memory"></i> RAM</span><span class="chart-card__value" id="cRamVal">–</span></div>
+                    <div class="chart" id="chartRam" data-key="ram" data-unit="%" data-max="100" role="img" aria-label="Grafik RAM 10 menit terakhir"></div>
+                    <div class="chart__foot"><span id="cRamFrom">−10 mnt</span><span>sekarang</span></div>
+                </div>
+                <div class="v-card chart-card">
+                    <div class="chart-card__head"><span class="chart-card__label"><i class="fa-solid fa-bolt"></i> Pesan / detik</span><span class="chart-card__value" id="cMpsVal">–</span></div>
+                    <div class="chart" id="chartMps" data-key="mps" data-unit="/s" role="img" aria-label="Grafik pesan per detik 10 menit terakhir"></div>
+                    <div class="chart__foot"><span id="cMpsFrom">−10 mnt</span><span>sekarang</span></div>
+                </div>
+            </div>
+
+            <div class="grid-21">
+                <div class="v-panel">
+                    <div class="v-panel__bar alog__bar">
+                        <span class="alog__title"><span class="v-dot v-dot--live" id="logDot"></span> Log command · nomor lengkap</span>
+                        <div class="alog__tools">
+                            <label class="search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="v-input" id="logFilter" placeholder="Saring bot / command" autocomplete="off"></label>
+                            <button type="button" class="v-btn v-btn--outline v-btn--sm alog__pause" id="btnLogPause"><i class="fa-solid fa-pause"></i> <span>Jeda</span></button>
+                            <button type="button" class="icon-btn icon-btn--sm" id="btnLogClear" aria-label="Bersihkan log" title="Bersihkan tampilan log"><i class="fa-solid fa-eraser"></i></button>
+                        </div>
+                    </div>
+                    <div class="alog__head" aria-hidden="true">
+                        <span>Waktu</span><span class="h-tag">Status</span><span>Bot</span><span>Command</span><span class="h-chat">Chat</span><span style="text-align:right">Durasi</span>
+                    </div>
+                    <div class="alog__list" id="logList" aria-live="off">
+                        <div class="alog__empty"><i class="fa-solid fa-terminal"></i>Menunggu command masuk…</div>
+                    </div>
+                    <div class="alog__foot"><span id="logCount">0 baris</span><span id="logCursor">cursor –</span></div>
+                </div>
+
+                <div class="stack">
+                    <div class="v-card">
+                        <div class="card-head"><div><h3><i class="fa-solid fa-ranking-star"></i> Command terpopuler hari ini</h3></div></div>
+                        <div class="top-cmds" id="topCmds"><p class="empty-note">Belum ada command hari ini.</p></div>
+                    </div>
+                    <div class="v-card">
+                        <div class="card-head"><div><h3><i class="fa-solid fa-server"></i> <span id="srvInfoName">Server</span></h3></div><span class="v-badge" id="srvInfoStatus">–</span></div>
+                        <dl class="kv" id="srvInfo">
+                            <div><dt><i class="fa-solid fa-globe"></i> Host</dt><dd id="siHost">–</dd></div>
+                            <div><dt><i class="fa-solid fa-location-dot"></i> Region</dt><dd id="siRegion">–</dd></div>
+                            <div><dt><i class="fa-solid fa-microchip"></i> Prosesor</dt><dd id="siCpu">–</dd></div>
+                            <div><dt><i class="fa-brands fa-linux"></i> Sistem</dt><dd id="siOs">–</dd></div>
+                            <div><dt><i class="fa-brands fa-node-js"></i> Runtime</dt><dd id="siNode">–</dd></div>
+                            <div><dt><i class="fa-solid fa-memory"></i> RAM proses</dt><dd id="siProc">–</dd></div>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="v-card">
+                <div class="card-head">
+                    <div><h3><i class="fa-solid fa-table-list"></i> Per bot</h3><p>Pesan &amp; command dihitung sejak bot terakhir tersambung.</p></div>
+                    <span class="toolbar__count" id="perBotCount">–</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="atable is-stack">
+                        <thead><tr><th>Nomor bot</th><th>Status</th><th class="right">Pesan</th><th class="right">Command</th><th class="right">Grup</th><th class="right">Aktivitas terakhir</th></tr></thead>
+                        <tbody id="perBotBody"><tr><td colspan="6" class="td-empty">Memuat…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- =========================================================
+             PENGGUNA
+             ========================================================= -->
+        <section class="view" id="view-users" data-title="Pengguna" data-group="Kelola">
+            <div class="page-head">
+                <div>
+                    <p class="v-eyebrow">Manajemen user</p>
+                    <h2>Database pengguna &amp; bot.</h2>
+                    <p class="v-muted">Tier yang diubah admin berlaku permanen (tanpa tanggal kedaluwarsa) sampai diubah lagi.</p>
+                </div>
+            </div>
+
+            <div class="v-card tiles">
+                <div class="v-statgrid">
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-users"></i> Total pengguna</span><span class="v-stat__value" id="admTotalUser">0</span><span class="v-stat__sub">200 akun terbaru dimuat</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-robot"></i> Bot aktif (node)</span><span class="v-stat__value" id="admActiveBot">0</span><span class="v-stat__sub">sesi hidup di server</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-regular fa-gem"></i> Akun berbayar</span><span class="v-stat__value" id="admPaidUser">0</span><span class="v-stat__sub" id="admPaidSub">Core · Prime · Zenith</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-regular fa-hourglass-half"></i> Habis ≤ 3 hari</span><span class="v-stat__value" id="admExpiring">0</span><span class="v-stat__sub">perlu diingatkan</span></div>
+                </div>
+            </div>
+
+            <div class="v-card">
+                <div class="toolbar">
+                    <label class="search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="v-input" id="userSearch" placeholder="Cari username, email, ID, atau nomor bot" autocomplete="off"></label>
+                    <div class="seg" id="userTierSeg" role="tablist" aria-label="Saring paket">
+                        <button type="button" class="seg__btn is-active" data-tier="">Semua</button>
+                        <button type="button" class="seg__btn" data-tier="free">Free</button>
+                        <button type="button" class="seg__btn" data-tier="paid">Berbayar</button>
+                        <button type="button" class="seg__btn" data-tier="admin">Admin</button>
+                    </div>
+                    <span class="toolbar__count" id="userCount">–</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="atable is-stack">
                         <thead>
-                            <tr>
-                                <th>Username / Email</th>
-                                <th>Role</th>
-                                <th>Paket (Tier)</th>
-                                <th>Kedaluwarsa</th>
-                                <th>Aksi Ubah Tier</th>
-                                <th>Force Stop Node</th>
-                            </tr>
+                            <tr><th>Username / Email</th><th>Role</th><th>Paket</th><th>Kedaluwarsa</th><th>Bot</th><th>Ubah tier</th><th class="right">Sesi WA</th></tr>
                         </thead>
                         <tbody id="adminTableBody">
-                            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Memuat data server...</td></tr>
+                            <tr><td colspan="7" class="td-empty">Memuat data server…</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </section>
 
-        <!-- TAB 2: BOT AKTIF (MONITORING NODE) -->
-        <section id="view-bots" class="admin-view">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-info"><p>Bot Online Sekarang</p><h3 id="botOnlineCount">0</h3></div>
-                    <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #34d399;"><i class="fa-solid fa-signal"></i></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-info"><p>Total Bot Terdaftar</p><h3 id="botTotalCount">0</h3></div>
-                    <div class="stat-icon" style="background: rgba(99, 102, 241, 0.1); color: #818cf8;"><i class="fa-solid fa-robot"></i></div>
+        <!-- =========================================================
+             BOT & NODE
+             ========================================================= -->
+        <section class="view" id="view-bots" data-title="Bot & Node" data-group="Kelola">
+            <div class="page-head">
+                <div>
+                    <p class="v-eyebrow">Monitoring node</p>
+                    <h2>Semua bot yang pernah dibuat.</h2>
+                    <p class="v-muted">Status ter-update otomatis tiap 10 detik. “Owner” adalah nomor WA yang di-set di Config bot, bukan akun login user.</p>
                 </div>
             </div>
 
-            <div class="control-panel">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                    <h2 class="section-title" style="margin-bottom: 0;">Daftar Node Bot</h2>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        <button class="btn" style="flex: none; padding: 6px 14px; font-size: 12px; background: var(--bg-dark); color: var(--text-muted); border: 1px solid var(--border-color);" onclick="loadBotsData()"><i class="fa-solid fa-rotate"></i> Refresh</button>
-                        <button class="btn" style="flex: none; padding: 6px 14px; font-size: 12px; background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border-color);" onclick="syncTiers(event)"><i class="fa-solid fa-arrows-rotate"></i> Sinkronkan tier</button>
-                        <button class="btn btn-delete" style="flex: none; padding: 6px 14px; font-size: 12px;" onclick="deleteFreeBots(event)"><i class="fa-solid fa-trash"></i> Hapus semua bot Free</button>
-                    </div>
+            <div class="v-card tiles">
+                <div class="v-statgrid">
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-signal"></i> Bot online sekarang</span><span class="v-stat__value" id="botOnlineCount">0</span><span class="v-stat__sub">tersambung ke WhatsApp</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-robot"></i> Total bot terdaftar</span><span class="v-stat__value" id="botTotalCount">0</span><span class="v-stat__sub">semua status</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-power-off"></i> Offline</span><span class="v-stat__value" id="botOfflineCount">0</span><span class="v-stat__sub">tidak tersambung</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-seedling"></i> Bot user Free</span><span class="v-stat__value" id="botFreeCount">0</span><span class="v-stat__sub">kandidat dibersihkan</span></div>
                 </div>
-                <p class="section-subtitle">Status otomatis ter-update tiap 10 detik. "Nomor Owner" adalah nomor WA yang di-set di Config bot, bukan akun login user.</p>
+            </div>
+
+            <div class="v-card">
+                <div class="toolbar">
+                    <label class="search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="v-input" id="botSearch" placeholder="Cari nomor bot atau owner" autocomplete="off" inputmode="search"></label>
+                    <div class="seg" id="botStateSeg" aria-label="Saring status">
+                        <button type="button" class="seg__btn is-active" data-state="">Semua</button>
+                        <button type="button" class="seg__btn" data-state="on">Online</button>
+                        <button type="button" class="seg__btn" data-state="off">Offline</button>
+                    </div>
+                    <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnBotsRefresh"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                    <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnSyncTiers"><i class="fa-solid fa-arrows-rotate"></i> Sinkronkan tier</button>
+                </div>
                 <div id="botBoard" class="bot-board">
-                    <p class="board-empty">Memuat data node...</p>
+                    <p class="board-empty">Memuat data node…</p>
                 </div>
-
-                <div class="board-pager" id="botPager" style="display:none;">
-                    <button class="btn board-nav" id="botPrev" aria-label="Halaman sebelumnya">
-                        <i class="fa-solid fa-chevron-left"></i> Sebelumnya
-                    </button>
+                <div class="board-pager" id="botPager" hidden>
+                    <button type="button" class="v-btn v-btn--outline v-btn--sm" id="botPrev" aria-label="Halaman sebelumnya"><i class="fa-solid fa-chevron-left"></i> Sebelumnya</button>
                     <span class="board-count" id="botPageInfo">1 / 1</span>
-                    <button class="btn board-nav" id="botNext" aria-label="Halaman berikutnya">
-                        Selanjutnya <i class="fa-solid fa-chevron-right"></i>
-                    </button>
+                    <button type="button" class="v-btn v-btn--outline v-btn--sm" id="botNext" aria-label="Halaman berikutnya">Selanjutnya <i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+                <div class="danger-row">
+                    <p><strong style="color:var(--text-2)">Zona berbahaya.</strong> Hapus paksa sesi nomor tertentu (juga yang tidak muncul di daftar), atau hapus PERMANEN semua bot milik user Free beserta sesi WhatsApp-nya. Tidak bisa dibatalkan.</p>
+                    <div class="danger-row__btns">
+                        <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnForceDelete"><i class="fa-solid fa-power-off"></i> Hapus paksa nomor…</button>
+                        <button type="button" class="v-btn v-btn--danger v-btn--sm" id="btnDeleteFree"><i class="fa-solid fa-trash"></i> Hapus semua bot Free</button>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- TAB 3: INVOICE / TRANSAKSI -->
-        <section id="view-orders" class="admin-view">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-info"><p>Total Pendapatan (Lunas)</p><h3 id="admRevenue">Rp 0</h3></div>
-                    <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #34d399;"><i class="fa-solid fa-dollar-sign"></i></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-info"><p>Invoice Menunggu</p><h3 id="admPending">0</h3></div>
-                    <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #fbbf24;"><i class="fa-solid fa-file-invoice"></i></div>
+        <!-- =========================================================
+             INVOICE / TRANSAKSI
+             ========================================================= -->
+        <section class="view" id="view-orders" data-title="Invoice" data-group="Kelola">
+            <div class="page-head">
+                <div>
+                    <p class="v-eyebrow">Transaksi</p>
+                    <h2>Daftar invoice.</h2>
+                    <p class="v-muted">50 invoice terakhir dari payment gateway.</p>
                 </div>
             </div>
 
-            <div class="control-panel">
-                <h2 class="section-title" style="margin-bottom: 0;">Daftar Transaksi</h2>
-                <p class="section-subtitle">50 invoice terakhir dari payment gateway Pakasir.</p>
-                <div style="overflow-x: auto;">
-                    <table class="admin-table">
-                        <thead>
-                            <tr><th>Order ID</th><th>User</th><th>Paket</th><th>Total</th><th>Status</th></tr>
-                        </thead>
+            <div class="v-card tiles">
+                <div class="v-statgrid">
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-coins"></i> Total pendapatan (lunas)</span><span class="v-stat__value" id="admRevenue">Rp 0</span><span class="v-stat__sub">semua waktu</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-regular fa-clock"></i> Invoice menunggu</span><span class="v-stat__value" id="admPending">0</span><span class="v-stat__sub">belum dibayar</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-check"></i> Lunas</span><span class="v-stat__value" id="admPaidCount">0</span><span class="v-stat__sub" id="admPaidSum">–</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-xmark"></i> Batal / kedaluwarsa</span><span class="v-stat__value" id="admFailCount">0</span><span class="v-stat__sub">dari 50 terakhir</span></div>
+                </div>
+            </div>
+
+            <div class="v-card">
+                <div class="toolbar">
+                    <label class="search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="v-input" id="orderSearch" placeholder="Cari order ID, username, email" autocomplete="off"></label>
+                    <div class="seg" id="orderStatusSeg" aria-label="Saring status">
+                        <button type="button" class="seg__btn is-active" data-status="">Semua</button>
+                        <button type="button" class="seg__btn" data-status="completed">Lunas</button>
+                        <button type="button" class="seg__btn" data-status="pending">Menunggu</button>
+                        <button type="button" class="seg__btn" data-status="failed">Batal</button>
+                    </div>
+                    <span class="toolbar__count" id="orderCount">–</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="atable is-stack">
+                        <thead><tr><th>Order ID</th><th>User</th><th>Paket</th><th class="right">Total</th><th>Status</th></tr></thead>
                         <tbody id="ordersTableBody">
-                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Memuat transaksi...</td></tr>
+                            <tr><td colspan="5" class="td-empty">Memuat transaksi…</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </section>
 
-        <!-- TAB 4: PENGATURAN HARGA -->
-        <section id="view-pricing" class="admin-view">
-            <div class="control-panel">
-                <h2 class="section-title">Harga Paket Langganan</h2>
-                <p class="section-subtitle">Sesuaikan harga SaaS untuk integrasi *Payment Gateway*.</p>
-                
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                    <div>
-                        <label style="font-size: 13px; font-weight: 500;">Core (Rp)</label>
-                        <input type="number" id="priceBasic" class="control-input input-left" style="margin-top: 8px;">
-                    </div>
-                    <div>
-                        <label style="font-size: 13px; font-weight: 500;">Prime (Rp)</label>
-                        <input type="number" id="pricePlus" class="control-input input-left" style="margin-top: 8px;">
-                    </div>
-                    <div>
-                        <label style="font-size: 13px; font-weight: 500;">Zenith (Rp)</label>
-                        <input type="number" id="priceBooster" class="control-input input-left" style="margin-top: 8px;">
+        <!-- =========================================================
+             HARGA & PROMO
+             ========================================================= -->
+        <section class="view" id="view-pricing" data-title="Harga & Promo" data-group="Kelola">
+            <div class="page-head">
+                <div>
+                    <p class="v-eyebrow">Penjualan</p>
+                    <h2>Harga paket &amp; kode promo.</h2>
+                    <p class="v-muted">Harga baru langsung dipakai halaman harga, dashboard user, dan payment gateway.</p>
+                </div>
+            </div>
+
+            <div class="v-card">
+                <div class="card-head"><div><h3><i class="fa-solid fa-tags"></i> Harga paket langganan</h3><p>Harga per bulan, dalam rupiah.</p></div></div>
+                <div class="card-body">
+                    <div class="form-grid form-grid--3">
+                        <label class="price-card">
+                            <span class="price-card__top"><span class="tier tier--basic">Core</span><span class="price-card__per">/ bulan</span></span>
+                            <span class="affix affix--rp"><span>Rp</span><input type="number" min="0" step="500" id="priceBasic" class="v-input" inputmode="numeric"></span>
+                        </label>
+                        <label class="price-card">
+                            <span class="price-card__top"><span class="tier tier--plus">Prime</span><span class="price-card__per">/ bulan</span></span>
+                            <span class="affix affix--rp"><span>Rp</span><input type="number" min="0" step="500" id="pricePlus" class="v-input" inputmode="numeric"></span>
+                        </label>
+                        <label class="price-card">
+                            <span class="price-card__top"><span class="tier tier--booster">Zenith</span><span class="price-card__per">/ bulan</span></span>
+                            <span class="affix affix--rp"><span>Rp</span><input type="number" min="0" step="500" id="priceBooster" class="v-input" inputmode="numeric"></span>
+                        </label>
                     </div>
                 </div>
-                
-                <button class="btn btn-primary" onclick="updatePricing()" style="width: auto; margin-top: 15px;">Simpan Harga</button>
+                <div class="card-foot">
+                    <span class="v-help" id="priceHint">Harga tersimpan dimuat dari server.</span>
+                    <button type="button" class="v-btn v-btn--primary" id="btnSavePricing"><i class="fa-solid fa-floppy-disk"></i> Simpan harga</button>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="v-card">
+                    <div class="card-head"><div><h3><i class="fa-solid fa-ticket"></i> Buat kode promo</h3><p>Dipakai user saat checkout paket.</p></div></div>
+                    <div class="card-body">
+                        <div class="form-grid">
+                            <div class="v-field">
+                                <label class="v-label" for="promoCode">Kode <small>cth: MANZZY20</small></label>
+                                <input type="text" id="promoCode" class="v-input" style="text-transform:uppercase;font-family:var(--font-mono);letter-spacing:.06em" maxlength="32" autocomplete="off" spellcheck="false">
+                            </div>
+                            <div class="form-grid form-grid--2">
+                                <div class="v-field">
+                                    <label class="v-label" for="promoDiscount">Diskon</label>
+                                    <span class="affix affix--suffix"><input type="number" id="promoDiscount" class="v-input" placeholder="25" min="1" max="100" inputmode="numeric"><em>%</em></span>
+                                </div>
+                                <div class="v-field">
+                                    <label class="v-label" for="promoMax">Maks. penggunaan</label>
+                                    <span class="affix affix--suffix"><input type="number" id="promoMax" class="v-input" value="100" min="1" inputmode="numeric"><em>kali</em></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-foot">
+                        <span class="v-help">Kode otomatis huruf besar.</span>
+                        <button type="button" class="v-btn v-btn--primary" id="btnAddPromo"><i class="fa-solid fa-plus"></i> Buat promo</button>
+                    </div>
+                </div>
+
+                <div class="v-card">
+                    <div class="card-head"><div><h3><i class="fa-solid fa-list"></i> Daftar promo</h3></div><span class="toolbar__count" id="promoCount">–</span></div>
+                    <div class="table-wrap">
+                        <table class="atable is-stack">
+                            <thead><tr><th>Kode promo</th><th>Diskon</th><th>Penggunaan</th><th>Status</th></tr></thead>
+                            <tbody id="promoTableBody">
+                                <tr><td colspan="4" class="td-empty">Memuat promo…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <!-- TAB 3: MANAJEMEN PROMO -->
-        <section id="view-promo" class="admin-view">
-            <div class="control-panel">
-                <h2 class="section-title">Buat Kode Promo</h2>
-                <p class="section-subtitle">Kode promo untuk menarik *user* baru, dapat diintegrasikan dengan modul *billing* nanti.</p>
-                
-                <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 200px;">
-                        <label style="font-size: 13px; font-weight: 500;">Kode (Cth: MANZZY20)</label>
-                        <input type="text" id="promoCode" class="control-input input-left" style="margin-top: 8px; text-transform: uppercase;">
-                    </div>
-                    <div style="width: 120px;">
-                        <label style="font-size: 13px; font-weight: 500;">Diskon (%)</label>
-                        <input type="number" id="promoDiscount" class="control-input input-left" style="margin-top: 8px;" placeholder="25">
-                    </div>
-                    <div style="width: 150px;">
-                        <label style="font-size: 13px; font-weight: 500;">Max Penggunaan</label>
-                        <input type="number" id="promoMax" class="control-input input-left" style="margin-top: 8px;" value="100">
-                    </div>
-                    <button class="btn btn-start" onclick="addPromo()" style="width: auto; padding: 14px 20px; margin-bottom: 15px;">Buat Promo</button>
+        <!-- =========================================================
+             BANNER & TAMPILAN SITUS
+             ========================================================= -->
+        <section class="view" id="view-site" data-title="Banner & Tampilan" data-group="Situs">
+            <div class="page-head">
+                <div>
+                    <p class="v-eyebrow">Tampilan situs</p>
+                    <h2>Banner, pengumuman &amp; tautan. <span class="v-fade-text">Tanpa deploy ulang.</span></h2>
+                    <p class="v-muted">Perubahan baru tampil di situs setelah kamu menekan <strong>Simpan perubahan</strong>.</p>
+                </div>
+                <div class="page-head__tools">
+                    <a class="v-btn v-btn--outline v-btn--sm" href="/" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> Lihat situs</a>
                 </div>
             </div>
 
-            <div class="control-panel">
-                <h2 class="section-title">Daftar Promo Aktif</h2>
-                <div style="overflow-x: auto;">
-                    <table class="admin-table">
-                        <thead>
-                            <tr>
-                                <th>Kode Promo</th>
-                                <th>Diskon</th>
-                                <th>Penggunaan</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="promoTableBody">
-                            <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Memuat promo...</td></tr>
-                        </tbody>
-                    </table>
+            <div class="site-grid">
+                <div class="site-col">
+                    <!-- Pengumuman -->
+                    <div class="v-card">
+                        <div class="card-head">
+                            <div><h3><i class="fa-solid fa-bullhorn"></i> Pengumuman berjalan</h3><p>Bilah teks bergerak di paling atas halaman depan.</p></div>
+                            <label class="v-switch" title="Aktifkan pengumuman"><input type="checkbox" id="annEnabled" aria-label="Aktifkan pengumuman"><span></span></label>
+                        </div>
+                        <div class="card-body">
+                            <div class="marquee-preview is-off" id="annPreview" aria-label="Pratinjau pengumuman">
+                                <span class="marquee-preview__tag">Pratinjau</span>
+                                <div class="v-marquee"><div class="v-marquee__track" id="annPreviewTrack"><span>Teks pengumuman tampil di sini…</span></div></div>
+                                <span class="marquee-preview__cta" id="annPreviewCta" hidden></span>
+                            </div>
+                            <div class="form-grid" style="margin-top:14px">
+                                <div class="v-field">
+                                    <label class="v-label" for="annText">Teks pengumuman</label>
+                                    <input type="text" id="annText" class="v-input" maxlength="200" placeholder="Promo Zenith 20% sampai akhir bulan — pakai kode ZENITH20">
+                                    <span class="count-hint" data-count-for="annText">0/200</span>
+                                </div>
+                                <div class="form-grid form-grid--2">
+                                    <div class="v-field">
+                                        <label class="v-label" for="annLink">Tautan <small>opsional</small></label>
+                                        <input type="text" id="annLink" class="v-input" maxlength="500" placeholder="/dashboard atau https://…" spellcheck="false">
+                                    </div>
+                                    <div class="v-field">
+                                        <label class="v-label" for="annLinkLabel">Label tombol</label>
+                                        <input type="text" id="annLinkLabel" class="v-input" maxlength="24" placeholder="Klaim">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Banner -->
+                    <div class="v-card">
+                        <div class="card-head">
+                            <div><h3><i class="fa-regular fa-images"></i> Banner hero</h3><p id="bannerSummary">Video/gambar yang berputar di hero halaman depan.</p></div>
+                            <button type="button" class="v-btn v-btn--primary v-btn--sm" id="btnAddBanner"><i class="fa-solid fa-plus"></i> Tambah banner</button>
+                        </div>
+                        <div class="banner-list" id="bannerList">
+                            <p class="banner-empty">Memuat banner…</p>
+                        </div>
+                        <div class="card-foot">
+                            <span class="v-help">Maks. 10 banner. Urutan di sini = urutan tayang. Yang nonaktif disembunyikan.</span>
+                        </div>
+                    </div>
+
+                    <!-- Sosial -->
+                    <div class="v-card">
+                        <div class="card-head"><div><h3><i class="fa-solid fa-link"></i> Tautan sosial</h3><p>Tampil di footer &amp; tombol bantuan. Kosongkan untuk menyembunyikan.</p></div></div>
+                        <div class="card-body social-grid">
+                            <div class="v-field">
+                                <label class="v-label" for="socWhatsapp">WhatsApp</label>
+                                <span class="affix affix--icon"><i class="fa-brands fa-whatsapp"></i><input type="text" id="socWhatsapp" class="v-input" data-social="whatsapp" placeholder="628… atau https://wa.me/…" spellcheck="false"></span>
+                            </div>
+                            <div class="v-field">
+                                <label class="v-label" for="socChannel">Saluran WhatsApp</label>
+                                <span class="affix affix--icon"><i class="fa-solid fa-bullhorn"></i><input type="text" id="socChannel" class="v-input" data-social="channel" placeholder="https://whatsapp.com/channel/…" spellcheck="false"></span>
+                            </div>
+                            <div class="v-field">
+                                <label class="v-label" for="socInstagram">Instagram</label>
+                                <span class="affix affix--icon"><i class="fa-brands fa-instagram"></i><input type="text" id="socInstagram" class="v-input" data-social="instagram" placeholder="https://instagram.com/…" spellcheck="false"></span>
+                            </div>
+                            <div class="v-field">
+                                <label class="v-label" for="socTiktok">TikTok</label>
+                                <span class="affix affix--icon"><i class="fa-brands fa-tiktok"></i><input type="text" id="socTiktok" class="v-input" data-social="tiktok" placeholder="https://tiktok.com/@…" spellcheck="false"></span>
+                            </div>
+                            <div class="v-field">
+                                <label class="v-label" for="socGithub">GitHub</label>
+                                <span class="affix affix--icon"><i class="fa-brands fa-github"></i><input type="text" id="socGithub" class="v-input" data-social="github" placeholder="https://github.com/…" spellcheck="false"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="site-col site-col--sticky">
+                    <div class="v-card">
+                        <div class="card-head"><div><h3><i class="fa-regular fa-eye"></i> Pratinjau hero</h3><p id="stageInfo">Banner aktif berputar sesuai interval.</p></div></div>
+                        <div class="card-body">
+                            <div class="stage-preview" id="stagePreview"><p class="stage-preview__empty">Memuat…</p></div>
+                        </div>
+                    </div>
+
+                    <div class="v-card">
+                        <div class="card-head"><div><h3><i class="fa-solid fa-sliders"></i> Umum</h3></div></div>
+                        <div class="card-body form-grid">
+                            <div class="v-field">
+                                <label class="v-label" for="bannerInterval">Ganti banner tiap</label>
+                                <div class="range-row">
+                                    <input type="range" id="bannerIntervalRange" min="3" max="30" step="1" aria-label="Interval banner (detik)">
+                                    <span class="affix affix--suffix"><input type="number" id="bannerInterval" class="v-input" min="3" max="30" step="1" inputmode="numeric"><em>dtk</em></span>
+                                </div>
+                                <span class="v-help">3–30 detik. Video pindah lebih cepat kalau sudah selesai diputar.</span>
+                            </div>
+                            <div class="v-field">
+                                <label class="v-label" for="serverName">Nama server</label>
+                                <input type="text" id="serverName" class="v-input" maxlength="40" placeholder="Server 1">
+                                <span class="v-help">Tampil di panel status, dashboard &amp; halaman depan.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="savebar" id="siteSavebar">
+                <span class="savebar__msg" id="siteSaveMsg"><i class="fa-regular fa-circle-check"></i> Semua perubahan tersimpan.</span>
+                <div class="savebar__btns">
+                    <button type="button" class="v-btn v-btn--ghost v-btn--sm" id="btnSiteReset" disabled>Batalkan</button>
+                    <button type="button" class="v-btn v-btn--primary v-btn--sm" id="btnSiteSave" disabled><i class="fa-solid fa-floppy-disk"></i> Simpan perubahan</button>
                 </div>
             </div>
         </section>
 
-        <!-- TAB: RIWAYAT ADMIN -->
-        <section id="view-audit" class="admin-view">
-            <div class="control-panel">
-                <h2 class="section-title" style="margin-bottom: 0;">Riwayat Perubahan Admin</h2>
-                <p class="section-subtitle">Catatan siapa mengubah apa. Berguna saat ada sengketa pembayaran atau perubahan tier yang dipertanyakan.</p>
-                <div style="overflow-x: auto;">
-                    <table class="admin-table">
-                        <thead>
-                            <tr><th>Waktu</th><th>Admin</th><th>Aksi</th><th>Target</th><th>Detail</th></tr>
-                        </thead>
+        <!-- =========================================================
+             KAPASITAS SERVER
+             ========================================================= -->
+        <section class="view" id="view-capacity" data-title="Kapasitas Server" data-group="Situs">
+            <div class="page-head">
+                <div>
+                    <p class="v-eyebrow">Penjaga kapasitas</p>
+                    <h2>Berapa bot yang muat di server ini. <span class="v-fade-text">Dihitung dari RAM &amp; CPU asli.</span></h2>
+                    <p class="v-muted">Saat slot habis, user tidak bisa menyalakan bot BARU (restart bot yang masih hidup tetap boleh, admin selalu boleh). Ini mencegah RAM jebol sampai semua bot ikut mati.</p>
+                </div>
+            </div>
+
+            <div class="cap-grid">
+                <div class="v-card">
+                    <div class="card-head"><div><h3><i class="fa-solid fa-sliders"></i> Batas kapasitas</h3><p>Disimpan di server, langsung berlaku.</p></div></div>
+                    <div class="card-body form-grid">
+                        <div class="switch-row">
+                            <div><strong>Hitung otomatis</strong><span class="v-help">Pakai angka terkecil dari kapasitas RAM &amp; CPU.</span></div>
+                            <label class="v-switch"><input type="checkbox" id="capAuto" aria-label="Kapasitas otomatis"><span></span></label>
+                        </div>
+                        <div class="v-field">
+                            <label class="v-label" for="capMaxBots">Maksimal bot <small>0 = otomatis</small></label>
+                            <span class="affix affix--suffix"><input type="number" id="capMaxBots" class="v-input" min="0" max="5000" step="1" inputmode="numeric"><em>bot</em></span>
+                            <span class="v-help">Kalau diisi, batas ini ikut dibandingkan — yang dipakai tetap yang paling kecil, jadi angka admin tidak bisa membuat server kelebihan beban.</span>
+                        </div>
+                        <div class="v-field">
+                            <label class="v-label" for="capReserve">Cadangan RAM</label>
+                            <div class="range-row">
+                                <input type="range" id="capReserveRange" min="0" max="50" step="1" aria-label="Cadangan RAM (persen)">
+                                <span class="affix affix--suffix"><input type="number" id="capReserve" class="v-input" min="0" max="50" step="1" inputmode="numeric"><em>%</em></span>
+                            </div>
+                            <span class="v-help">Bagian RAM yang sengaja tidak dihitung untuk bot (0–50%). Makin besar, makin aman dari lonjakan tapi slot makin sedikit.</span>
+                        </div>
+                        <div class="preview-box is-same" id="capPreview">
+                            <span>Perkiraan setelah disimpan</span>
+                            <b id="capPreviewVal">–</b>
+                            <span id="capPreviewNote">Ubah angka di atas untuk melihat dampaknya.</span>
+                        </div>
+                    </div>
+                    <div class="card-foot">
+                        <span class="v-help" id="capSavedInfo">–</span>
+                        <button type="button" class="v-btn v-btn--primary" id="btnSaveCap"><i class="fa-solid fa-floppy-disk"></i> Simpan kapasitas</button>
+                    </div>
+                </div>
+
+                <div class="stack">
+                    <div class="v-card">
+                        <div class="card-head">
+                            <div><h3><span class="v-dot v-dot--off" id="capDot"></span> Kapasitas sekarang</h3><p id="capNote">memuat…</p></div>
+                            <span class="v-badge" id="capStatus">–</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="cap-big"><span class="v-num" id="capMax">–</span><span>bot maksimal</span></div>
+                            <div class="v-meter" id="capMeter" style="margin-top:14px;height:8px"><i></i></div>
+                            <div class="cap-legend"><span><b id="capUsed">–</b> terpakai</span><span><b id="capLeft">–</b> slot kosong</span><span><b id="capPerBot">–</b> per bot</span></div>
+                        </div>
+                        <dl class="kv" id="capDetail">
+                            <div data-basis="memory"><dt><i class="fa-solid fa-memory"></i> Kapasitas dari RAM</dt><dd id="cdMem">–</dd></div>
+                            <div data-basis="cpu"><dt><i class="fa-solid fa-microchip"></i> Kapasitas dari CPU</dt><dd id="cdCpu">–</dd></div>
+                            <div data-basis="admin"><dt><i class="fa-solid fa-user-shield"></i> Batas admin</dt><dd id="cdAdmin">–</dd></div>
+                        </dl>
+                    </div>
+
+                    <div class="v-card">
+                        <div class="card-head"><div><h3><i class="fa-solid fa-calculator"></i> Cara menghitungnya</h3><p>Angka asli dari server ini.</p></div></div>
+                        <div class="card-body">
+                            <ol class="cap-steps">
+                                <li><b>Batas RAM</b> — diambil yang terkecil antara RAM mesin/container dan batas PM2 (<code>max_memory_restart</code>, bawaan 1200 MB). Lewat dari batas PM2, proses di-restart dan <em>semua</em> bot ikut putus.</li>
+                                <li><b>Sisihkan cadangan</b> (persen di kiri) untuk lonjakan, lalu kurangi RAM dasar aplikasi saat belum ada bot.</li>
+                                <li><b>Bagi rata-rata RAM per bot</b> — diukur dari bot yang sedang jalan → kapasitas dari RAM.</li>
+                                <li><b>CPU</b> ikut membatasi: ±25 bot per core.</li>
+                                <li><b>Batas admin</b> (kalau diisi) ikut dibandingkan. Angka <em>terkecil</em> yang dipakai, jadi batas admin tidak bisa membuat server kelebihan beban.</li>
+                            </ol>
+                            <div class="cap-formula" id="capFormula">memuat…</div>
+                            <p class="v-help" style="margin-top:10px" id="capMeasured">–</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =========================================================
+             RIWAYAT ADMIN
+             ========================================================= -->
+        <section class="view" id="view-audit" data-title="Riwayat Admin" data-group="Sistem">
+            <div class="page-head">
+                <div>
+                    <p class="v-eyebrow">Audit</p>
+                    <h2>Riwayat perubahan admin.</h2>
+                    <p class="v-muted">Catatan siapa mengubah apa. Berguna saat ada sengketa pembayaran atau perubahan tier yang dipertanyakan.</p>
+                </div>
+                <div class="page-head__tools">
+                    <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnAuditRefresh"><i class="fa-solid fa-rotate"></i> Muat ulang</button>
+                </div>
+            </div>
+            <div class="v-card">
+                <div class="table-wrap">
+                    <table class="atable is-stack">
+                        <thead><tr><th>Waktu</th><th>Admin</th><th>Aksi</th><th>Target</th><th>Detail</th></tr></thead>
                         <tbody id="auditTableBody">
-                            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Memuat...</td></tr>
+                            <tr><td colspan="5" class="td-empty">Memuat…</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </section>
 
-    </main>
+        </main>
+    </div>
 
-    <script>
-        let currentAdmin = null;
+    <!-- ============ EDITOR BANNER ============ -->
+    <div class="modal" id="bannerModal" role="dialog" aria-modal="true" aria-labelledby="bannerModalTitle" hidden>
+        <div class="modal__box modal__box--wide">
+            <div class="modal__head">
+                <h3 id="bannerModalTitle">Tambah banner</h3>
+                <button type="button" class="icon-btn icon-btn--sm" data-close aria-label="Tutup"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal__body">
+                <div class="editor-grid">
+                    <div>
+                        <div class="v-field">
+                            <span class="v-label">Jenis media</span>
+                            <div class="seg" id="bType" role="radiogroup" aria-label="Jenis media">
+                                <button type="button" class="seg__btn is-active" data-type="video" role="radio" aria-checked="true"><i class="fa-solid fa-film"></i> Video</button>
+                                <button type="button" class="seg__btn" data-type="image" role="radio" aria-checked="false"><i class="fa-regular fa-image"></i> Gambar / GIF</button>
+                            </div>
+                        </div>
+                        <div class="v-field">
+                            <label class="v-label" for="bSrc">Sumber media <small>URL atau unggah file</small></label>
+                            <input type="text" id="bSrc" class="v-input" maxlength="500" placeholder="https://…/banner.mp4" spellcheck="false">
+                            <button type="button" class="upload-zone" id="bUploadZone">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                <span><span id="bUploadLabel">Unggah video dari perangkat</span><small id="bUploadHint">MP4/WEBM, maks. 25 MB · bisa juga seret file ke sini</small></span>
+                            </button>
+                            <input type="file" id="bFile" hidden>
+                            <div class="upload-progress" id="bProgress" hidden>
+                                <div class="upload-progress__row"><span id="bProgressName">file</span><span id="bProgressPct">0%</span></div>
+                                <div class="v-meter"><i id="bProgressBar"></i></div>
+                            </div>
+                        </div>
+                        <div class="v-field" id="bPosterField">
+                            <label class="v-label" for="bPoster">Poster video <small>opsional — gambar sebelum video termuat</small></label>
+                            <div class="src-row">
+                                <input type="text" id="bPoster" class="v-input" maxlength="500" placeholder="https://…/poster.jpg" spellcheck="false">
+                                <button type="button" class="v-btn v-btn--outline" id="bPosterUpload" title="Unggah poster"><i class="fa-solid fa-upload"></i></button>
+                            </div>
+                            <input type="file" id="bPosterFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+                        </div>
+                        <div class="v-field">
+                            <label class="v-label" for="bTitle">Judul <small>opsional</small></label>
+                            <input type="text" id="bTitle" class="v-input" maxlength="80" placeholder="Bot WhatsApp kamu, online 24 jam">
+                            <span class="count-hint" data-count-for="bTitle">0/80</span>
+                        </div>
+                        <div class="v-field">
+                            <label class="v-label" for="bSubtitle">Subjudul <small>opsional</small></label>
+                            <input type="text" id="bSubtitle" class="v-input" maxlength="160" placeholder="Mulai gratis, upgrade kapan saja.">
+                            <span class="count-hint" data-count-for="bSubtitle">0/160</span>
+                        </div>
+                        <div class="form-grid form-grid--2" style="margin-top:12px">
+                            <div class="v-field">
+                                <label class="v-label" for="bLink">Tautan tombol</label>
+                                <input type="text" id="bLink" class="v-input" maxlength="500" placeholder="/dashboard atau https://…" spellcheck="false">
+                            </div>
+                            <div class="v-field">
+                                <label class="v-label" for="bLinkLabel">Label tombol</label>
+                                <input type="text" id="bLinkLabel" class="v-input" maxlength="24" placeholder="Lihat">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="editor-side">
+                        <span class="v-label">Pratinjau</span>
+                        <div class="media-preview" id="bPreview">Masukkan URL atau unggah file untuk melihat pratinjau.</div>
+                        <div class="switch-row">
+                            <div><strong>Tampilkan banner ini</strong><span class="v-help">Nonaktif = disimpan tapi tidak diputar.</span></div>
+                            <label class="v-switch"><input type="checkbox" id="bActive" checked aria-label="Banner aktif"><span></span></label>
+                        </div>
+                        <p class="v-help" id="bFormErr" role="alert"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__foot">
+                <button type="button" class="v-btn v-btn--ghost" data-close>Batal</button>
+                <button type="button" class="v-btn v-btn--primary" id="bApply"><i class="fa-solid fa-check"></i> <span>Pakai banner</span></button>
+            </div>
+        </div>
+    </div>
 
-        // Dipakai bersama oleh tabel invoice DAN papan node bot. Sebelumnya
-        // dideklarasikan di dalam renderOrdersTable saja, sehingga
-        // renderBotPage melempar ReferenceError dan mematikan seluruh render
-        // panel admin.
-        const TIER_LABEL = { free: 'Free', basic: 'Core', plus: 'Prime', booster: 'Zenith' };
-        const rupiah = n => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+    <!-- ============ DIALOG KONFIRMASI ============ -->
+    <div class="modal" id="askModal" role="alertdialog" aria-modal="true" aria-labelledby="askTitle" hidden>
+        <div class="modal__box">
+            <div class="modal__head">
+                <h3 id="askTitle">Yakin?</h3>
+                <button type="button" class="icon-btn icon-btn--sm" data-close aria-label="Tutup"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal__body">
+                <div class="modal__icon" id="askIcon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <p id="askBody"></p>
+                <div class="v-field" id="askField" hidden>
+                    <label class="v-label" for="askInput" id="askLabel">Isian</label>
+                    <input type="text" class="v-input" id="askInput" autocomplete="off">
+                </div>
+            </div>
+            <div class="modal__foot">
+                <button type="button" class="v-btn v-btn--ghost" data-close>Batal</button>
+                <button type="button" class="v-btn v-btn--primary" id="askOk">Lanjutkan</button>
+            </div>
+        </div>
+    </div>
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            const userStr = localStorage.getItem('currentUser');
-            if (!userStr) return window.location.href = '/login';
-            const user = JSON.parse(userStr);
-            if (user.role !== 'admin') {
-                alert("Akses Ditolak! Halaman ini khusus Admin.");
-                return window.location.href = '/dashboard';
-            }
-            currentAdmin = user;
-            loadAdminData();
-            setInterval(loadBotsData, 10000); // auto-refresh status bot tiap 10 detik
-        });
+    <div class="v-toast-wrap" id="toastWrap" aria-live="polite"></div>
 
-        // Header ini dikirim ke server supaya endpoint /api/admin/* bisa
-        // verifikasi ulang role admin (bukan cuma percaya localStorage).
-        function adminHeaders() {
-            return { 'Content-Type': 'application/json', 'x-user-id': currentAdmin?.id || '' };
-        }
-
-        function switchAdminTab(evt, tabId) {
-            document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.admin-view').forEach(v => v.classList.remove('active'));
-
-            evt.currentTarget.classList.add('active');
-            document.getElementById('view-' + tabId).classList.add('active');
-            if (tabId === 'audit') loadAuditLog();
-        }
-
-        async function loadAdminData() {
-            try {
-                const res = await fetch('/api/admin/dashboard', { headers: adminHeaders() });
-                if (res.status === 401 || res.status === 403) {
-                    alert("Sesi admin tidak valid. Silakan login ulang.");
-                    return window.location.href = '/login';
-                }
-                const result = await res.json();
-                
-                if (result.success) {
-                    // Populate Dashboard Stats
-                    document.getElementById('admTotalUser').innerText = result.data.users.length;
-                    document.getElementById('admActiveBot').innerText = result.data.activeSessionsCount;
-                    if (result.data.bots) renderBotsTable(result.data.bots);
-                    renderOrdersTable(result.data.orders || [], result.data.revenue || 0);
-                    // Populate Users Table
-                    const tbody = document.getElementById('adminTableBody');
-                    tbody.innerHTML = '';
-                    result.data.users.forEach(u => {
-                        let expiryLabel = '<span style="color: var(--text-muted);">-</span>';
-                        if (u.tier !== 'free' && u.tierExpiredAt) {
-                            const exp = new Date(u.tierExpiredAt);
-                            if (!isNaN(exp)) {
-                                const daysLeft = Math.ceil((exp - new Date()) / 86400000);
-                                const dateStr = exp.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                                const color = daysLeft <= 3 ? '#f87171' : 'var(--text-main)';
-                                expiryLabel = `<span style="color: ${color};">${dateStr}</span>`;
-                            }
-                        }
-                        tbody.innerHTML += `
-                            <tr>
-                                <td><strong>${u.username}</strong><br><span style="font-size: 11px; color: var(--text-muted);">${u.email || u.id}</span></td>
-                                <td><span class="badge-${u.role === 'admin' ? 'active' : 'inactive'}">${u.role.toUpperCase()}</span></td>
-                                <td><span style="color: ${u.tier === 'booster' ? '#ec4899' : 'var(--primary)'}; font-weight: bold;">${u.tier.toUpperCase()}</span></td>
-                                <td>${expiryLabel}</td>
-                                <td>
-                                    <select class="action-select" onchange="updateUserTier('${u.id}', this.value)">
-                                        <option value="" disabled selected>Ubah Tier...</option>
-                                        <option value="free">Free</option>
-                                        <option value="basic">Core</option>
-                                        <option value="plus">Prime</option>
-                                        <option value="booster">Zenith</option>
-                                    </select>
-                                </td>
-                                <td><button class="btn btn-delete" style="padding: 6px 12px; font-size: 12px;" onclick="forceDeleteBot('${(u.botNumbers && u.botNumbers[0]) || ''}')">Hapus Sesi WA</button></td>
-                            </tr>
-                        `;
-                    });
-
-                    // Populate Pricing Info
-                    const p = result.data.pricing;
-                    if(p) {
-                        document.getElementById('priceBasic').value = p.basic || 7500;
-                        document.getElementById('pricePlus').value = p.plus || 15000;
-                        document.getElementById('priceBooster').value = p.booster || 25000;
-                    }
-
-                    // Populate Promos Table
-                    const promoBody = document.getElementById('promoTableBody');
-                    promoBody.innerHTML = '';
-                    if (result.data.promos.length === 0) {
-                        promoBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Belum ada kode promo</td></tr>`;
-                    } else {
-                        result.data.promos.forEach(p => {
-                            promoBody.innerHTML += `
-                                <tr>
-                                    <td><strong style="color: #34d399; letter-spacing: 1px;">${p.code}</strong></td>
-                                    <td>${p.discount}%</td>
-                                    <td>${p.usedCount} / ${p.maxUses}</td>
-                                    <td><span class="badge-${p.isActive ? 'active' : 'inactive'}">${p.isActive ? 'Aktif' : 'Nonaktif'}</span></td>
-                                </tr>
-                            `;
-                        });
-                    }
-                }
-            } catch (err) {
-                // Jangan gagal diam-diam: kalau render panel berhenti karena
-                // error, tampilkan sebabnya supaya langsung kelihatan.
-                console.error("Gagal load data admin:", err);
-                const box = document.getElementById('adminTableBody');
-                if (box) {
-                    box.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#f87171;padding:20px;">
-                        Gagal memuat data admin.<br>
-                        <span style="font-size:11px;color:var(--text-muted);">${String(err.message || err)}</span>
-                    </td></tr>`;
-                }
-            }
-        }
-
-        function renderOrdersTable(orders, revenue) {
-            const badge = {
-                completed: '<span class="badge-active">Lunas</span>',
-                pending: '<span style="color:#fbbf24;font-weight:600;">Menunggu</span>',
-                cancelled: '<span class="badge-inactive">Dibatalkan</span>',
-                expired: '<span class="badge-inactive">Kedaluwarsa</span>'
-            };
-
-            document.getElementById('admRevenue').innerText = rupiah(revenue);
-            document.getElementById('admPending').innerText = orders.filter(o => o.status === 'pending').length;
-
-            const tbody = document.getElementById('ordersTableBody');
-            if (!orders.length) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Belum ada transaksi.</td></tr>`;
-                return;
-            }
-            tbody.innerHTML = orders.map(o => `
-                <tr>
-                    <td><strong style="font-size:12px;">${o.orderId}</strong></td>
-                    <td>${o.username || '-'}<br><span style="font-size:11px;color:var(--text-muted);">${o.email || ''}</span></td>
-                    <td>${TIER_LABEL[o.tier] || o.tier} <span style="font-size:11px;color:var(--text-muted);">&times;${o.months}bln</span></td>
-                    <td>${rupiah(o.totalPayment || o.amount)}</td>
-                    <td>${badge[o.status] || o.status}</td>
-                </tr>
-            `).join('');
-        }
-
-        // --- Papan node bot: kartu per kolom, 5 per halaman ---
-        const BOTS_PER_PAGE = 5;
-        let botList = [];
-        let botPage = 0;
-
-        function renderBotsTable(bots) {
-            botList = bots || [];
-            document.getElementById('botOnlineCount').innerText = botList.filter(b => b.isOnline).length;
-            document.getElementById('botTotalCount').innerText = botList.length;
-
-            // Jaga halaman tetap valid kalau jumlah bot berkurang saat refresh.
-            const maxPage = Math.max(0, Math.ceil(botList.length / BOTS_PER_PAGE) - 1);
-            if (botPage > maxPage) botPage = maxPage;
-
-            renderBotPage();
-        }
-
-        function renderBotPage() {
-            const board = document.getElementById('botBoard');
-            const pager = document.getElementById('botPager');
-
-            if (!botList.length) {
-                board.innerHTML = `<p class="board-empty">Belum ada bot yang pernah dibuat.</p>`;
-                pager.style.display = 'none';
-                return;
-            }
-
-            const totalPages = Math.ceil(botList.length / BOTS_PER_PAGE);
-            const slice = botList.slice(botPage * BOTS_PER_PAGE, botPage * BOTS_PER_PAGE + BOTS_PER_PAGE);
-
-            board.innerHTML = slice.map(b => {
-                const tierClass = b.tier === 'booster' ? 'zenith' : b.tier === 'plus' ? 'prime' : b.tier === 'basic' ? 'core' : 'freetier';
-                const tierName = TIER_LABEL[b.tier] || b.tier.toUpperCase();
-                return `
-                <article class="bot-card ${b.isOnline ? 'on' : 'off'}">
-                    <header class="bot-card-top">
-                        <span class="bot-state ${b.isOnline ? 'on' : 'off'}">
-                            <span class="bot-dot"></span>${b.isOnline ? 'Online' : 'Offline'}
-                        </span>
-                        <span class="bot-tier ${tierClass}">${tierName}</span>
-                    </header>
-
-                    <div class="bot-number">${b.number}</div>
-
-                    <dl class="bot-meta">
-                        <div><dt>Owner</dt><dd>${b.ownerNumber || '<span class="muted">belum diatur</span>'}</dd></div>
-                        <div><dt>Status DB</dt><dd>${b.status || '-'}</dd></div>
-                    </dl>
-
-                    <button class="btn btn-delete bot-stop" onclick="forceDeleteBot('${b.number}')">
-                        <i class="fa-solid fa-power-off"></i> Force Stop
-                    </button>
-                </article>`;
-            }).join('');
-
-            pager.style.display = totalPages > 1 ? 'flex' : 'none';
-            document.getElementById('botPageInfo').innerText = `${botPage + 1} / ${totalPages}`;
-            document.getElementById('botPrev').disabled = botPage === 0;
-            document.getElementById('botNext').disabled = botPage >= totalPages - 1;
-        }
-
-        document.getElementById('botPrev').addEventListener('click', () => {
-            if (botPage > 0) { botPage--; renderBotPage(); }
-        });
-        document.getElementById('botNext').addEventListener('click', () => {
-            if (botPage < Math.ceil(botList.length / BOTS_PER_PAGE) - 1) { botPage++; renderBotPage(); }
-        });
-
-        async function loadAuditLog() {
-            const tbody = document.getElementById('auditTableBody');
-            try {
-                const res = await fetch('/api/admin/audit', { headers: adminHeaders() });
-                const result = await res.json();
-                if (!result.success || !result.logs.length) {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Belum ada catatan.</td></tr>`;
-                    return;
-                }
-                const label = { 'ubah-tier': 'Ubah Tier', 'ubah-harga': 'Ubah Harga' };
-                tbody.innerHTML = result.logs.map(l => `
-                    <tr>
-                        <td style="font-size:12px;white-space:nowrap;">${new Date(l.at).toLocaleString('id-ID', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}</td>
-                        <td><strong>${l.adminName || '-'}</strong></td>
-                        <td>${label[l.action] || l.action}</td>
-                        <td>${l.target || '-'}</td>
-                        <td style="font-size:12px;color:var(--text-muted);">${l.detail || '-'}</td>
-                    </tr>`).join('');
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#f87171;">Gagal memuat riwayat.</td></tr>`;
-            }
-        }
-
-        async function loadBotsData() {
-            try {
-                const res = await fetch('/api/admin/bots', { headers: adminHeaders() });
-                if (res.status === 401 || res.status === 403) return; // biarkan loadAdminData yang handle redirect
-                const result = await res.json();
-                if (result.success) renderBotsTable(result.data.bots);
-            } catch (err) { console.error("Gagal load data bot:", err); }
-        }
-
-        async function updateUserTier(userId, newTier) {
-            if(!confirm(`Yakin ubah tier user ini menjadi ${newTier.toUpperCase()}?`)) return loadAdminData();
-            try {
-                const res = await fetch('/api/admin/update-tier', {
-                    method: 'POST', headers: adminHeaders(),
-                    body: JSON.stringify({ userId, newTier })
-                });
-                const result = await res.json();
-                alert(result.message); loadAdminData();
-            } catch(e) {
-                alert('Gagal terhubung ke server. Perubahan BELUM tersimpan.');
-            }
-        }
-
-        async function updatePricing() {
-            const basic = document.getElementById('priceBasic').value;
-            const plus = document.getElementById('pricePlus').value;
-            const booster = document.getElementById('priceBooster').value;
-            try {
-                const res = await fetch('/api/admin/update-pricing', {
-                    method: 'POST', headers: adminHeaders(),
-                    body: JSON.stringify({ basic, plus, booster })
-                });
-                const result = await res.json();
-                if (!result.success) return alert(result.message || "Gagal menyimpan harga.");
-
-                // Tampilkan angka yang benar-benar tersimpan di server.
-                if (result.pricing) {
-                    document.getElementById('priceBasic').value = result.pricing.basic;
-                    document.getElementById('pricePlus').value = result.pricing.plus;
-                    document.getElementById('priceBooster').value = result.pricing.booster;
-                }
-                alert("Harga paket diperbarui. Halaman harga dan dashboard user langsung mengikuti.");
-            } catch(e) { alert("Gagal terhubung ke server."); }
-        }
-
-        async function addPromo() {
-            const code = document.getElementById('promoCode').value.trim();
-            const discount = document.getElementById('promoDiscount').value;
-            const maxUses = document.getElementById('promoMax').value;
-            if(!code || !discount) return alert("Kode dan diskon wajib diisi.");
-            try {
-                const res = await fetch('/api/admin/add-promo', {
-                    method: 'POST', headers: adminHeaders(),
-                    body: JSON.stringify({ code, discount, maxUses })
-                });
-                const result = await res.json();
-                alert(result.message); loadAdminData();
-            } catch(e) {
-                alert('Gagal terhubung ke server. Perubahan BELUM tersimpan.');
-            }
-        }
-
-        async function syncTiers(evt) {
-            if (!confirm('Samakan tier semua bot dengan tier akun pemiliknya?\n\nIni memperbaiki user yang sudah bayar tapi bot-nya masih Free.')) return;
-            const btn = evt.currentTarget; const orig = btn.innerHTML;
-            btn.innerHTML = 'Menyinkronkan...'; btn.disabled = true;
-            try {
-                const res = await fetch('/api/admin/sync-tiers', { method: 'POST', headers: adminHeaders() });
-                const result = await res.json();
-                alert(result.message || (result.success ? 'Selesai.' : 'Gagal.'));
-                if (result.success) loadBotsData();
-            } catch (e) { alert('Gagal terhubung ke server.'); }
-            finally { btn.innerHTML = orig; btn.disabled = false; }
-        }
-
-        async function deleteFreeBots(evt) {
-            const jumlah = botList.filter(b => (b.tier || 'free') === 'free').length;
-            if (!jumlah) return alert('Tidak ada bot user Free.');
-            // Konfirmasi dua langkah: aksi ini tidak bisa dibatalkan dan
-            // memutus WhatsApp user. Mengetik angka mencegah salah klik.
-            const ketik = prompt(`${jumlah} bot user Free akan dihapus PERMANEN dan sesi WhatsApp-nya diputus.\n\nKetik ${jumlah} untuk melanjutkan:`);
-            if (ketik === null) return;
-            if (String(ketik).trim() !== String(jumlah)) return alert('Angka tidak cocok. Dibatalkan.');
-
-            const btn = evt.currentTarget; const orig = btn.innerHTML;
-            btn.innerHTML = 'Menghapus...'; btn.disabled = true;
-            try {
-                const res = await fetch('/api/admin/delete-free-bots', { method: 'POST', headers: adminHeaders() });
-                const result = await res.json();
-                alert(result.message || (result.success ? 'Selesai.' : 'Gagal.'));
-                if (result.success) { loadBotsData(); loadAdminData(); }
-            } catch (e) { alert('Gagal terhubung ke server.'); }
-            finally { btn.innerHTML = orig; btn.disabled = false; }
-        }
-
-        async function forceDeleteBot(prefillNumber) {
-            const num = prefillNumber || prompt("Masukkan nomor WA Bot user yang ingin dihapus (Cth: 62812...):");
-            if (!num) return;
-            if(confirm(`Yakin MENGHAPUS PAKSA bot nomor ${num}?`)) {
-                try {
-                    const res = await fetch('/api/bot/delete', {
-                        method: 'POST', headers: adminHeaders(),
-                        body: JSON.stringify({ number: num })
-                    });
-                    const result = await res.json();
-                    // Hasilnya WAJIB dicek. Sebelumnya selalu muncul pesan
-                    // "berhasil" walau server menolak, jadi kegagalan sama
-                    // sekali tidak terlihat.
-                    if (!result.success) {
-                        alert(result.message || `Gagal menghapus sesi ${num}.`);
-                        return;
-                    }
-                    alert(`Sesi bot ${num} berhasil dihapus.`);
-                    loadAdminData(); loadBotsData();
-                } catch(e) {
-                    alert('Gagal terhubung ke server.');
-                }
-            }
-        }
-    </script>
+    <script src="/admin.js?v=3" defer></script>
 </body>
 </html>

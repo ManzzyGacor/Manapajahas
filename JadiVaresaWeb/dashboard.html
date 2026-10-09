@@ -186,6 +186,11 @@
                         <!-- Sisa slot server: user tahu sebelum menekan Start -->
                         <p class="slot-hint" id="slotHint"><span class="v-dot v-dot--off"></span> <span id="slotHintText">Mengecek slot server…</span></p>
                         <div class="notice notice--danger v-hide" id="startNotice" role="alert"></div>
+                        <!-- .self dari WhatsApp: tanpa info ini user mengira bot rusak karena diam -->
+                        <div class="notice notice--warn v-hide self-mode-notice" id="selfModeNoticeDash" role="status">
+                            <i class="fa-solid fa-user-lock"></i>
+                            <span><strong>Mode self aktif</strong> — bot hanya merespon owner. Ketik <code>.public</code> di WhatsApp untuk membuka lagi.</span>
+                        </div>
                     </div>
 
                     <div class="term" id="botTerminal">
@@ -371,6 +376,10 @@
                     </div>
                     <label class="v-switch"><input type="checkbox" id="modePublik" checked aria-label="Mode publik"><span></span></label>
                 </div>
+                <div class="notice notice--warn v-hide self-mode-notice" id="selfModeNoticeCfg" role="status">
+                    <i class="fa-solid fa-user-lock"></i>
+                    <span><strong>Mode self aktif</strong> — bot hanya merespon owner. Ketik <code>.public</code> di WhatsApp untuk membuka lagi.</span>
+                </div>
             </div>
 
             <div class="v-card v-card--pad lockable">
@@ -401,7 +410,7 @@
                         <input type="text" id="cfgWatermark" class="v-input" placeholder="Nama pembuat stiker">
                     </div>
                     <div class="v-field">
-                        <label class="v-label" for="cfgFooter">Teks footer stiker <span class="req">*</span></label>
+                        <label class="v-label" for="cfgFooter">Teks footer (stiker &amp; menu) <span class="req">*</span></label>
                         <input type="text" id="cfgFooter" class="v-input" placeholder="Contoh: varesa.mom">
                     </div>
                 </div>
@@ -434,7 +443,19 @@
                 </div>
                 <div class="editor-head">
                     <span class="v-eyebrow">menu.txt</span>
-                    <span class="v-help">Variabel: <code>{pushname}</code> <code>{prefix}</code> <code>{date}</code> <code>{statusUser}</code> <code>{ucapanWaktu}</code></span>
+                    <span class="v-help">Klik variabel untuk menyisipkan di posisi kursor.</span>
+                </div>
+                <div class="var-chips" data-targets="cfgCustomMenu" role="group" aria-label="Variabel menu">
+                    <span class="var-chips__label">Variabel:</span>
+                    <button type="button" class="var-chip" data-var="{ucapanWaktu}" title="Salam sesuai jam + emoji (Selamat pagi, siang, …)">{ucapanWaktu}</button>
+                    <button type="button" class="var-chip" data-var="{pushname}" title="Nama WhatsApp yang membuka menu">{pushname}</button>
+                    <button type="button" class="var-chip" data-var="{statusUser}" title="Status pemakai: OWNER, PREMIUM, USER, …">{statusUser}</button>
+                    <button type="button" class="var-chip" data-var="{date}" title="Tanggal hari ini">{date}</button>
+                    <button type="button" class="var-chip" data-var="{time}" title="Jam sekarang (WIB)">{time}</button>
+                    <button type="button" class="var-chip" data-var="{prefix}" title="Prefix perintah bot, mis. .">{prefix}</button>
+                    <button type="button" class="var-chip" data-var="{botname}" title="Nama bot dari Config">{botname}</button>
+                    <button type="button" class="var-chip" data-var="{runtime}" title="Lama bot sudah menyala">{runtime}</button>
+                    <button type="button" class="var-chip" data-var="{totalfitur}" title="Jumlah fitur yang tersedia">{totalfitur}</button>
                 </div>
                 <textarea class="v-textarea textarea-code" id="cfgCustomMenu" rows="15" spellcheck="false">
 {ucapanWaktu}
@@ -584,6 +605,23 @@
                     <div><strong>Aktifkan sambutan</strong> <span class="badge-tier-only">Core ke atas</span></div>
                     <label class="v-switch"><input type="checkbox" id="welcomeEnabled" checked aria-label="Aktifkan sambutan"><span></span></label>
                 </div>
+
+                <div class="var-chips" data-targets="welcomeText,leaveText" role="group" aria-label="Variabel sambutan">
+                    <span class="var-chips__label">Variabel:</span>
+                    <button type="button" class="var-chip" data-var="{mention}" title="Tag anggota yang masuk/keluar">{mention}</button>
+                    <button type="button" class="var-chip" data-var="{name}" title="Sama dengan {mention}">{name}</button>
+                    <button type="button" class="var-chip" data-var="{pushname}" title="Nama WhatsApp anggota (tanpa tag)">{pushname}</button>
+                    <button type="button" class="var-chip" data-var="{group}" title="Nama grup (bisa juga {grup})">{group}</button>
+                    <button type="button" class="var-chip" data-var="{grup}" title="Nama grup">{grup}</button>
+                    <button type="button" class="var-chip" data-var="{desc}" title="Deskripsi grup">{desc}</button>
+                    <button type="button" class="var-chip" data-var="{size}" title="Jumlah anggota (bisa juga {member})">{size}</button>
+                    <button type="button" class="var-chip" data-var="{member}" title="Jumlah anggota">{member}</button>
+                    <button type="button" class="var-chip" data-var="{date}" title="Tanggal hari ini">{date}</button>
+                    <button type="button" class="var-chip" data-var="{time}" title="Jam sekarang">{time}</button>
+                    <button type="button" class="var-chip" data-var="{day}" title="Nama hari">{day}</button>
+                    <button type="button" class="var-chip" data-var="{greeting}" title="Salam sesuai jam">{greeting}</button>
+                </div>
+                <p class="v-help var-note">Format lama <code>@name</code> <code>@group</code> <code>@size</code> <code>@date</code> <code>@time</code> <code>@desc</code> <code>@greeting</code> tetap jalan.</p>
 
                 <div class="form-grid">
                     <div class="v-field">

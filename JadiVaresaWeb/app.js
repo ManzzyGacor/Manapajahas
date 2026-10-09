@@ -472,6 +472,7 @@ document.addEventListener("DOMContentLoaded", () => {
         window.reconnectBotStream?.();
         liveWidgets?.feed?.render();
         if (activeBotNumber) loadBotStats();
+        loadBotConfig({ quiet: true });
     };
 
     setBotState('offline');
@@ -794,13 +795,22 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    async function loadBotConfig() {
-        if (!activeBotNumber) return;
+    // Mode self dinyalakan lewat .self di WhatsApp, bukan dari dashboard.
+    // Tanpa penanda ini user mengira bot rusak karena diam ke semua orang.
+    function setSelfModeNotice(on) {
+        document.querySelectorAll('.self-mode-notice').forEach(el => el.classList.toggle('v-hide', !on));
+    }
+
+    // quiet: dipakai saat halaman baru dibuka / ganti bot — gagal di sini
+    // jangan memunculkan toast, cukup kunci tombol simpan.
+    async function loadBotConfig({ quiet = false } = {}) {
+        if (!activeBotNumber) { setSelfModeNotice(false); return; }
         try {
             const res = await fetch(`/api/bot/config/${activeBotNumber}`);
             const result = await res.json();
             if (result.success) {
                 const cfg = result.data || {};
+                setSelfModeNotice(cfg.selfMode === true);
                 const toggleModePublik = $id('modePublik');
                 if (toggleModePublik) toggleModePublik.checked = cfg.modePublik ?? true;
 
@@ -829,7 +839,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // Simpan, dan config asli di server tertimpa data kosong.
             // Tombol simpan dikunci sampai config berhasil dimuat.
             setConfigLoaded(false);
-            say('Config bot gagal dimuat. Tombol simpan dikunci sampai halaman dimuat ulang.', 'err');
+            if (!quiet) say('Config bot gagal dimuat. Tombol simpan dikunci sampai halaman dimuat ulang.', 'err');
         }
     }
 
@@ -2050,7 +2060,28 @@ document.addEventListener("DOMContentLoaded", () => {
     connectSSE();
     if (activeBotNumber) loadBotStats();
 
+    // --- CHIP VARIABEL (menu & sambutan) ---
+    // Klik chip = sisipkan placeholder di posisi kursor. Mengetik manual
+    // gampang salah ({Pushname}, {pushName}) dan bot tidak mengenalinya.
+    document.querySelectorAll('.var-chips').forEach(box => {
+        const targets = (box.dataset.targets || '').split(',').map(id => $id(id.trim())).filter(Boolean);
+        let last = targets[0] || null;
+        targets.forEach(t => t.addEventListener('focus', () => { last = t; }));
+        box.addEventListener('click', (e) => {
+            const chip = e.target.closest('.var-chip');
+            if (!chip || !last || last.disabled || last.readOnly) return;
+            const start = last.selectionStart ?? last.value.length;
+            const end = last.selectionEnd ?? start;
+            last.setRangeText(chip.dataset.var, start, end, 'end');
+            last.focus();
+            last.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    });
+
     // Buka halaman sesuai #hash di URL (mis. /dashboard#api).
     const initial = (location.hash || '').replace('#', '');
     if (initial && initial !== 'dashboard') showView(initial, { scroll: false });
+    // Halaman config dkk. sudah memuat config sendiri; selain itu muat diam-diam
+    // supaya penanda mode self di kartu Kontrol Bot langsung benar.
+    if (!['config', 'menu', 'cmd', 'mess'].includes(initial)) loadBotConfig({ quiet: true });
 });

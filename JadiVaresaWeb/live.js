@@ -289,6 +289,14 @@
       clearTimeout(timer);
       if (!document.hidden) { failures = Math.min(failures, 1); tick(); }
     });
+    // Koneksi HP baru tersambung lagi: jangan tunggu sisa jeda backoff
+    // (bisa sampai 60 dtk) — langsung coba sekali.
+    window.addEventListener('online', () => {
+      if (stopped || document.hidden) return;
+      clearTimeout(timer);
+      failures = Math.min(failures, 1);
+      tick();
+    });
 
     return {
       start() { if (!stopped) return; stopped = false; tick(); },

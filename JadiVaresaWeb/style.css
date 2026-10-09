@@ -571,6 +571,23 @@ code {
 .editor-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 10px; }
 .editor-head code { font-size: 11px; }
 
+/* Chip variabel (menu & sambutan): bisa diklik untuk menyisipkan placeholder */
+.var-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px; }
+.var-chips__label {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-3); margin-right: 2px;
+}
+.var-chip {
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1; color: var(--text-2);
+  padding: 6px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface-2);
+  cursor: pointer; transition: border-color .15s, color .15s, background .15s;
+}
+.var-chip:hover, .var-chip:focus-visible { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); outline: none; }
+.var-note { margin: -4px 0 16px; }
+.var-note code { font-size: 11px; }
+.self-mode-notice { margin-top: 12px; }
+.self-mode-notice code { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+
 /* Kunci fitur sesuai paket */
 .lockable { position: relative; }
 .locked-overlay {
