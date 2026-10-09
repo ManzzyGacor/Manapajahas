@@ -29,6 +29,9 @@ database/media/
 database/runtime/
 JadiVaresaWeb/uploads/
 
+# Cadangan file kode lama yang dibuat panel.js sebelum update
+backups/
+
 # Log & file sementara
 logs/
 tmp/
