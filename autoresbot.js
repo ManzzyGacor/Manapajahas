@@ -226,7 +226,11 @@ async function processMessage(sock, messageInfo) {
   // "628xx"), sama persis dengan kunci di database/jadibot.json yang
   // ditulis dashboard. Semua setelan per-bot dibaca lewat kunci ini.
   const botNumber = getnumberbot(sock.user?.id || "");
-  const isJadibotSession = botNumber ? await isJadibot(botNumber) : false;
+  // Bot utama (folder "session") ditandai di connection.js. Dulu bot utama
+  // hanya dikenali dari TIDAK adanya nomornya di jadibot.json — begitu ada
+  // yang mengklaim nomor itu lewat dashboard, bot utama berubah jadi bot
+  // user (kena batas Free, owner bisa dibajak).
+  const isJadibotSession = botNumber && !sock.isMainBot ? await isJadibot(botNumber) : false;
 
   // getBotConfig sudah di-cache (file & tier). applyTierCaps memastikan
   // fitur berbayar yang tersimpan tidak jalan lagi kalau paketnya turun.
@@ -435,6 +439,11 @@ async function processMessage(sock, messageInfo) {
         return;
       }
     }
+
+    // Story/status WhatsApp (status@broadcast) bukan percakapan. Sejak bot
+    // user default ke mode "both", story kontak ikut lolos filter di atas
+    // dan bisa memicu auto-reply / perintah yang dibalas ke status@broadcast.
+    if (remoteJid === "status@broadcast") return;
 
     // ===== PESAN OTOMATIS (AUTO-REPLY) =====
     // Dicek sebelum plugin: balasan ini tidak butuh prefix titik.

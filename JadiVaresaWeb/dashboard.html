@@ -19,7 +19,7 @@
     <!-- Versi di query string wajib dinaikkan tiap rilis: sw.js menyimpan
          aset statis per-URL, jadi tanpa ini user bisa tertahan di CSS lama. -->
     <link rel="stylesheet" href="/assets/varesa.css?v=31">
-    <link rel="stylesheet" href="/style.css?v=31">
+    <link rel="stylesheet" href="/style.css?v=32">
 </head>
 <body class="app has-tabbar">
 
@@ -392,7 +392,7 @@
                     </div>
                 </div>
                 <h3 class="card-title">Identitas bot <span class="badge-tier-only">Core ke atas</span></h3>
-                <p class="card-sub">Atur nama dan informasi yang muncul pada stiker.</p>
+                <p class="card-sub">Atur nama bot, nomor owner, dan teks yang muncul di stiker &amp; menu.</p>
 
                 <div class="form-grid">
                     <div class="v-field">
@@ -401,7 +401,7 @@
                         <p class="v-help">Kosongkan untuk memakai nama bawaan. Maksimal 32 karakter.</p>
                     </div>
                     <div class="v-field">
-                        <label class="v-label" for="cfgOwnerNumber">Nomor owner <span class="v-accent-text">(pisahkan dengan koma)</span></label>
+                        <label class="v-label" for="cfgOwnerNumber">Nomor owner <span class="label-hint">(pisahkan dengan koma)</span></label>
                         <input type="text" id="cfgOwnerNumber" class="v-input" placeholder="628xxx,628xxx">
                         <p class="v-help" id="ownerLimitHint">Paket kamu: maks 1 nomor owner.</p>
                     </div>
@@ -498,7 +498,7 @@
                     <div class="v-stat"><span class="v-stat__label"><i class="fa-regular fa-comment-dots"></i> Pesan diproses</span><span class="v-stat__value" id="stMessages">0</span></div>
                     <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-code"></i> Perintah dijalankan</span><span class="v-stat__value" id="stCommands">0</span></div>
                     <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-user-group"></i> Total grup</span><span class="v-stat__value" id="stGroups">0</span></div>
-                    <div class="v-stat"><span class="v-stat__label"><i class="fa-regular fa-object-group"></i> Grup / pribadi</span><span class="v-stat__value" id="stSplit">0 / 0</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-regular fa-object-group"></i> Grup / pribadi</span><span class="v-stat__value stat-split" id="stSplit">0 / 0</span></div>
                 </div>
             </div>
 
@@ -1078,7 +1078,7 @@
                         <p class="pricing-sub">Semua fitur, tanpa kompromi.</p>
                     </header>
                     <div class="price">
-                        <div class="price-top"><span class="price-strike" data-strike="booster"></span><span class="badge-discount">HEMAT</span></div>
+                        <div class="price-top"><span class="price-strike" data-strike="booster"></span><span class="badge-discount">HEMAT 25%</span></div>
                         <div class="price-big" data-price="booster">&mdash;</div>
                     </div>
                     <ul class="check-list">
@@ -1260,7 +1260,7 @@
 
     <div class="v-toast-wrap" id="toastWrap" aria-live="polite"></div>
 
-    <script src="/live.js?v=31"></script>
-    <script src="/app.js?v=31"></script>
+    <script src="/live.js?v=32"></script>
+    <script src="/app.js?v=32"></script>
 </body>
 </html>

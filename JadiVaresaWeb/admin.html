@@ -282,7 +282,7 @@
                     <span class="toolbar__count" id="perBotCount">–</span>
                 </div>
                 <div class="table-wrap">
-                    <table class="atable is-stack">
+                    <table class="atable is-stack perbot">
                         <thead><tr><th>Nomor bot</th><th>Status</th><th class="right">Pesan</th><th class="right">Command</th><th class="right">Grup</th><th class="right">Aktivitas terakhir</th></tr></thead>
                         <tbody id="perBotBody"><tr><td colspan="6" class="td-empty">Memuat…</td></tr></tbody>
                     </table>
@@ -702,7 +702,7 @@
                         <div class="card-body">
                             <ol class="cap-steps">
                                 <li><b>Batas RAM</b> — diambil yang terkecil antara RAM mesin/container dan batas PM2 (<code>max_memory_restart</code>, bawaan 1200 MB). Lewat dari batas PM2, proses di-restart dan <em>semua</em> bot ikut putus.</li>
-                                <li><b>Sisihkan cadangan</b> (persen di kiri) untuk lonjakan, lalu kurangi RAM dasar aplikasi saat belum ada bot.</li>
+                                <li><b>Sisihkan cadangan</b> (persen yang kamu atur) untuk lonjakan, lalu kurangi RAM dasar aplikasi saat belum ada bot.</li>
                                 <li><b>Bagi rata-rata RAM per bot</b> — diukur dari bot yang sedang jalan → kapasitas dari RAM.</li>
                                 <li><b>CPU</b> ikut membatasi: ±25 bot per core.</li>
                                 <li><b>Batas admin</b> (kalau diisi) ikut dibandingkan. Angka <em>terkecil</em> yang dipakai, jadi batas admin tidak bisa membuat server kelebihan beban.</li>

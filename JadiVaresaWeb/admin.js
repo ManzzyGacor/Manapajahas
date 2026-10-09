@@ -735,7 +735,7 @@
         <tr>
           <td class="td-main"><span class="cell-user"><a class="cell-mono" href="/invoice?order_id=${encodeURIComponent(o.orderId)}" target="_blank" rel="noopener">${esc(o.orderId)}</a><span>${esc(fmtDate(o.createdAt, true))}</span></span></td>
           <td data-label="User"><span class="cell-user"><strong>${esc(o.username || '-')}</strong><span>${esc(o.email || '')}</span></span></td>
-          <td data-label="Paket">${esc(pkg.name)} <span class="muted">${esc(pkg.dur)}</span>${o.promoCode ? ` <span class="promo-code" style="font-size:11px">${esc(o.promoCode)}</span>` : ''}</td>
+          <td data-label="Paket"><span>${esc(pkg.name)} <span class="muted">${esc(pkg.dur)}</span>${o.promoCode ? ` <span class="promo-code" style="font-size:11px">${esc(o.promoCode)}</span>` : ''}</span></td>
           <td data-label="Total" class="right num">${rupiah(o.totalPayment || o.amount)}</td>
           <td data-label="Status">${orderBadge(o.status)}</td>
         </tr>`;
@@ -973,6 +973,8 @@
     const known = new Set(live.logs.map((l) => l.id).concat(live.pending.map((l) => l.id)));
     const fresh = (Array.isArray(d.logs) ? d.logs : []).filter((l) => !known.has(l.id)); // terbaru dulu
     if (serverLast !== null) live.lastId = serverLast;
+    // Cursor tetap diperbarui walau log sedang dijeda: tanda polling masih jalan.
+    setText('logCursor', live.lastId !== null ? `cursor #${live.lastId}` : 'cursor –');
     if (!fresh.length) { if (first) renderLog(); return; }
 
     if (live.paused) {
@@ -1207,12 +1209,12 @@
               : '<span class="state-pill"><span class="v-dot v-dot--off"></span>offline</span>';
           return `
             <tr>
-              <td class="td-main cell-mono">${esc(r.number)}</td>
-              <td data-label="Status">${pill}</td>
-              <td data-label="Pesan" class="right num">${fmt(r.messages)}</td>
-              <td data-label="Command" class="right num">${fmt(r.commands)}</td>
-              <td data-label="Grup" class="right num">${fmt(r.groups)}</td>
-              <td data-label="Aktivitas terakhir" class="right muted nowrap">${esc(timeAgo(r.lastActivity))}</td>
+              <td class="td-main cell-mono pb-num">${esc(r.number)}</td>
+              <td data-label="Status" class="pb-st">${pill}</td>
+              <td data-label="Pesan" class="right num pb-n">${fmt(r.messages)}</td>
+              <td data-label="Command" class="right num pb-n">${fmt(r.commands)}</td>
+              <td data-label="Grup" class="right num pb-n">${fmt(r.groups)}</td>
+              <td data-label="Aktivitas terakhir" class="right muted nowrap pb-act">${esc(timeAgo(r.lastActivity))}</td>
             </tr>`;
         }).join('')
       : '<tr><td colspan="6" class="td-empty"><i class="fa-solid fa-robot"></i>Belum ada bot.</td></tr>';
@@ -1279,13 +1281,13 @@
     if (det.limitMB !== undefined) {
       const pm2 = det.pm2CapMB ? `${fmt(det.pm2CapMB)} MB` : 'tidak dipakai';
       const lines = [
-        `<i>batas RAM   </i>= min(mesin ${fmt(det.containerLimitMB)} MB, PM2 ${pm2}) = <b>${fmt(det.limitMB)} MB</b>`,
-        `<i>bisa dipakai</i>= ${fmt(det.limitMB)} × (1 − ${fmt(det.reservePercent)}% cadangan) − ${fmt(det.baselineMB)} MB dasar = <b>${fmt(det.usableMB)} MB</b>`,
-        `<i>kap. RAM    </i>= ${fmt(det.usableMB)} ÷ ${fmt(cap.perBotMB)} MB per bot = <b>${fmt(det.memCap)} bot</b>`,
-        `<i>kap. CPU    </i>= ${fmt1(det.cores, 2)} core × ${BOTS_PER_CORE} = <b>${fmt(det.cpuCap)} bot</b>`,
-        `<i>batas admin </i>= <b>${det.adminCap > 0 ? fmt(det.adminCap) + ' bot' : 'otomatis (tidak ikut)'}</b>`,
-        `<i>dipakai     </i>= yang terkecil → <b>${fmt(cap.max)} bot</b> (${BASIS_TEXT[cap.basis] || cap.basis})`,
-        `<i>sisa slot   </i>= ${fmt(cap.max)} − ${fmt(cap.used)} sesi hidup = <b>${fmt(cap.remaining)}</b>`,
+        `<i>batas RAM    </i>= min(mesin ${fmt(det.containerLimitMB)} MB, PM2 ${pm2}) = <b>${fmt(det.limitMB)} MB</b>`,
+        `<i>bisa dipakai </i>= ${fmt(det.limitMB)} × (1 − ${fmt(det.reservePercent)}% cadangan) − ${fmt(det.baselineMB)} MB dasar = <b>${fmt(det.usableMB)} MB</b>`,
+        `<i>kap. RAM     </i>= ${fmt(det.usableMB)} ÷ ${fmt(cap.perBotMB)} MB per bot = <b>${fmt(det.memCap)} bot</b>`,
+        `<i>kap. CPU     </i>= ${fmt1(det.cores, 2)} core × ${BOTS_PER_CORE} = <b>${fmt(det.cpuCap)} bot</b>`,
+        `<i>batas admin  </i>= <b>${det.adminCap > 0 ? fmt(det.adminCap) + ' bot' : 'otomatis (tidak ikut)'}</b>`,
+        `<i>dipakai      </i>= yang terkecil → <b>${fmt(cap.max)} bot</b> (${BASIS_TEXT[cap.basis] || cap.basis})`,
+        `<i>sisa slot    </i>= ${fmt(cap.max)} − ${fmt(cap.used)} sesi hidup = <b>${fmt(cap.remaining)}</b>`,
       ];
       $('capFormula').innerHTML = lines.join('\n');
       const m = det.measured || {};
@@ -1790,6 +1792,8 @@
     });
   }
 
+  const fileSize = (b) => (b >= 1048576 ? `${fmt1(b / 1048576, 1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+
   async function handleUpload(file, kind) {
     if (!file || ed.uploading) return;
     setFormErr('');
@@ -1798,7 +1802,7 @@
       setFormErr(kind === 'poster' ? 'Poster harus gambar PNG, JPG, WEBP, atau GIF.' : 'Tipe file tidak didukung. Pakai MP4, WEBM, PNG, JPG, WEBP, atau GIF.');
       return;
     }
-    if (file.size > MAX_UPLOAD) { setFormErr(`File ${(file.size / 1048576).toFixed(1)} MB — maksimal 25 MB.`); return; }
+    if (file.size > MAX_UPLOAD) { setFormErr(`File ${fileSize(file.size)} — maksimal 25 MB.`); return; }
     if (!file.size) { setFormErr('File kosong.'); return; }
     // File video diunggah saat mode "Gambar" (atau sebaliknya): ikuti file-nya.
     if (kind === 'src') {
@@ -1810,19 +1814,22 @@
     $('bUploadZone').disabled = true;
     $('bPosterUpload').disabled = true;
     $('bProgress').hidden = false;
-    setText('bProgressName', `${kind === 'poster' ? 'Poster · ' : ''}${file.name} · ${(file.size / 1048576).toFixed(1)} MB`);
+    setText('bProgressName', `${kind === 'poster' ? 'Poster · ' : ''}${file.name} · ${fileSize(file.size)}`);
     setText('bProgressPct', '0%');
     $('bProgressBar').parentElement.style.setProperty('--v', '0%');
+    $('bProgressBar').parentElement.classList.remove('is-danger');
     try {
       const res = await uploadMedia(file, kind);
       if (kind === 'poster') $('bPoster').value = res.url;
       else { $('bSrc').value = res.url; if (res.type) setEdType(res.type); }
       setText('bProgressPct', 'selesai');
+      $('bProgressBar').parentElement.style.setProperty('--v', '100%');
       renderEdPreview();
       toast(`${kind === 'poster' ? 'Poster' : 'Media'} terunggah.`);
     } catch (err) {
       setFormErr(err.message);
       setText('bProgressPct', 'gagal');
+      $('bProgressBar').parentElement.classList.add('is-danger');
     } finally {
       ed.uploading = false;
       $('bApply').disabled = false;

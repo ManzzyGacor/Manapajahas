@@ -44,6 +44,14 @@ function say(msg, kind = 'info') {
     else alert(msg);
 }
 
+// Pesan gagal dari server. Untuk 4xx teks server penting (mis. "maksimal 3
+// nomor owner") jadi ditampilkan apa adanya. Untuk 5xx isinya biasanya teks
+// teknis (error Mongo, stack) yang membingungkan user — diganti kalimat ramah.
+function serverMsg(res, data, fallback) {
+    if (res && res.status >= 500) return 'Server lagi bermasalah. Coba lagi sebentar lagi, ya.';
+    return (data && data.message) || fallback;
+}
+
 // Tombol "sedang memproses": spinner + teks, lalu dikembalikan persis
 // seperti semula (termasuk ikonnya) saat selesai.
 function busy(btn, label) {
@@ -711,9 +719,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!result.success) {
                 // Penolakan (mis. sudah punya nomor lain) harus terlihat,
                 // bukan dibiarkan menggantung di status "Connecting...".
-                say(result.message || 'Gagal memulai bot.', 'err');
+                say(serverMsg(res, result, 'Gagal memulai bot.'), 'err');
                 setBotState('offline');
-                termLine(`$ ${result.message || 'Ditolak server.'}`, 't-err');
+                termLine(`$ ${serverMsg(res, result, 'Ditolak server.')}`, 't-err');
                 if (result.code === 'BOT_LIMIT' && previousNumber && previousNumber !== cleanNumber) {
                     // Kembalikan ke nomor lama milik user, bukan dikosongkan.
                     window.setActiveBotNumber(previousNumber);
@@ -742,7 +750,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id })
             });
             const result = await res.json();
-            if (!result.success) return say(result.message || 'Gagal menghentikan bot.', 'err');
+            if (!result.success) return say(serverMsg(res, result, 'Gagal menghentikan bot.'), 'err');
             setBotState('offline');
             say(result.message || 'Bot dihentikan.', 'ok');
         } catch (err) {
@@ -766,7 +774,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // Sebelumnya dibersihkan apa pun hasilnya — kalau server menolak,
             // user kehilangan jejak nomornya padahal di server masih
             // terdaftar, lalu terkunci oleh batas satu nomor per akun.
-            if (!result.success) return say(result.message || 'Gagal menghapus sesi.', 'err');
+            if (!result.success) return say(serverMsg(res, result, 'Gagal menghapus sesi.'), 'err');
 
             window.setActiveBotNumber('');
             $id('inputWaNumber').value = '';
@@ -806,7 +814,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadBotConfig({ quiet = false } = {}) {
         if (!activeBotNumber) { setSelfModeNotice(false); return; }
         try {
-            const res = await fetch(`/api/bot/config/${activeBotNumber}`);
+            const res = await fetch(`/api/bot/config/${encodeURIComponent(activeBotNumber)}?userId=${encodeURIComponent(currentUser?.id || '')}`);
             const result = await res.json();
             if (result.success) {
                 const cfg = result.data || {};
@@ -848,7 +856,7 @@ document.addEventListener("DOMContentLoaded", () => {
         set('stMessages', (s.messages || 0).toLocaleString('id-ID'));
         set('stCommands', (s.commands || 0).toLocaleString('id-ID'));
         set('stGroups', s.groups || 0);
-        set('stSplit', `${s.groupMessages || 0} / ${s.privateMessages || 0}`);
+        set('stSplit', `${(s.groupMessages || 0).toLocaleString('id-ID')} / ${(s.privateMessages || 0).toLocaleString('id-ID')}`);
 
         // Status online dari server lebih bisa dipercaya daripada tebakan
         // dari log. Saat sedang pairing/menyambung jangan ditimpa "Offline".
@@ -1111,7 +1119,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: currentUser.tier, modePublik, botName, ownerNumber, watermark, footer })
             });
             const result = await res.json();
-            say(result.message || (result.success ? 'Konfigurasi disimpan!' : 'Gagal menyimpan konfigurasi.'), result.success ? 'ok' : 'err');
+            say(result.success ? (result.message || 'Konfigurasi disimpan!') : serverMsg(res, result, 'Gagal menyimpan konfigurasi.'), result.success ? 'ok' : 'err');
         } catch (err) {
             say('Gagal terhubung ke server. Konfigurasi BELUM tersimpan.', 'err');
         } finally { done(); }
@@ -1133,7 +1141,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify(payload)
             });
             const result = await res.json();
-            say(result.message || (result.success ? 'Menu kustom berhasil disimpan!' : 'Gagal menyimpan menu.'), result.success ? 'ok' : 'err');
+            say(result.success ? (result.message || 'Menu kustom berhasil disimpan!') : serverMsg(res, result, 'Gagal menyimpan menu.'), result.success ? 'ok' : 'err');
         } catch (err) {
             say('Gagal terhubung ke server. Menu BELUM tersimpan.', 'err');
         } finally { done(); }
@@ -1162,7 +1170,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify(payload)
             });
             const result = await res.json();
-            if (!result.success) { say(result.message || 'Gagal menyimpan profil.', 'err'); return; }
+            if (!result.success) { say(serverMsg(res, result, 'Gagal menyimpan profil.'), 'err'); return; }
 
             currentUser = { ...currentUser, ...payload };
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -1330,7 +1338,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                     return;
                 }
-                say(result.message || 'Gagal membuat pesanan.', 'err');
+                say(serverMsg(res, result, 'Gagal membuat pesanan.'), 'err');
                 return;
             }
             window.location.href = `/invoice?order_id=${encodeURIComponent(result.order.orderId)}`;
@@ -1362,7 +1370,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="list-item">
                     <div class="list-item__main">
                         <div class="list-item__title">${escapeHtml(what)} ${statusBadge[o.status] || escapeHtml(o.status)}</div>
-                        <p class="list-item__meta">${escapeHtml(o.orderId)} · ${rupiah(o.totalPayment || o.amount)}${when ? ` · ${when}` : ''}</p>
+                        <p class="list-item__meta meta-parts"><span>${escapeHtml(o.orderId)}</span><span>${rupiah(o.totalPayment || o.amount)}</span>${when ? `<span>${when}</span>` : ''}</p>
                     </div>
                     <a class="v-btn v-btn--sm v-btn--outline" href="/invoice?order_id=${encodeURIComponent(o.orderId)}">Lihat <i class="fa-solid fa-arrow-right"></i></a>
                 </div>`;
@@ -1444,7 +1452,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: currentUser.tier, autoReply: autoReplies })
             });
             const result = await res.json();
-            say(result.message || (result.success ? 'Pesan otomatis disimpan!' : 'Gagal menyimpan.'), result.success ? 'ok' : 'err');
+            say(result.success ? (result.message || 'Pesan otomatis disimpan!') : serverMsg(res, result, 'Gagal menyimpan.'), result.success ? 'ok' : 'err');
         } catch (err) { say('Gagal terhubung ke server.', 'err'); }
         finally { done(); }
     });
@@ -1476,7 +1484,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify(payload)
             });
             const result = await res.json();
-            say(result.message || (result.success ? 'Sambutan diterapkan.' : 'Gagal menerapkan.'), result.success ? 'ok' : 'err');
+            say(result.success ? (result.message || 'Sambutan diterapkan.') : serverMsg(res, result, 'Gagal menerapkan.'), result.success ? 'ok' : 'err');
         } catch (err) { say('Gagal terhubung ke server.', 'err'); }
         finally { done(); }
     });
@@ -1497,7 +1505,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: currentUser.tier, message: text })
             });
             const result = await res.json();
-            say(result.message || (result.success ? 'Pesan terkirim.' : 'Gagal mengirim.'), result.success ? 'ok' : 'err');
+            say(result.success ? (result.message || 'Pesan terkirim.') : serverMsg(res, result, 'Gagal mengirim.'), result.success ? 'ok' : 'err');
             if (result.success) $id('broadcastText').value = '';
         } catch (err) { say('Gagal terhubung ke server.', 'err'); }
         finally { done(); }
@@ -1580,7 +1588,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 })
             });
             const result = await res.json();
-            say(result.message || (result.success ? 'Perintah kustom disimpan.' : 'Gagal menyimpan.'), result.success ? 'ok' : 'err');
+            say(result.success ? (result.message || 'Perintah kustom disimpan.') : serverMsg(res, result, 'Gagal menyimpan.'), result.success ? 'ok' : 'err');
         } catch (err) { say('Gagal terhubung ke server.', 'err'); }
         finally { done(); }
     });
@@ -1678,7 +1686,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const res = await fetch(`/api/bot/backup/${encodeURIComponent(activeBotNumber)}?userId=${encodeURIComponent(currentUser.id)}`);
             const d = await res.json();
-            if (!d.success) return say(d.message || 'Gagal membuat cadangan.', 'err');
+            if (!d.success) return say(serverMsg(res, d, 'Gagal membuat cadangan.'), 'err');
 
             const blob = new Blob([JSON.stringify(d.backup, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
@@ -1707,7 +1715,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: currentUser.tier, backup })
             });
             const d = await res.json();
-            say(d.message || (d.success ? 'Berhasil dipulihkan.' : 'Gagal memulihkan.'), d.success ? 'ok' : 'err');
+            say(d.success ? (d.message || 'Berhasil dipulihkan.') : serverMsg(res, d, 'Gagal memulihkan.'), d.success ? 'ok' : 'err');
             if (d.success) loadBotConfig();
         } catch (err) {
             say('File tidak bisa dibaca. Pastikan itu file cadangan Varesa.', 'err');
@@ -1830,7 +1838,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!res.ok || !d.success) {
                 api.token = ''; api.usage = null;
                 renderApi();
-                $id('apiTokenValue').textContent = d.message || 'Token belum bisa dimuat.';
+                $id('apiTokenValue').textContent = serverMsg(res, d, 'Token belum bisa dimuat.');
                 return;
             }
             api.token = d.token || '';
@@ -1871,7 +1879,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             let d = {};
             try { d = await res.json(); } catch { d = {}; }
-            if (!res.ok || !d.success || !d.token) { say(d.message || 'Gagal membuat token.', 'err'); return; }
+            if (!res.ok || !d.success || !d.token) { say(serverMsg(res, d, 'Gagal membuat token.'), 'err'); return; }
             api.token = d.token;
             api.revealed = true;
             say('Token baru siap. Simpan baik-baik — jangan dibagikan.', 'ok');
@@ -1892,7 +1900,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             let d = {};
             try { d = await res.json(); } catch { d = {}; }
-            if (!res.ok || !d.success) { say(d.message || 'Gagal mematikan API.', 'err'); return; }
+            if (!res.ok || !d.success) { say(serverMsg(res, d, 'Gagal mematikan API.'), 'err'); return; }
             api.token = ''; api.revealed = false;
             say('API dimatikan. Token lama sudah tidak berlaku.', 'ok');
         } catch (err) {
