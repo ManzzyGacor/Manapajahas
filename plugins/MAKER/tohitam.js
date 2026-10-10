@@ -2,6 +2,8 @@ import axios from "axios";
 import FormData from "form-data";
 import { downloadContentFromMessage } from "baileys";
 import { findUser } from "../../lib/users.js";
+// Bonus limit dari owner bot ini ikut ditampilkan (berlaku di bot ini saja).
+import { bonusLimitText } from "../../lib/bot-scope.js";
 
 async function uploadToCatbox(buffer) {
     const form = new FormData();
@@ -79,7 +81,7 @@ async function handle(sock, messageInfo) {
                 image: finalBuffer,
                 caption:
                     "🖤✨ *Hitam Filter Applied!*\n" +
-                    `Sisa Limit: ${userData.limit || 0}`
+                    `Sisa Limit: ${userData.limit || 0}${bonusLimitText(messageInfo)}`
             },
             { quoted: message }
         );

@@ -605,6 +605,86 @@ code {
 .self-mode-notice { margin-top: 12px; }
 .self-mode-notice code { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
 
+/* Teks sewa & premium per bot (halaman Config): editor kiri, pratinjau
+   gelembung WhatsApp kanan (di HP pratinjau turun ke bawah). */
+.otext .card-sub code, .otext__hint code, .owner-cmds code {
+  font-family: var(--font-mono); font-size: 11.5px; padding: 1px 5px; border-radius: 5px;
+  border: 1px solid var(--line-2); background: transparent; color: var(--text-2); white-space: nowrap;
+}
+.otext__grid { display: grid; gap: 16px; }
+@media (min-width: 1180px) {
+  .otext__grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
+}
+.otext__editors { display: grid; gap: 16px; min-width: 0; }
+.otext__field { min-width: 0; }
+.otext__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.otext__head .v-label { margin: 0; }
+.otext__head .label-hint { margin-left: 4px; font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
+.otext__reset {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px;
+  border: 1px solid transparent; border-radius: 8px; background: none; cursor: pointer;
+  color: var(--text-3); font-family: var(--font-sans); font-size: 12px; font-weight: 600;
+  transition: color .15s, background .15s, border-color .15s;
+}
+.otext__reset i { font-size: 11px; }
+.otext__reset:hover, .otext__reset:focus-visible { color: var(--text); background: var(--surface-2); border-color: var(--line); outline: none; }
+.otext__reset:disabled { opacity: .45; cursor: not-allowed; }
+.otext__field:not(.is-custom) .otext__reset { visibility: hidden; }
+.otext__input { min-height: 156px; font-size: 13.5px; line-height: 1.6; }
+.otext__foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+}
+.otext__state { display: inline-flex; align-items: center; gap: 6px; }
+.otext__state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--line-3); }
+.otext__state.is-custom { color: var(--accent); }
+.otext__state.is-custom::before { background: var(--accent); }
+.otext__count { font-variant-numeric: tabular-nums; }
+.otext__count.is-near { color: var(--warn); }
+.otext__count.is-full { color: var(--danger); }
+.otext__hint { margin: 14px 0 0; line-height: 1.6; }
+/* Saat pratinjau turun ke bawah kartunya jadi tinggi: pesan kunci (bot Free)
+   ditaruh dekat atas supaya langsung terbaca tanpa menggulir ke tengah. */
+@media (max-width: 1179px) { #ownerTextLockOverlay { align-items: flex-start; padding-top: 96px; } }
+
+.otext__preview { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-soft); }
+@media (min-width: 1180px) { .otext__preview { position: sticky; top: calc(var(--nav-h) + 16px); } }
+.otext__preview-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; padding-left: 2px; }
+.otext__note { margin: 10px 2px 0; }
+.wa-chat {
+  display: flex; flex-direction: column; gap: 8px; padding: 14px 12px;
+  min-height: 236px; max-height: 480px; overflow-y: auto; border-radius: 12px;
+  background-color: #0b1216;
+  background-image: radial-gradient(rgba(255, 255, 255, .045) 1px, transparent 1.2px);
+  background-size: 16px 16px;
+}
+.wa-msg {
+  position: relative; max-width: 90%; padding: 7px 10px 6px; border-radius: 10px;
+  font-size: 13.5px; line-height: 1.5; color: #e9edef; overflow-wrap: anywhere;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, .25);
+}
+.wa-msg--out {
+  align-self: flex-end; display: flex; align-items: flex-end; gap: 10px;
+  background: #005c4b; border-top-right-radius: 3px; font-family: var(--font-mono); font-size: 13px;
+}
+.wa-msg--in { align-self: flex-start; background: #1f2c33; border-top-left-radius: 3px; }
+.wa-msg__name { display: block; margin-bottom: 2px; font-size: 12.5px; font-weight: 700; color: #5cf0b4; }
+.wa-msg__text { white-space: pre-wrap; }
+.wa-msg__text strong { font-weight: 700; color: inherit; }
+.wa-msg__text code { padding: 0; border: 0; background: none; font-family: var(--font-mono); font-size: 12.5px; color: inherit; }
+.wa-msg__time { display: block; margin-top: 2px; text-align: right; font-family: var(--font-sans); font-size: 10.5px; color: rgba(233, 237, 239, .6); white-space: nowrap; }
+.wa-msg--out .wa-msg__time { margin: 0; }
+.wa-msg__time i { margin-left: 2px; color: #53bdeb; font-size: 10px; }
+.owner-cmds code { color: var(--text); }
+@media (max-width: 560px) {
+  /* Di HP tombol reset cukup ikon supaya label + nama perintah muat satu baris. */
+  .otext__reset { width: 30px; padding: 0; justify-content: center; border-color: var(--line); }
+  .otext__reset span { display: none; }
+  .otext__reset i { font-size: 12px; }
+  .otext__preview { padding: 10px; }
+  .wa-chat { min-height: 200px; padding: 12px 10px; }
+}
+
 /* Kunci fitur sesuai paket */
 .lockable { position: relative; }
 .locked-overlay {
@@ -1553,6 +1633,13 @@ body.light-mode .term, body.light-mode .v-panel, body.light-mode .textarea-code,
 }
 body.light-mode .v-panel { background: var(--bg-soft); }
 body.light-mode .textarea-code { color: var(--text); }
+/* Pratinjau WhatsApp versi terang (warna aplikasi WhatsApp mode terang). */
+body.light-mode .wa-chat { background-color: #efeae2; background-image: radial-gradient(rgba(0, 0, 0, .05) 1px, transparent 1.2px); }
+body.light-mode .wa-msg { color: #111b21; box-shadow: 0 1px 1px rgba(11, 20, 26, .13); }
+body.light-mode .wa-msg--out { background: #d9fdd3; }
+body.light-mode .wa-msg--in { background: #ffffff; }
+body.light-mode .wa-msg__name { color: #0d9a6a; }
+body.light-mode .wa-msg__time { color: rgba(17, 27, 33, .5); }
 
 @media (prefers-reduced-motion: reduce) {
   .tier-badge, .tier-badge::after, .tier-badge i, .t-booster .avatar-circle, .profile-banner.tier-booster { animation: none !important; }

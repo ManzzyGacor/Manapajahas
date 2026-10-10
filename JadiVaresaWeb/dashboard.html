@@ -19,7 +19,7 @@
     <!-- Versi di query string wajib dinaikkan tiap rilis: sw.js menyimpan
          aset statis per-URL, jadi tanpa ini user bisa tertahan di CSS lama. -->
     <link rel="stylesheet" href="/assets/varesa.css?v=31">
-    <link rel="stylesheet" href="/style.css?v=33">
+    <link rel="stylesheet" href="/style.css?v=36">
 </head>
 <body class="app has-tabbar">
 
@@ -454,7 +454,7 @@
             <div class="page-head">
                 <p class="v-eyebrow">Bot · Config</p>
                 <h2 class="page-title">Config bot</h2>
-                <p class="page-sub">Atur jangkauan dan identitas bot kamu. Perubahan langsung berlaku tanpa restart.</p>
+                <p class="page-sub">Atur jangkauan, identitas, serta teks sewa &amp; premium bot kamu. Perubahan langsung berlaku tanpa restart.</p>
             </div>
 
             <!-- Paket bot ini tampil di bar "Bot yang diatur" (#botCtx) di atas. -->
@@ -506,6 +506,86 @@
                         <input type="text" id="cfgFooter" class="v-input" placeholder="Contoh: varesa.mom">
                     </div>
                 </div>
+            </div>
+
+            <!-- Teks .sewa/.pricelist & .premium milik bot ini (sewaText / premiumText
+                 di config bot). Kosong = bot memakai teks otomatis dengan nama &
+                 kontak owner bot ini. Ikut tersimpan lewat tombol "Simpan config". -->
+            <div class="v-card v-card--pad lockable otext" id="ownerTextCard">
+                <div class="locked-overlay" id="ownerTextLockOverlay">
+                    <div class="lock-card">
+                        <span class="lock-circle"><i class="fa-solid fa-lock"></i></span>
+                        <strong>Khusus Core ke atas</strong>
+                        <p>Bot Free memakai teks sewa &amp; premium otomatis. Upgrade bot ini ke Core untuk menulis teksmu sendiri.</p>
+                        <button type="button" class="v-btn v-btn--primary v-btn--sm nav-btn" data-target="upgrade">Lihat paket</button>
+                    </div>
+                </div>
+                <h3 class="card-title">Teks sewa &amp; premium <span class="badge-tier-only">Core ke atas</span></h3>
+                <p class="card-sub">Balasan bot ini saat ada yang ketik <code>.sewa</code> / <code>.pricelist</code> dan <code>.premium</code>. Tulis harga &amp; cara order versimu sendiri.</p>
+
+                <div class="var-chips" data-targets="cfgSewaText,cfgPremiumText" role="group" aria-label="Variabel teks sewa &amp; premium">
+                    <span class="var-chips__label">Variabel:</span>
+                    <button type="button" class="var-chip" data-var="{botname}" title="Nama bot ini">{botname}</button>
+                    <button type="button" class="var-chip" data-var="{owner}" title="Nomor owner pertama bot ini (atau nomor bot kalau belum diisi)">{owner}</button>
+                    <button type="button" class="var-chip" data-var="{ownerlink}" title="Link chat owner: https://wa.me/nomor-owner">{ownerlink}</button>
+                    <button type="button" class="var-chip" data-var="{prefix}" title="Prefix perintah bot, mis. .">{prefix}</button>
+                    <button type="button" class="var-chip" data-var="{pushname}" title="Nama WhatsApp orang yang mengetik perintah">{pushname}</button>
+                    <button type="button" class="var-chip" data-var="{weburl}" title="Alamat website Varesa">{weburl}</button>
+                </div>
+
+                <div class="otext__grid">
+                    <div class="otext__editors">
+                        <div class="otext__field" data-otext="sewa">
+                            <div class="otext__head">
+                                <label class="v-label" for="cfgSewaText">Teks sewa <span class="label-hint">.sewa · .pricelist</span></label>
+                                <button type="button" class="otext__reset" data-otext-reset="cfgSewaText" title="Kosongkan supaya bot memakai teks otomatis" aria-label="Pakai teks otomatis"><i class="fa-solid fa-rotate-left"></i><span>Pakai otomatis</span></button>
+                            </div>
+                            <textarea id="cfgSewaText" class="v-textarea otext__input" rows="7" maxlength="1500" placeholder="Kosongkan = teks otomatis. Cth: Sewa {botname} cuma 10rb/bulan! Chat owner: {ownerlink}"></textarea>
+                            <div class="otext__foot">
+                                <span class="otext__state" id="sewaTextState">Teks otomatis</span>
+                                <span class="otext__count" id="sewaTextCount">0 / 1500</span>
+                            </div>
+                        </div>
+                        <div class="otext__field" data-otext="premium">
+                            <div class="otext__head">
+                                <label class="v-label" for="cfgPremiumText">Teks premium <span class="label-hint">.premium · .buyprem</span></label>
+                                <button type="button" class="otext__reset" data-otext-reset="cfgPremiumText" title="Kosongkan supaya bot memakai teks otomatis" aria-label="Pakai teks otomatis"><i class="fa-solid fa-rotate-left"></i><span>Pakai otomatis</span></button>
+                            </div>
+                            <textarea id="cfgPremiumText" class="v-textarea otext__input" rows="7" maxlength="1500" placeholder="Kosongkan = teks otomatis. Cth: Premium {botname} 5rb/minggu, bebas limit. Order: {ownerlink}"></textarea>
+                            <div class="otext__foot">
+                                <span class="otext__state" id="premiumTextState">Teks otomatis</span>
+                                <span class="otext__count" id="premiumTextCount">0 / 1500</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="otext__preview">
+                        <div class="otext__preview-head">
+                            <span class="v-eyebrow">Pratinjau</span>
+                            <div class="seg" role="tablist" aria-label="Pilih pratinjau">
+                                <button type="button" class="seg__btn is-active" data-otext-tab="sewa" role="tab" aria-selected="true">.sewa</button>
+                                <button type="button" class="seg__btn" data-otext-tab="premium" role="tab" aria-selected="false">.premium</button>
+                            </div>
+                        </div>
+                        <div class="wa-chat" aria-live="polite">
+                            <div class="wa-msg wa-msg--out"><span id="otextPreviewCmd">.sewa</span><span class="wa-msg__time">12.04 <i class="fa-solid fa-check-double"></i></span></div>
+                            <div class="wa-msg wa-msg--in">
+                                <span class="wa-msg__name" id="otextPreviewName">Varesa</span>
+                                <div class="wa-msg__text" id="otextPreview"></div>
+                                <span class="wa-msg__time">12.04</span>
+                            </div>
+                        </div>
+                        <p class="v-help otext__note" id="otextPreviewNote">Contoh dengan {pushname} = Budi.</p>
+                    </div>
+                </div>
+                <p class="v-help otext__hint">Kosongkan = teks otomatis (nama bot + kontak owner bot ini). Maks 1500 karakter per teks. Format WhatsApp seperti <code>*tebal*</code> dan <code>_miring_</code> ikut terbaca.</p>
+            </div>
+
+            <!-- Wewenang owner per bot: tetap tampil untuk bot Free karena
+                 pemilik nomor bot (pesan dari HP bot) selalu dihitung owner. -->
+            <div class="notice notice--ok owner-cmds" id="ownerCmdsNote">
+                <i class="fa-solid fa-user-shield"></i>
+                <span><strong>Owner bot ini punya wewenang sendiri.</strong> Nomor bot ini &amp; nomor owner di atas bisa pakai <code>.addprem</code> <code>.delprem</code> <code>.listprem</code> <code>.addlimit</code> <code>.sewabot</code> <code>.listsewa</code> langsung di WhatsApp — berlaku di bot ini saja, tidak memengaruhi bot lain.</span>
             </div>
 
             <div class="bottom-bar">
@@ -1389,6 +1469,6 @@
     <div class="v-toast-wrap" id="toastWrap" aria-live="polite"></div>
 
     <script src="/live.js?v=33"></script>
-    <script src="/app.js?v=34"></script>
+    <script src="/app.js?v=35"></script>
 </body>
 </html>

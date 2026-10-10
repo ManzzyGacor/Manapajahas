@@ -178,7 +178,9 @@ async function handle(sock, messageInfo) {
   }
   cooldowns.set(userJid, now);
 
-  const isPremium = isPremiumUser(userJid);
+  // messageInfo.isPremium juga memuat premium PER BOT (diberikan owner bot
+  // ini lewat .addprem), yang tidak tercatat di users.json.
+  const isPremium = isPremiumUser(userJid) || messageInfo.isPremium === true;
   const todayDate = new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' });
   
   let userData = {};

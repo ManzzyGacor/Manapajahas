@@ -52,6 +52,13 @@ import { recordMessage } from "./lib/bot-stats.js";
 import { hasActiveAddon } from "./lib/addons.js";
 import { applyTierCaps } from "./lib/tier-guard.js";
 import { logCommand } from "./lib/monitor.js";
+import {
+  hasBotUserData,
+  hasBotPremiumEntries,
+  getBotPremiumAny,
+  getLimitBonusAny,
+  useLimitBonusAny,
+} from "./lib/bot-scope.js";
 
 // Pembatas frekuensi pemeriksaan kuota grup (botNumber -> timestamp).
 const lastQuotaCheck = new Map();
@@ -74,9 +81,8 @@ const lastQuotaCheck = new Map();
 const PERINTAH_OWNER_UTAMA = new Set([
   // file plugin di server
   "addplugin", "addplugins", "delplugin", "delplugins",
-  // database user bersama (limit/money/level/premium/status)
-  "addlimit", "addmoney", "addlevel",
-  "addprem", "addpremium", "delprem", "delpremium", "listprem",
+  // database user bersama (money/level/status)
+  "addmoney", "addlevel",
   "addpremgrub", "addpremiumgrub", "delpremgrub", "delpremiumgrub",
   "block", "unblock", "listblock",
   "blacklist", "unblacklist", "listblacklist",
@@ -84,12 +90,23 @@ const PERINTAH_OWNER_UTAMA = new Set([
   // kata kasar & respon global
   "addglobalbadword", "delglobalbadword",
   "addrespon", "delrespon", "deleterespon", "listrespon",
-  // sistem sewa bot utama
-  "sewabot", "sewabotid", "tambahsewa", "delsewa", "kompensasi",
-  "listsewa", "listsewa2", "listnosewa", "outnosewa", "totalsewa",
+  // sistem sewa bot utama (yang tidak punya versi per bot)
+  "sewabotid", "kompensasi",
+  "listsewa2", "listnosewa", "outnosewa", "totalsewa",
   "excelsewa", "listsewaexcel",
   // status apikey autoresbot milik operator
   "apikey",
+]);
+
+// Premium, limit & sewa: owner bot BOLEH memakainya, tapi plugin menulis ke
+// data PER BOT (lib/bot-scope.js) yang hanya berlaku di bot miliknya;
+// owner utama tetap menulis data global seperti dulu. Di bot utama, hanya
+// owner utama yang boleh — "owner" dashboard yang kebetulan menempel ke
+// nomor bot utama tidak punya ruang per bot di sana.
+const PERINTAH_SCOPE_BOT = new Set([
+  "addprem", "addpremium", "delprem", "delpremium", "listprem",
+  "addlimit",
+  "sewabot", "tambahsewa", "delsewa", "listsewa",
 ]);
 
 // Iklan paket Free. Penanda dipakai supaya pesan yang sudah memuat alamat
@@ -262,7 +279,58 @@ async function processMessage(sock, messageInfo) {
   messageInfo.botNumber = botNumber;
   messageInfo.isJadibot = isJadibotSession;
 
-  const isPremiumUsers = isPremiumUser(sender);
+  const senderNumber = String(sender || "").split("@")[0].split(":")[0];
+  const angkaJid = (jid) => String(jid || "").split("@")[0].split(":")[0].replace(/\D/g, "");
+
+  // Pengirim bisa datang sebagai LID (di grup yang masih memakai nomor HP,
+  // serializeMessage mengambil participantAlt yang isinya LID). Auto-register
+  // di handle/usersHandle.js mencatat LID itu sebagai user TERPISAH, jadi
+  // alias users.json tidak menolong. Nomor HP-nya dicari lewat lidMapping
+  // Baileys (cache/penyimpanan sesi saja, tanpa query ke server) supaya
+  // owner dashboard dan data per bot tetap dikenali. Hanya di bot user;
+  // perilaku bot utama tidak berubah.
+  let senderPn = "";
+  if (isJadibotSession && String(sender || "").endsWith("@lid")) {
+    try {
+      senderPn = angkaJid(await sock.signalRepository?.lidMapping?.getPNForLID?.(sender));
+    } catch {
+      /* mapping belum ada: pakai LID-nya saja seperti dulu */
+    }
+  }
+
+  // Semua ID milik pengirim (nomor HP & LID) untuk mencocokkan data per
+  // bot: premium/bonus limit bisa tersimpan sebagai nomor HP padahal
+  // pesannya datang sebagai LID, atau sebaliknya (mention LID yang waktu
+  // itu belum bisa dipetakan). Hanya dicari kalau bot ini memang punya
+  // data per bot, supaya bot lain tidak menanggung biaya pencarian.
+  const userKeys = [senderNumber];
+  if (isJadibotSession && hasBotUserData(botNumber)) {
+    const entri = findUser(sender);
+    for (const alias of (entri && Array.isArray(entri[1]?.aliases) ? entri[1].aliases : [])) {
+      const k = angkaJid(alias);
+      if (k && !userKeys.includes(k)) userKeys.push(k);
+    }
+    let idLain = senderPn;
+    if (!idLain && String(sender || "").endsWith("@s.whatsapp.net")) {
+      // Baileys sendiri sudah mencari LID pengirim saat mendekripsi pesan,
+      // jadi ini biasanya kena cache-nya.
+      try {
+        idLain = angkaJid(await sock.signalRepository?.lidMapping?.getLIDForPN?.(sender));
+      } catch {
+        /* abaikan: cukup pakai ID yang ada */
+      }
+    }
+    if (idLain && !userKeys.includes(idLain)) userKeys.push(idLain);
+  }
+  messageInfo.userKeys = userKeys;
+
+  // Premium global (users.json, diatur owner utama) berlaku di semua bot;
+  // premium per bot (diberikan owner bot lewat .addprem) hanya di bot ini.
+  const isPremiumUsers =
+    isPremiumUser(sender) ||
+    (isJadibotSession &&
+      hasBotPremiumEntries(botNumber) &&
+      getBotPremiumAny(botNumber, userKeys) !== null);
 
   // Owner utama (operator) — berlaku di semua bot.
   // Pesan yang diketik dari HP/perangkat bot utama sendiri juga owner utama.
@@ -272,9 +340,12 @@ async function processMessage(sock, messageInfo) {
   // applyTierCaps) + pemilik nomor bot itu sendiri (pesan fromMe = diketik
   // pemilik akun WhatsApp bot dari HP-nya). Dicocokkan persis per nomor;
   // dulu memakai sender.includes() yang bisa salah cocok dengan nomor lain.
-  const senderNumber = String(sender || "").split("@")[0].split(":")[0];
+  // Kalau pesannya datang sebagai LID, nomor HP hasil lidMapping di atas
+  // juga dicocokkan (nomor owner di dashboard selalu nomor HP).
   const isBotOwner =
-    !!fromMe || (senderNumber && sessionConfig.owners.includes(senderNumber));
+    !!fromMe ||
+    (senderNumber && sessionConfig.owners.includes(senderNumber)) ||
+    (!!senderPn && sessionConfig.owners.includes(senderPn));
 
   const isOwnerUsers = isMainOwner || isBotOwner;
   messageInfo.isOwner = isOwnerUsers;
@@ -565,8 +636,13 @@ async function processMessage(sock, messageInfo) {
         }
 
         // Perintah yang mengubah data seluruh server: khusus owner utama.
+        // Perintah premium/limit/sewa boleh untuk owner bot, tapi hanya di
+        // bot milik user (datanya per bot); di bot utama tetap owner utama.
+        const cmdGerbang = String(command).toLowerCase();
         if (
-          (plugin.OnlyMainOwner || PERINTAH_OWNER_UTAMA.has(String(command).toLowerCase())) &&
+          (plugin.OnlyMainOwner ||
+            PERINTAH_OWNER_UTAMA.has(cmdGerbang) ||
+            (PERINTAH_SCOPE_BOT.has(cmdGerbang) && !isJadibotSession)) &&
           !isMainOwner
         ) {
           logTracking(`Handler - Bukan Owner utama (${command})`);
@@ -593,9 +669,16 @@ async function processMessage(sock, messageInfo) {
             if (!dataUsers) return;
 
             const [docId, userData] = dataUsers;
+            const biaya = plugin.limitDeduction;
+            const limitGlobal = Number(userData.limit) || 0;
 
-            const isLimitExceeded =
-              userData.limit < plugin.limitDeduction || userData.limit < 1;
+            // Bonus limit dari owner bot ini (.addlimit di bot user) dipakai
+            // DULU, baru limit global. "Limit habis" hanya kalau gabungan
+            // keduanya kurang. Bonus bot lain tidak ikut dihitung.
+            const bonus = isJadibotSession ? getLimitBonusAny(botNumber, userKeys) : 0;
+            const totalLimit = bonus + limitGlobal;
+
+            const isLimitExceeded = totalLimit < biaya || totalLimit < 1;
             if (isLimitExceeded) {
               logTracking("Handler - Limit habis ");
               await sock.sendMessage(
@@ -606,10 +689,15 @@ async function processMessage(sock, messageInfo) {
               return;
             }
 
-            // Kurangi limit pengguna jika masih cukup
-            await updateUser(sender, {
-              limit: userData.limit - plugin.limitDeduction,
-            });
+            const dariBonus = bonus ? useLimitBonusAny(botNumber, userKeys, biaya) : 0;
+            const dariGlobal = biaya - dariBonus;
+
+            // Kurangi limit global hanya untuk sisa yang tidak tertutup bonus.
+            if (dariGlobal > 0) {
+              await updateUser(sender, {
+                limit: limitGlobal - dariGlobal,
+              });
+            }
           } catch (error) {
             console.error(
               `Terjadi kesalahan saat mengurangi limit pengguna: ${error.message}`

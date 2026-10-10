@@ -1,9 +1,31 @@
 import { findUser, updateUser } from "../../lib/users.js";
 import { sendMessageWithMention } from "../../lib/utils.js";
+import {
+  scopeFor,
+  resolveTargetUser,
+  delBotPremium,
+  getBotIdentity,
+} from "../../lib/bot-scope.js";
+import mess from "../../strings.js";
+import config from "../../config.js";
 
 async function handle(sock, messageInfo) {
   const { remoteJid, message, sender, content, prefix, command, senderType } =
     messageInfo;
+
+  const scope = scopeFor(messageInfo);
+  if (!scope) {
+    return sock.sendMessage(
+      remoteJid,
+      { text: mess.general.isMainOwner.replace("@dashboard", `${config.web_url}/dashboard`) },
+      { quoted: message }
+    );
+  }
+
+  // Owner bot di bot miliknya sendiri: hanya premium bot ini yang dihapus.
+  if (scope.mode === "bot") {
+    return hapusPremiumPerBot(sock, messageInfo, scope.bot);
+  }
 
   try {
     // Validasi input
@@ -75,6 +97,55 @@ async function handle(sock, messageInfo) {
       { quoted: message }
     );
   }
+}
+
+async function hapusPremiumPerBot(sock, messageInfo, bot) {
+  const { remoteJid, message, content, prefix, command } = messageInfo;
+  const identitas = getBotIdentity(messageInfo);
+
+  const target = await resolveTargetUser(sock, messageInfo, content, findUser);
+  if (!target) {
+    return sock.sendMessage(
+      remoteJid,
+      {
+        text:
+          `_⚠️ Format: *${prefix + command} <tag/nomor>*_\n\n` +
+          `_💬 Contoh:_ *${prefix + command} @tag* atau *${prefix + command} 628xxxxxxxxxx*\n\n` +
+          `_Lihat daftarnya: *${prefix}listprem*_`,
+      },
+      { quoted: message }
+    );
+  }
+
+  // Hapus di semua ID orang itu (nomor HP & LID), karena premium bisa
+  // tersimpan dengan salah satunya.
+  let terhapus = false;
+  for (const k of target.keys) {
+    if (delBotPremium(bot, k)) terhapus = true;
+  }
+
+  const tag = target.jid.split("@")[0];
+  if (!terhapus) {
+    return sock.sendMessage(
+      remoteJid,
+      {
+        text: `⚠️ _@${tag} tidak punya premium aktif di bot ${identitas.name} ini._`,
+        mentions: [target.jid],
+      },
+      { quoted: message }
+    );
+  }
+
+  return sock.sendMessage(
+    remoteJid,
+    {
+      text:
+        `✅ _Premium @${tag} di bot *${identitas.name}* sudah dihapus._\n\n` +
+        `_ℹ️ Berlaku di bot ini saja; premium dari owner utama (kalau ada) tidak berubah._`,
+      mentions: [target.jid],
+    },
+    { quoted: message }
+  );
 }
 
 export default {

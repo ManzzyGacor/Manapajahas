@@ -1,7 +1,8 @@
 import { findUser } from "../../lib/users.js";
+import { getBotPremiumAny, getBotIdentity, formatTanggalWIB } from "../../lib/bot-scope.js";
 
 async function handle(sock, messageInfo) {
-  const { remoteJid, message, sender } = messageInfo;
+  const { remoteJid, message, sender, isJadibot, botNumber, userKeys } = messageInfo;
 
   try {
     // Ambil data pengguna
@@ -27,6 +28,19 @@ async function handle(sock, messageInfo) {
       }
     } else {
       premiumStatus = "📋 _Saat ini kamu tidak memiliki masa premium_";
+    }
+
+    // Premium per bot (dari owner bot ini lewat .addprem) hanya berlaku di
+    // bot ini, jadi ditampilkan terpisah dari premium global.
+    if (isJadibot && botNumber) {
+      const kunci = Array.isArray(userKeys) && userKeys.length
+        ? userKeys
+        : [String(sender || "").split("@")[0].split(":")[0]];
+      const premiumBot = getBotPremiumAny(botNumber, kunci);
+      if (premiumBot) {
+        const { name } = getBotIdentity(messageInfo);
+        premiumStatus += `\n💎 _Premium di bot ${name} (bot ini saja) hingga:_ ${formatTanggalWIB(premiumBot)}`;
+      }
     }
 
     const responseText = `_Halo_ @${sender.split("@")[0]} \n\n${premiumStatus}`;
