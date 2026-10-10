@@ -1042,11 +1042,25 @@ document.addEventListener("DOMContentLoaded", () => {
                    <span class="botcard__plus"><i class="fa-brands fa-whatsapp"></i></span>
                    <div>
                        <strong>Belum ada bot</strong>
-                       <p>Tambah nomor WhatsApp pertama kamu — gratis. Satu akun dapat 1 bot Free, bot berikutnya bisa pakai paket lain.</p>
+                       <p>${emptyFleetText()}</p>
                    </div>
                    <button type="button" class="v-btn v-btn--primary v-btn--sm" data-act="add"><i class="fa-solid fa-plus"></i> Tambah bot pertama</button>
                </div>`;
         list.innerHTML = myBots.map(botCardHTML).join('') + addCard;
+    }
+
+    // Ajakan bot pertama mengikuti keadaan akun: paket tersimpan langsung
+    // terpasang ke bot pertama (jadi bukan "gratis"), dan jatah bot Free
+    // bisa diubah admin — angka "1" tidak boleh ditulis mati.
+    function emptyFleetText() {
+        if (pendingPkg) {
+            const nm = pendingPkg.tierName || tierName(pendingPkg.tier);
+            return `Tambah nomor WhatsApp pertama kamu — paket ${escapeHtml(nm)} yang tersimpan langsung dipasang ke bot ini.`;
+        }
+        const maxFree = botLimits?.maxFree ?? 1;
+        return maxFree > 0
+            ? `Tambah nomor WhatsApp pertama kamu — gratis. Satu akun dapat ${maxFree} bot Free, bot berikutnya bisa pakai paket lain.`
+            : 'Tambah nomor WhatsApp pertama kamu. Saat ini bot baru tidak bisa memakai paket Free — hubungi admin untuk paket awal.';
     }
 
     // --- Kartu Kontrol Bot (bot yang dipilih) ---
@@ -1183,7 +1197,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (code === 'PENDING') {
             const nm = pendingPkg?.tierName || tierName(pendingPkg?.tier);
-            return { tone: 'ok', html: `<i class="fa-solid fa-gift"></i><span><strong>Bot baru ini langsung dapat paket ${escapeHtml(nm)}</strong>${pendingPkg?.daysLeft != null ? ` (sisa ${Number(pendingPkg.daysLeft) || 0} hari)` : ''} — paket tersimpan dari bot yang kamu hapus.</span>` };
+            return { tone: 'ok', html: `<i class="fa-solid fa-gift"></i><span><strong>Bot baru ini langsung dapat paket ${escapeHtml(nm)}</strong>${pendingPkg?.daysLeft != null ? ` (sisa ${Number(pendingPkg.daysLeft) || 0} hari)` : ''} — paket yang tersimpan di akun kamu.</span>` };
         }
         return { tone: 'danger', html: `<i class="fa-solid fa-circle-exclamation"></i><span>${escapeHtml(serverText || 'Bot belum bisa ditambahkan.')}</span>` };
     }
@@ -1214,6 +1228,8 @@ document.addEventListener("DOMContentLoaded", () => {
             setMeterOf('limFreeMeter', L.maxFree ? (freeUsed / L.maxFree) * 100 : 100, freeUsed >= L.maxFree ? 'warn' : '');
             const rf = $id('ruleFree');
             if (rf) rf.textContent = L.maxFree;
+            // FAQ ikut jatah bot Free yang diatur admin.
+            document.querySelectorAll('[data-free-n]').forEach(el => { el.textContent = L.maxFree; });
         }
         const cap = lastCapacity || botsCapacity;
         if (cap && cap.max != null) {

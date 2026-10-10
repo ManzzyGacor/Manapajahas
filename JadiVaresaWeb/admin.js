@@ -1635,7 +1635,7 @@
     return { maxBotsPerUser: n(limForm.max), maxFreeBotsPerUser: n(limForm.free) };
   }
   const maxOk = (v) => Number.isInteger(v) && v >= 1 && v <= 50;
-  const freeOk = (v) => Number.isInteger(v) && v >= 0 && v <= 10;
+  const freeOk = (v) => Number.isInteger(v) && v >= 1 && v <= 10;
 
   function updateLimitsPreview() {
     const f = readLimitsForm();
@@ -1643,7 +1643,7 @@
     if (!maxOk(f.maxBotsPerUser) || !freeOk(f.maxFreeBotsPerUser)) {
       box.className = 'preview-box span-all is-same';
       setText('limPreviewVal', 'angka tidak valid');
-      setText('limPreviewNote', 'Maksimal bot per akun 1–50, maksimal bot Free 0–10 (angka bulat).');
+      setText('limPreviewNote', 'Maksimal bot per akun 1–50, maksimal bot Free 1–10 (angka bulat).');
       return;
     }
     // Bot Free tetap terhitung di batas total, jadi yang efektif = yang terkecil.

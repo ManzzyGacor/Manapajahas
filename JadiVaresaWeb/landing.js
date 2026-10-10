@@ -699,7 +699,9 @@
           COMMANDS = { total: num(d.total), categories: cats };
           return COMMANDS;
         })
-        .catch(() => { commandsJob = null; return null; });
+        // 404 = server versi lama tanpa endpoint ini: jangan diminta ulang
+        // tiap modal dibuka. Gagal karena hal lain boleh dicoba lagi nanti.
+        .catch((e) => { if (!/HTTP 404/.test(String(e && e.message))) commandsJob = null; return null; });
     }
     return commandsJob;
   }
@@ -1132,8 +1134,12 @@ func main() {
     const sentence = state === 'full' ? 'Server penuh — coba lagi nanti. Slot dibuka lagi begitu ada bot yang berhenti.'
       : state === 'limited' ? `Server hampir penuh — tinggal ±${nfInt.format(rem)} slot bot lagi.`
         : `Server ini masih bisa menampung ±${nfInt.format(rem)} bot lagi.`;
-    shorts.forEach((el) => { el.textContent = short; });
-    dots.forEach((el) => { el.className = `v-dot v-dot--live ${dotCls}`; });
+    // Database putus (server.status "degraded"): slot bot memang masih ada,
+    // tapi akun baru belum bisa masuk/daftar. Baris ringkas di hero & ajakan
+    // penutup jangan hijau "masih muat" — sama seperti di halaman masuk.
+    const dbDown = get(LIVE.data, 'server.status') === 'degraded';
+    shorts.forEach((el) => { el.textContent = dbDown ? 'Gangguan database · login & daftar tertunda' : short; });
+    dots.forEach((el) => { el.className = `v-dot v-dot--live ${dbDown ? 'v-dot--warn' : dotCls}`; });
     $$('[data-cap-sentence]').forEach((el) => { el.textContent = sentence; });
     $$('[data-cap-num]').forEach((el) => countTo(el, rem, (n) => (rem > 0 ? '<span class="pm">±</span>' : '') + nfInt.format(Math.round(n))));
     if (card) card.dataset.state = state;

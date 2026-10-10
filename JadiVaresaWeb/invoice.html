@@ -227,6 +227,13 @@
       const who = botLabel
         ? `<strong>${esc(botLabel)}</strong> <span class="v-mono">(${esc(maskNumber(order.botNumber))})</span>`
         : `<span class="v-mono">${esc(maskNumber(order.botNumber))}</span>`;
+      // appliedTo "pending": saat lunas bot itu sudah dihapus / pindah akun,
+      // jadi server MENYIMPAN paketnya untuk bot berikutnya. Jangan bilang
+      // "bot langsung memakai fitur barunya" — botnya sudah tidak ada.
+      if (order.kind !== 'addon' && order.appliedTo === 'pending') {
+        el.innerHTML = `Paket <strong id="successTier">${esc(what)}</strong> untuk bot ${who} sudah dibayar. Bot itu sudah tidak ada di akun kamu, jadi paketnya disimpan dan otomatis dipasang ke bot berikutnya yang kamu tambahkan.`;
+        return;
+      }
       el.innerHTML = `${order.kind === 'addon' ? 'Add-on' : 'Paket'} <strong id="successTier">${esc(what)}</strong> untuk bot ${who} sudah aktif. Bot langsung memakai fitur barunya — tidak perlu restart.`;
     }
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -346,14 +353,17 @@
         // sekarang per bot: user.tier hanya ringkasan (paket TERTINGGI), jadi
         // cuma dinaikkan — dan tidak disentuh untuk add-on (tier-nya kosong).
         if (currentUser && currentUser.id === order.userId) {
-          if (order.kind !== 'addon' && TIER_RANK[order.tier] > (TIER_RANK[currentUser.tier] || 0)) {
+          const tersimpan = order.appliedTo === 'pending'; // paket menunggu bot berikutnya
+          if (order.kind !== 'addon' && !tersimpan && TIER_RANK[order.tier] > (TIER_RANK[currentUser.tier] || 0)) {
             currentUser.tier = order.tier;
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
           }
           // Dashboard dibuka langsung di bot yang baru di-upgrade, dan salinan
           // daftar bot di browser ikut diperbarui supaya paketnya tidak tampil
           // basi sebelum dashboard sempat bertanya ke server.
-          if (order.botNumber) {
+          if (tersimpan) {
+            try { localStorage.removeItem('vrs_bots'); } catch { /* abaikan */ }
+          } else if (order.botNumber) {
             try {
               localStorage.setItem('active_bot_num', String(order.botNumber));
               const c = JSON.parse(localStorage.getItem('vrs_bots') || 'null');

@@ -17,7 +17,7 @@ Halo Kak *${pushName || "Kak"}*! Bot ini berjalan di *Varesa*. Kamu juga bisa pu
 4️⃣ Selesai — bot langsung aktif 24/7 dengan ratusan fitur
 
 ⚙️ Nama bot, nomor owner, menu, pesan otomatis, perintah kustom & sambutan grup semuanya diatur dari dashboard.
-💎 Paket: Free • Core • Prime • Zenith — ketik *${prefix || "."}premium* untuk info upgrade.
+💎 Paket per bot: Free • Core • Prime • Zenith — satu akun bisa punya beberapa bot, tiap bot bisa beda paket. Ketik *${prefix || "."}premium* untuk info upgrade.
 `.trim();
 
 async function handle(sock, messageInfo) {

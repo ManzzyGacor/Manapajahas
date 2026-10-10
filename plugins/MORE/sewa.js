@@ -14,8 +14,8 @@ Ingin grup WhatsApp kamu lebih hidup, seru, dan terkelola otomatis?
 ⚙️ Atur nama bot, owner, menu, pesan otomatis & sambutan grup langsung dari dashboard.
 🚀 Ratusan fitur: moderasi anti-link, game, stiker, downloader, cek MLBB, dan lainnya.
 
-💎 *Paket:* Free • Core • Prime • Zenith
-_Harga terbaru & perbandingan paket ada di website._
+💎 *Paket per bot:* Free • Core • Prime • Zenith
+_Satu akun bisa punya beberapa bot, tiap bot bisa beda paket. Harga terbaru & perbandingan paket ada di website._
 
 🌐 *Daftar / upgrade di:*
 ${config.web_url}/dashboard

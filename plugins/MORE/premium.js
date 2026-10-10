@@ -19,6 +19,8 @@ Mau pakai bot tanpa batas dan buka fitur dewa? Begini caranya di Varesa 🚀
 🔥 *PILIHAN UPGRADE:*
 │ ▹ ♾️ *Add-on Unlimited Access* — semua pengguna bot ini bebas limit, tanpa jeda anti-spam & limit harian cek MLBB.
 │ ▹ 💎 *Paket Core / Prime / Zenith* — nama bot & owner sendiri, bebas iklan, pesan otomatis, perintah kustom, menu bergambar, akses MLBB (Zenith).
+
+📌 _Paket berlaku per bot, bukan per akun. Punya beberapa bot? Tiap bot bisa beda paket._
 `.trim();
 
 /**
@@ -32,10 +34,10 @@ ${TEXT_GREETING(pushName)}
 
 🛒 *CARA PEMBELIAN OTOMATIS:*
 1️⃣ Buka dashboard: ${SOURCE_URL}
-2️⃣ Login, lalu pilih paket atau add-on untuk nomor bot kamu.
+2️⃣ Login, pilih bot yang mau di-upgrade, lalu pilih paket atau add-on-nya.
 3️⃣ Bayar via QRIS — langsung aktif otomatis. ✨
 
-_Bukan pemilik bot ini? Minta pemiliknya mengaktifkan add-on Unlimited Access._
+_Bukan pemilik bot ini? Paket bot ini diatur pemiliknya — minta dia upgrade atau mengaktifkan add-on Unlimited Access._
 `.trim();
 
     // Kirim pesan dengan gaya External Ad Reply (Gambar Besar) & Newsletter Forward (Saluran)

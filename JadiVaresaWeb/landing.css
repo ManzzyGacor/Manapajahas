@@ -559,11 +559,14 @@ button.v-pill { font-family: inherit; }
 .plan__price small { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--text-3); }
 .plan__num { font-family: var(--font-mono); font-weight: 700; font-size: clamp(30px, 2.9vw, 38px); letter-spacing: -.045em; line-height: 1; }
 .plan__num.v-skel { border-radius: 8px; }
-.plan__per { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); white-space: nowrap; }
+/* "per bot / bulan" selalu di baris sendiri di bawah angka: teksnya lebih
+   panjang dari "/ bulan" yang dulu, dan kalau dibiarkan sebaris ia
+   kadang ikut, kadang turun — harga antar kartu jadi tidak sejajar. */
+.plan__per { flex-basis: 100%; font-family: var(--font-mono); font-size: 12px; color: var(--text-3); white-space: nowrap; }
 /* Harga bawaan (server belum membaca harga resmi): angka diredupkan dan
    diberi tanda "≈" supaya tidak terbaca sebagai harga final. */
-.plans.is-est .plan__num:not(.v-skel) { color: var(--text-2); }
-.plans.is-est [data-price]:not(.v-skel)::before { content: "≈"; margin-right: .12em; font-weight: 500; color: var(--text-3); }
+.plans.is-est [data-price]:not(.v-skel) { color: var(--text-2); }
+.plans.is-est [data-price]:not(.v-skel)::before { content: "≈"; margin-right: .14em; font-size: .62em; font-weight: 500; color: var(--text-3); }
 .plans__est {
   display: flex; align-items: flex-start; gap: 10px; margin: 0 0 16px; padding: 11px 14px;
   border: 1px solid rgba(245, 181, 68, .28); border-radius: var(--r-sm); background: var(--warn-soft);
@@ -612,16 +615,20 @@ button.v-pill { font-family: inherit; }
 .plans__multi a .i { width: 13px; height: 13px; }
 .faq__item[id] { scroll-margin-top: calc(var(--nav-h) + 24px); }
 @media (max-width: 1080px) { .plans { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 860px) {
+@media (max-width: 1080px) {
   .plans__multi { flex-wrap: wrap; align-items: flex-start; border-radius: var(--r); padding: 12px 14px; }
   .plans__multi > span:nth-child(2) { flex: 1 1 220px; padding-top: 4px; }
   .plans__multi a { margin-left: 42px; }
+  /* Rata kiri sejajar kotak di atasnya: teks tengah yang terlipat dua baris
+     membuat ikon perisai terlihat lepas dari kalimatnya. */
+  .plans__foot { justify-items: stretch; }
+  .plans__foot .plans__note { justify-content: flex-start; align-items: flex-start; text-align: left; padding: 0 4px; }
+  .plans__foot .plans__note .i { margin-top: 2px; }
 }
 @media (max-width: 600px) {
   .plans { grid-template-columns: minmax(0, 1fr); }
   .plans__note { align-items: flex-start; text-align: left; }
   .plans__note .i { margin-top: 2px; }
-  .plans__foot { justify-items: stretch; }
 }
 
 /* ==========================================================================

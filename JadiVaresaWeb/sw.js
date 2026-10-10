@@ -21,7 +21,7 @@
  */
 
 // Naikkan versi ini tiap rilis besar: cache lama otomatis dibuang saat activate.
-const VERSION = "vrs-v2";
+const VERSION = "vrs-v3";
 const STATIC_CACHE = `${VERSION}-static`;
 const PAGE_CACHE = `${VERSION}-pages`;
 
@@ -29,8 +29,8 @@ const PAGE_CACHE = `${VERSION}-pages`;
 // dipakai halaman (termasuk ?v=...), karena cache dicocokkan per-URL.
 const PRECACHE = [
   "/assets/varesa.css?v=31",
-  "/landing.css?v=31",
-  "/landing.js?v=31",
+  "/landing.css?v=32",
+  "/landing.js?v=32",
   "/assets/logo-mark.svg",
   "/assets/logo.svg",
   "/icons/icon-192.png",

@@ -60,7 +60,8 @@ async function handle(sock, messageInfo) {
     `📊 *STATISTIK BOT*`,
     ``,
     `🤖 Nama   : *${botName}*`,
-    `💎 Paket  : *${paket}*`,
+    // Paket berlaku per bot: tegaskan ini paket BOT INI, bukan akun pemilik.
+    `💎 Paket  : *${paket}*${isJadibot ? " _(paket bot ini)_" : ""}`,
     `👥 Grup   : ${formatAngka(jumlahGrup ?? s?.groups ?? 0)}`,
   ];
 
