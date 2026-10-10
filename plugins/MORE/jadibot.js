@@ -6,7 +6,7 @@ import config from "../../config.js";
 // bawaan dashboard (Edit Menu) tapi dulu tidak ada plugin-nya, jadi bot
 // diam saja saat perintah itu dicoba. Pendaftaran & pairing sendiri tetap
 // lewat website — di sini cukup arahan + link-nya.
-const TEKS_JADIBOT = (pushName, prefix) => `
+const TEKS_JADIBOT = (pushName, prefix, isJadibot) => `
 🤖 *BIKIN BOT WHATSAPP SENDIRI*
 
 Halo Kak *${pushName || "Kak"}*! Bot ini berjalan di *Varesa*. Kamu juga bisa punya bot sendiri — gratis, tanpa install apa pun:
@@ -17,15 +17,21 @@ Halo Kak *${pushName || "Kak"}*! Bot ini berjalan di *Varesa*. Kamu juga bisa pu
 4️⃣ Selesai — bot langsung aktif 24/7 dengan ratusan fitur
 
 ⚙️ Nama bot, nomor owner, menu, pesan otomatis, perintah kustom & sambutan grup semuanya diatur dari dashboard.
-💎 Paket per bot: Free • Core • Prime • Zenith — satu akun bisa punya beberapa bot, tiap bot bisa beda paket. Ketik *${prefix || "."}premium* untuk info upgrade.
+💎 Paket per bot: Free • Core • Prime • Zenith — satu akun bisa punya beberapa bot, tiap bot bisa beda paket. ${
+  // Di bot milik user, .premium berisi premium versi owner bot itu (bukan
+  // paket Varesa), jadi info paket diarahkan langsung ke website.
+  isJadibot
+    ? `Harga & perbandingan paket: ${config.web_url}`
+    : `Ketik *${prefix || "."}premium* untuk info upgrade.`
+}
 `.trim();
 
 async function handle(sock, messageInfo) {
-  const { remoteJid, message, pushName, prefix } = messageInfo;
+  const { remoteJid, message, pushName, prefix, isJadibot } = messageInfo;
 
   await sock.sendMessage(
     remoteJid,
-    { text: TEKS_JADIBOT(pushName, prefix) },
+    { text: TEKS_JADIBOT(pushName, prefix, isJadibot) },
     { quoted: message }
   );
 }

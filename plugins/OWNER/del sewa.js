@@ -1,7 +1,24 @@
 import { deleteSewa } from "../../lib/sewa.js";
+import {
+  scopeFor,
+  delBotSewa,
+  getBotIdentity,
+  isValidGroupId,
+} from "../../lib/bot-scope.js";
+import mess from "../../strings.js";
+import config from "../../config.js";
 
 async function handle(sock, messageInfo) {
   const { remoteJid, message, content, prefix, command } = messageInfo;
+
+  const scope = scopeFor(messageInfo);
+  if (!scope) {
+    return sock.sendMessage(
+      remoteJid,
+      { text: mess.general.isMainOwner.replace("@dashboard", `${config.web_url}/dashboard`) },
+      { quoted: message }
+    );
+  }
 
   // Validasi input
   if (!content || !content.trim()) {
@@ -24,6 +41,31 @@ async function handle(sock, messageInfo) {
         text: `_⚠️ Format tidak valid!_\n\n_Pastikan ID grup mengandung '@g.us'._\n\n_💬 Contoh penggunaan:_ _*${
           prefix + command
         } 123xxxxx@g.us*_`,
+      },
+      { quoted: message }
+    );
+  }
+
+  // Owner bot di bot miliknya: hanya sewa yang tercatat di bot ini.
+  if (scope.mode === "bot") {
+    const idGrup = content.trim();
+    const identitas = getBotIdentity(messageInfo);
+    if (!isValidGroupId(idGrup)) {
+      return sock.sendMessage(
+        remoteJid,
+        {
+          text: `_⚠️ ID grup tidak valid._\n\n_💬 Contoh:_ *${prefix + command} 1203630xxxxxxx@g.us*\n_Lihat ID grupnya di *${prefix}listsewa*_`,
+        },
+        { quoted: message }
+      );
+    }
+    const ok = delBotSewa(scope.bot, idGrup);
+    return sock.sendMessage(
+      remoteJid,
+      {
+        text: ok
+          ? `✅ _Sewa grup *${idGrup}* di bot ${identitas.name} sudah dihapus._\n\n_ℹ️ Berlaku di bot ini saja. Bot tidak otomatis keluar dari grup; pakai *${prefix}outgrup* kalau perlu._`
+          : `⚠️ _ID grup *${idGrup}* tidak ada di daftar sewa bot ${identitas.name}._\n\n_Cek daftarnya: *${prefix}listsewa*_`,
       },
       { quoted: message }
     );

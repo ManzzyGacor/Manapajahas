@@ -1,5 +1,7 @@
 import axios from "axios";
 import { findUser } from "../../lib/users.js";
+// Bonus limit dari owner bot ini ikut ditampilkan (berlaku di bot ini saja).
+import { bonusLimitText } from "../../lib/bot-scope.js";
 
 async function handle(sock, messageInfo) {
     const { remoteJid, message, sender } = messageInfo;
@@ -27,7 +29,7 @@ async function handle(sock, messageInfo) {
                 image: finalBuffer,
                 caption:
                     "🤣 *Random Meme*\n" +
-                    `Limit*: ${userData.limit || 0}`
+                    `Limit*: ${userData.limit || 0}${bonusLimitText(messageInfo)}`
             },
             { quoted: message }
         );

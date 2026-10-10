@@ -5,9 +5,12 @@ import config from "../config.js";
 import { selisihHari, danger, logTracking } from "../lib/utils.js";
 import { logCustom } from "../lib/logger.js";
 import { getGroupMetadata } from "../lib/cache.js";
+import { getBotSewa, delBotSewa, getBotIdentity } from "../lib/bot-scope.js";
 import mess from "../strings.js";
 
 const notificationDays = 3; 
+// Kunci "nomorBot|idGrup": dua bot di grup yang sama punya masa sewa
+// sendiri-sendiri, jadi pemberitahuannya juga dicatat per bot.
 const notifiedGroups = new Set(); 
 const nonSewaGroups = new Set();
 
@@ -30,47 +33,67 @@ async function leaveGroupWithRetry(sock, remoteJid, maxRetries = 3) {
 }
 
 async function process(sock, messageInfo) {
-  const { remoteJid, isGroup, message, isJadibot } = messageInfo;
+  const { remoteJid, isGroup, message, isJadibot, botNumber } = messageInfo;
 
   if (!isGroup) {
     return true;
   }
 
-  // Sistem sewa grup hanya milik BOT UTAMA. database/sewa.json dikunci per
-  // ID grup, jadi tanpa pengecekan ini bot milik user (jadibot) yang
-  // kebetulan ada di grup yang sama ikut mengirim notifikasi sewa, lalu
-  // KELUAR dari grup saat sewa bot utama habis.
-  if (isJadibot) {
-    return true;
-  }
+  // Sewa grup dicatat PER BOT. Bot utama memakai database/sewa.json;
+  // bot milik user (jadibot) memakai sewa yang dicatat owner-nya sendiri
+  // (database/bot-scope.json). Dulu bot user dilewati sepenuhnya karena
+  // sewa.json dikunci per ID grup: bot user yang kebetulan ada di grup
+  // yang sama ikut mengirim notifikasi lalu KELUAR saat sewa bot utama
+  // habis. Sekarang tiap bot hanya menilai sewa miliknya sendiri, dan bot
+  // user yang tidak punya data sewa untuk grup ini tetap jalan seperti biasa.
+  const dataSewa = isJadibot
+    ? getBotSewa(botNumber, remoteJid)
+    : await findSewa(remoteJid);
 
-  const dataSewa = await findSewa(remoteJid);
+  const kunciNotif = `${isJadibot ? botNumber : "utama"}|${remoteJid}`;
 
   if (dataSewa) {
     const now = Date.now(); 
     const notificationMs = notificationDays * 24 * 60 * 60 * 1000; 
     const timeRemaining = dataSewa.expired - now; 
 
+    // Masih lama: tidak perlu apa-apa (dan tidak perlu metadata grup).
+    if (timeRemaining > notificationMs) {
+      return;
+    }
+
     const selisihHariSewa = selisihHari(dataSewa.expired);
 
     // Ambil Metadata Grup
-    const groupMetadata = await getGroupMetadata(sock, remoteJid);
-    const participants = groupMetadata.participants;
+    let adminIds = [];
+    try {
+      const groupMetadata = await getGroupMetadata(sock, remoteJid);
+      const participants = groupMetadata?.participants || [];
 
-    // --- LOGIKA FILTER ADMIN ---
-    // Kita filter participant yang punya properti 'admin' (admin atau superadmin)
-    const groupAdmins = participants.filter(p => p.admin !== null && p.admin !== undefined);
-    const adminIds = groupAdmins.map(p => p.id); // Ambil ID Admin saja
+      // --- LOGIKA FILTER ADMIN ---
+      // Kita filter participant yang punya properti 'admin' (admin atau superadmin)
+      const groupAdmins = participants.filter(p => p.admin !== null && p.admin !== undefined);
+      adminIds = groupAdmins.map(p => p.id); // Ambil ID Admin saja
+    } catch {
+      /* tanpa mention admin pun pemberitahuan tetap dikirim */
+    }
     // ---------------------------
+
+    // Nama & kontak di pemberitahuan: milik bot INI. Bot user tidak boleh
+    // menampilkan nama/nomor operator Varesa ke grup pelanggannya.
+    const identitas = getBotIdentity(messageInfo);
 
     // 1. Notifikasi H-3 (Tag Admin Saja)
     if (timeRemaining <= notificationMs && timeRemaining > 0) {
-      if (!notifiedGroups.has(remoteJid)) {
+      if (!notifiedGroups.has(kunciNotif)) {
         if (mess.handler.sewa_notif) {
-          let warningMessage = mess.handler.sewa_notif.replace(
-            "@date",
-            selisihHariSewa
-          );
+          let warningMessage = mess.handler.sewa_notif
+            .replace("@date", selisihHariSewa)
+            .replace("@botname", identitas.name);
+
+          if (isJadibot && identitas.ownerLink) {
+            warningMessage += `\n\nPerpanjang sewa? Hubungi owner: ${identitas.ownerLink}`;
+          }
           
           // Tambahkan pesan khusus untuk admin
           warningMessage += "\n\ncc: Admin Group";
@@ -87,7 +110,7 @@ async function process(sock, messageInfo) {
           );
         }
 
-        notifiedGroups.add(remoteJid); 
+        notifiedGroups.add(kunciNotif);
         return false;
       }
     
@@ -96,14 +119,16 @@ async function process(sock, messageInfo) {
 
       if (mess.handler.sewa_out) {
         // Kontak owner kalau ada; kalau OWNER_NUMBERS kosong, arahkan ke
-        // website (dulu jadi "wa.me/undefined").
-        const kontak = config.owner_number[0]
+        // website (dulu jadi "wa.me/undefined"). Bot user: owner bot itu
+        // (owner dashboard pertama → nomor bot sendiri).
+        const kontak = isJadibot
+          ? identitas.ownerLink || `wa.me/${botNumber}`
+          : config.owner_number[0]
           ? `wa.me/${config.owner_number[0]}`
           : `${config.web_url}/dashboard`;
-        let warningMessage = mess.handler.sewa_out.replace(
-          "@ownernumber",
-          kontak
-        );
+        let warningMessage = mess.handler.sewa_out
+          .replace("@ownernumber", kontak)
+          .replace("@botname", identitas.name);
         
         logTracking(`Sewa Handler - Send notif out sewa ke ${remoteJid}`);
         
@@ -117,8 +142,13 @@ async function process(sock, messageInfo) {
         );
       }
 
-      // Delete database sewa
-      await deleteSewa(remoteJid);
+      // Delete database sewa (milik bot ini saja)
+      if (isJadibot) {
+        delBotSewa(botNumber, remoteJid);
+      } else {
+        await deleteSewa(remoteJid);
+      }
+      notifiedGroups.delete(kunciNotif);
 
       try {
         await leaveGroupWithRetry(sock, remoteJid);
@@ -135,6 +165,10 @@ async function process(sock, messageInfo) {
       return false;
     }
   } else {
+    // Bot user tanpa sewa di grup ini: jalan seperti biasa, tanpa log.
+    if (isJadibot) {
+      return true;
+    }
     //Hanya log grup non-sewa satu kali
     if (!nonSewaGroups.has(remoteJid)) {
       logCustom(

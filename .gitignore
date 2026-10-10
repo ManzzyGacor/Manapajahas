@@ -20,6 +20,8 @@ database/owner.json
 database/group.json
 database/jadibot.json
 database/sewa.json
+database/bot-scope.json
+database/bot-scope.json.*
 database/slr.json
 database/list.json
 database/mediaFiles.json

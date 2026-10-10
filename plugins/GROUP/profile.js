@@ -1,6 +1,7 @@
 import { findUser, isOwner, isPremiumUser } from "../../lib/users.js";
 import { getProfilePictureUrl } from "../../lib/cache.js";
 import { getBuffer, formatNumber } from "../../lib/utils.js";
+import { getLimitBonusAny } from "../../lib/bot-scope.js";
 import { createCanvas, loadImage } from "canvas";
 
 // --- Metadata Plugin ---
@@ -68,6 +69,7 @@ async function generateProfileCanvas({
   level,
   money,
   limit,
+  bonusLimit = 0,
 }) {
   const width = 900;
   const height = 450;
@@ -154,7 +156,11 @@ async function generateProfileCanvas({
   ctx.fillStyle = "#9ca3af";
   ctx.font = "20px Sans-serif";
   ctx.fillText(`Money : ${formatNumber(money)}`, textX, baseY + 135);
-  ctx.fillText(`Limit  : ${limit}`, textX, baseY + 165);
+  ctx.fillText(
+    bonusLimit > 0 ? `Limit  : ${limit} (+${bonusLimit} bonus bot ini)` : `Limit  : ${limit}`,
+    textX,
+    baseY + 165
+  );
 
   // Now Playing bar
   const barY = cardY + cardH - 75; // lebih ke bawah biar nggak nabrak
@@ -269,11 +275,22 @@ async function handle(sock, messageInfo) {
     const [userId, userData] = user;
 
     // Owner bot dari dashboard juga tampil sebagai Owner (lihat autoresbot.js).
+    // messageInfo.isPremium sudah memuat premium global + premium per bot.
     const role = (messageInfo.isOwner ?? isOwner(sender))
       ? "Owner"
-      : isPremiumUser(sender)
+      : (messageInfo.isPremium ?? isPremiumUser(sender))
       ? "Premium"
       : "User";
+
+    // Bonus limit dari owner bot ini (.addlimit) — hanya berlaku di bot ini,
+    // dipakai duluan sebelum limit biasa.
+    const bonusLimit =
+      messageInfo.isJadibot && messageInfo.botNumber
+        ? getLimitBonusAny(
+            messageInfo.botNumber,
+            messageInfo.userKeys || [String(sender || "").split("@")[0].split(":")[0]]
+          )
+        : 0;
 
     const ppUser = await getProfilePictureUrl(sock, sender);
     const avatarUrl = ppUser || DEFAULT_AVATAR;
@@ -294,6 +311,7 @@ async function handle(sock, messageInfo) {
       level: userData.level || 1,
       money: userData.money || 0,
       limit: userData.limit || 0,
+      bonusLimit,
     });
 
     const caption = `
@@ -303,7 +321,9 @@ async function handle(sock, messageInfo) {
 👑 *Role*  : ${role}
 🎖️ *Level* : ${userData.level || 1}
 💰 *Money* : ${formatNumber(userData.money || 0)}
-💎 *Limit* : ${userData.limit || 0}
+💎 *Limit* : ${userData.limit || 0}${
+      bonusLimit > 0 ? `\n🎁 *Bonus limit (bot ini)* : ${formatNumber(bonusLimit)}` : ""
+    }
 `.trim();
 
     await sock.sendMessage(

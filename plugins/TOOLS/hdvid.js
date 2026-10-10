@@ -2,6 +2,8 @@ import axios from "axios";
 import FormData from "form-data";
 import { downloadContentFromMessage } from "baileys";
 import { findUser } from "../../lib/users.js"; 
+// Bonus limit dari owner bot ini ikut ditampilkan (berlaku di bot ini saja).
+import { bonusLimitText } from "../../lib/bot-scope.js";
 
 // Fungsi untuk mengunggah file ke Catbox.moe
 async function uploadToCatbox(buffer, mimeType) {
@@ -114,7 +116,7 @@ async function handle(sock, messageInfo) {
                 video: finalBuffer,
                 caption:
                     "✨🎥 *Video HD Diterapkan!*\n" +
-                    `Sisa Limit: ${userData.limit || 0}`
+                    `Sisa Limit: ${userData.limit || 0}${bonusLimitText(messageInfo)}`
             },
             { quoted: message }
         );

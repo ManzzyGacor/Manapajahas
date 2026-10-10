@@ -17,6 +17,7 @@
 //   AUTO_UPDATE  0 = jangan tarik update (default: 1)
 //   PANEL_RUNNER pm2 (default) atau node (tanpa PM2)
 //   PANEL_DRY_RUN 1 = cuma update & install, tidak menyalakan aplikasi
+//   SKIP_NPM     1 = jangan pernah menjalankan npm (modul diurus sendiri)
 //
 // Script ini sengaja TIDAK mengimpor apa pun dari project: saat pertama
 // kali dipakai, file project lain mungkin belum ada / masih versi lama.
@@ -147,35 +148,70 @@ function updateCode() {
   log(`Kode terbaru: ${ver}`);
 }
 
-// ── 2. npm install hanya kalau dependensi berubah ──────────────────
+// ── 2. Pasang modul hanya kalau memang perlu ───────────────────────
+// Dependensi langsung (package.json) yang belum terpasang, atau versinya
+// beda dengan package-lock.json.
+function depsToInstall() {
+  let pkg, lock = {};
+  try { pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); } catch { return ["package.json tidak terbaca"]; }
+  try { lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8")).packages || {}; } catch {}
+  const out = [];
+  for (const dep of Object.keys(pkg.dependencies || {})) {
+    let installed = null;
+    try { installed = JSON.parse(fs.readFileSync(path.join(ROOT, "node_modules", dep, "package.json"), "utf8")).version; } catch {}
+    const wanted = lock[`node_modules/${dep}`]?.version;
+    if (!installed || (wanted && installed !== wanted)) out.push(dep);
+  }
+  return out;
+}
+
+function runNpm(args) {
+  const r = spawnSync("npm", [...args, "--omit=dev", "--no-audit", "--no-fund"], { stdio: "inherit", timeout: 20 * 60 * 1000 });
+  if (r.error) warn(`npm tidak bisa dijalankan: ${r.error.message}`);
+  return r.status === 0;
+}
+
 function installDeps() {
+  if (env("SKIP_NPM") === "1") return log("SKIP_NPM=1, lewati pemasangan modul.");
+
   const lockFile = fs.existsSync("package-lock.json") ? "package-lock.json" : "package.json";
   const hash = crypto.createHash("sha1")
     .update(fs.readFileSync(lockFile))
     .update(process.versions.node.split(".")[0]) // modul native (canvas) ikut versi Node
     .digest("hex");
-  const marker = path.join(ROOT, "node_modules", ".varesa-deps");
-  const current = fs.existsSync(marker) ? fs.readFileSync(marker, "utf8").trim() : "";
-  if (current === hash && fs.existsSync(path.join(ROOT, "node_modules"))) {
+  const modulesDir = path.join(ROOT, "node_modules");
+  const marker = path.join(modulesDir, ".varesa-deps");
+  const saveMarker = () => { try { fs.mkdirSync(modulesDir, { recursive: true }); fs.writeFileSync(marker, hash); } catch {} };
+  const hasModules = fs.existsSync(modulesDir);
+
+  if (hasModules && fs.existsSync(marker) && fs.readFileSync(marker, "utf8").trim() === hash) {
     return log("Dependensi tidak berubah, lewati npm install.");
   }
-  log("Dependensi berubah — memasang modul (bisa beberapa menit)...");
-  // `npm ci` dipakai karena TIDAK PERNAH mengubah package-lock.json. Kalau
-  // lock ikut berubah, file itu jadi "diedit" di server, ditimpa lagi saat
-  // restart berikutnya, lalu install terulang terus-menerus.
-  const opts = { stdio: "inherit", timeout: 20 * 60 * 1000 };
-  const flags = ["--omit=dev", "--no-audit", "--no-fund"];
-  let r = lockFile === "package-lock.json" ? spawnSync("npm", ["ci", ...flags], opts) : { status: 1 };
-  if (r.status !== 0) {
-    if (lockFile === "package-lock.json") warn("npm ci gagal, mencoba npm install biasa...");
-    r = spawnSync("npm", ["install", "--no-save", ...flags], opts);
-  }
-  if (r.status === 0) {
-    fs.mkdirSync(path.dirname(marker), { recursive: true });
-    fs.writeFileSync(marker, hash);
+
+  let ok;
+  if (hasModules) {
+    // node_modules SUDAH ADA (mis. instalasi lama yang selama ini jalan).
+    // JANGAN pakai `npm ci`: perintah itu menghapus seluruh node_modules
+    // dulu — kalau pemasangan ulang gagal di panel, bot yang tadinya jalan
+    // ikut mati. Cukup pasang yang kurang saja.
+    const need = depsToInstall();
+    if (!need.length) {
+      saveMarker();
+      return log("Semua modul sudah terpasang, lewati npm install.");
+    }
+    log(`Modul kurang/beda versi: ${need.slice(0, 6).join(", ")}${need.length > 6 ? ` (+${need.length - 6} lagi)` : ""} — memasang...`);
+    ok = runNpm(["install", "--no-save"]);
   } else {
-    warn("npm install gagal. Aplikasi tetap dicoba jalan dengan modul yang ada.");
+    log("node_modules belum ada — memasang semua modul (pertama kali, bisa 5–10 menit)...");
+    // `npm ci` di sini aman (tidak ada yang dihapus) dan tidak mengubah
+    // package-lock.json, jadi file itu tidak dianggap "diedit" saat update.
+    ok = runNpm(["ci"]) || (warn("npm ci gagal, mencoba npm install biasa..."), runNpm(["install", "--no-save"]));
   }
+
+  if (ok) return saveMarker();
+  warn("Pemasangan modul GAGAL. Aplikasi tetap dicoba jalan dengan modul yang ada.");
+  warn("Penyebab umum: Docker image bukan Node.js 20 · RAM/disk panel penuh · koneksi ke registry npm terputus.");
+  warn("Kirim ±20 baris log npm di atas ke admin/pengembang supaya bisa dicek.");
 }
 
 // ── 3. cloudflared (opsional) ──────────────────────────────────────

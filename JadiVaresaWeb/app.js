@@ -315,6 +315,14 @@ function applyTierGating() {
     [$id('cfgBotName'), $id('cfgOwnerNumber'), $id('cfgWatermark'), $id('cfgFooter')]
         .forEach(el => { if (el) el.disabled = !caps.customize; });
 
+    // Teks sewa & premium: sama dengan identitas (Core ke atas). Pratinjau
+    // ikut digambar ulang karena nama/owner bot bergantung paket.
+    const ownerTextLock = $id('ownerTextLockOverlay');
+    if (ownerTextLock) ownerTextLock.style.display = caps.customize ? 'none' : 'flex';
+    document.querySelectorAll('#cfgSewaText, #cfgPremiumText, [data-otext-reset]')
+        .forEach(el => { el.disabled = !caps.customize; });
+    renderOwnerText();
+
     const menuLock = $id('menuLockOverlay');
     if (menuLock) menuLock.style.display = caps.customize ? 'none' : 'flex';
     const cfgCustomMenu = $id('cfgCustomMenu');
@@ -432,6 +440,121 @@ function renderExpiry() {
     el.innerText = exp.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
     el.style.color = daysLeft <= 3 ? 'var(--danger)' : '';
     if (sub) sub.innerText = daysLeft > 0 ? `${daysLeft} hari lagi` : 'sudah lewat';
+}
+
+// ==========================================
+// TEKS SEWA & PREMIUM (per bot)
+// ==========================================
+// Balasan .sewa/.pricelist dan .premium milik bot yang dipilih (config
+// sewaText/premiumText). Kosong = bot memakai teks otomatis. Placeholder
+// diganti oleh BOT saat perintah dipanggil; di sini hanya untuk pratinjau,
+// dengan aturan yang sama (lib/bot-scope.js renderBotText).
+const OWNER_TEXT_MAX = 1500; // harus sama dengan OWNER_TEXT_MAX di lib/webserver.js
+const OTEXT = {
+    sewa: { input: 'cfgSewaText', count: 'sewaTextCount', state: 'sewaTextState', cmd: '.sewa' },
+    premium: { input: 'cfgPremiumText', count: 'premiumTextCount', state: 'premiumTextState', cmd: '.premium' }
+};
+let otextTab = 'sewa';
+// Salinan teks otomatis bot milik user (TEXT_SEWA_BOT di plugins/MORE/sewa.js
+// & TEXT_PREMIUM_BOT di plugins/MORE/premium.js) — hanya untuk pratinjau.
+// Kalau teks di plugin diubah, samakan juga di sini.
+const OTEXT_AUTO = {
+    sewa: '👋 *Halo Kak {pushname}!*\nMau grup kamu dijaga & diramaikan *{botname}*? 🤖\n\n✨ *Sewa {botname} untuk grup kamu:*\n• Moderasi grup: anti-link, sambutan member, dll\n• Game, stiker, downloader & ratusan fitur lainnya\n• Aktif 24 jam\n\n💬 *Cara sewa:* chat owner bot ini untuk harga & masa sewa:\n{ownerlink}\n\n_Lihat semua fitur: ketik *{prefix}menu*_',
+    premium: '👋 *Halo Kak {pushname}!*\nMau jadi pengguna *Premium* di *{botname}*? 💎\n\n✨ *Keuntungan Premium:*\n• Bebas limit untuk fitur yang memakai limit\n• Bisa pakai fitur khusus Premium\n\n🛒 *Cara beli:* chat owner bot ini untuk harga & masa aktif:\n{ownerlink}\n\n_Premium dari owner bot ini berlaku di {botname} saja. Cek status kamu: *{prefix}cekpremium*_'
+};
+const OTEXT_SAMPLE_NAME = 'Budi';
+
+// Nama & kontak owner yang dipakai bot ini — urutannya sama dengan bot:
+// nama dari Config (paket berbayar) -> nama bawaan; owner pertama dari
+// Config -> nomor bot sendiri. Isian form dipakai langsung supaya pratinjau
+// ikut berubah saat user mengetik (sebelum disimpan).
+function otextVars() {
+    const caps = TIER_CAPS[botTier()] || TIER_CAPS.free;
+    const name = caps.customize ? ($id('cfgBotName')?.value.trim() || '') : '';
+    // Dinormalkan persis seperti lib/tier-guard.js (08xx → 628xx, entri < 8
+    // digit dibuang), supaya pratinjau sama dengan yang dikirim bot.
+    const firstOwner = caps.maxOwners > 0
+        ? (($id('cfgOwnerNumber')?.value || '').split(',')
+            .map(n => n.replace(/\D/g, ''))
+            .map(n => n.startsWith('0') ? '62' + n.slice(1) : n)
+            .find(n => n.length >= 8) || '')
+        : '';
+    const owner = firstOwner || String(activeBotNumber || '').replace(/\D/g, '');
+    return {
+        botname: name || 'Varesa',
+        owner,
+        ownerlink: owner ? `https://wa.me/${owner}` : '',
+        prefix: '.',
+        pushname: OTEXT_SAMPLE_NAME,
+        weburl: location.origin
+    };
+}
+
+// Ganti sekali jalan (bukan berantai), tidak peka huruf besar/kecil.
+function fillOwnerText(tpl, vars) {
+    return String(tpl || '').replace(/\{(botname|ownerlink|owner|prefix|pushname|weburl)\}/gi,
+        (_, k) => vars[k.toLowerCase()] ?? '');
+}
+
+// Format WhatsApp sederhana (*tebal*, _miring_, ~coret~, ```mono```).
+// Teks di-escape DULU, baru diberi tag — jadi isi user tidak bisa
+// menyisipkan HTML ke dashboard.
+function waFormatHTML(text) {
+    return escapeHtml(text)
+        .replace(/```([\s\S]+?)```/g, '<code>$1</code>')
+        .replace(/\*([^\s*](?:[^*\n]*[^\s*])?)\*/g, '<strong>$1</strong>')
+        .replace(/(^|[\s(])_([^\s_](?:[^_\n]*[^\s_])?)_/g, '$1<em>$2</em>')
+        .replace(/~([^\s~](?:[^~\n]*[^\s~])?)~/g, '<s>$1</s>');
+}
+
+function setOwnerTextTab(tab) {
+    if (!OTEXT[tab]) return;
+    otextTab = tab;
+    document.querySelectorAll('[data-otext-tab]').forEach(b => {
+        const on = b.dataset.otextTab === tab;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    renderOwnerText();
+}
+
+// Penghitung karakter, label "otomatis/teks sendiri", dan pratinjau.
+function renderOwnerText() {
+    for (const o of Object.values(OTEXT)) {
+        const input = $id(o.input);
+        if (!input) continue;
+        const len = input.value.length;
+        const count = $id(o.count);
+        if (count) {
+            count.textContent = `${len.toLocaleString('id-ID')} / ${OWNER_TEXT_MAX.toLocaleString('id-ID')}`;
+            count.classList.toggle('is-near', len >= OWNER_TEXT_MAX * 0.9 && len < OWNER_TEXT_MAX);
+            count.classList.toggle('is-full', len >= OWNER_TEXT_MAX);
+        }
+        const custom = input.value.trim().length > 0;
+        const state = $id(o.state);
+        if (state) {
+            state.textContent = custom ? 'Teks sendiri' : 'Teks otomatis';
+            state.classList.toggle('is-custom', custom);
+        }
+        input.closest('.otext__field')?.classList.toggle('is-custom', custom);
+    }
+
+    const box = $id('otextPreview');
+    if (!box) return;
+    const o = OTEXT[otextTab];
+    const raw = ($id(o.input)?.value || '').trim();
+    const vars = otextVars();
+    box.innerHTML = waFormatHTML(fillOwnerText(raw || OTEXT_AUTO[otextTab], vars));
+    const cmd = $id('otextPreviewCmd');
+    if (cmd) cmd.textContent = o.cmd;
+    const name = $id('otextPreviewName');
+    if (name) name.textContent = vars.botname;
+    const note = $id('otextPreviewNote');
+    if (note) {
+        note.textContent = raw
+            ? `Contoh dengan {pushname} = ${OTEXT_SAMPLE_NAME}. Nama & owner diambil dari isian di atas.`
+            : `Belum diisi — kira-kira begini teks otomatis bot ini (contoh {pushname} = ${OTEXT_SAMPLE_NAME}).`;
+    }
 }
 
 // ==========================================
@@ -646,6 +769,10 @@ document.addEventListener("DOMContentLoaded", () => {
             // datang dari loadBotConfig() di bawah.
             autoReplies = []; customCommands = [];
             renderAutoReplies(); renderCustomCommands();
+            // Teks sewa/premium juga milik bot — jangan sampai teks bot lama
+            // terlihat (atau tersimpan) sebagai teks bot ini.
+            ['cfgSewaText', 'cfgPremiumText'].forEach(id => { const el = $id(id); if (el) el.value = ''; });
+            renderOwnerText();
         }
         window.reconnectBotStream?.();
         liveWidgets?.feed?.render();
@@ -1608,6 +1735,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 if ($id('cfgOwnerNumber')) $id('cfgOwnerNumber').value = cfg.ownerNumber || '';
                 if ($id('cfgWatermark')) $id('cfgWatermark').value = cfg.watermark || '';
                 if ($id('cfgFooter')) $id('cfgFooter').value = cfg.footer || '';
+                // Selalu ditimpa (kosong = teks otomatis) supaya teks bot
+                // sebelumnya tidak tertinggal di form saat ganti bot.
+                if ($id('cfgSewaText')) $id('cfgSewaText').value = typeof cfg.sewaText === 'string' ? cfg.sewaText : '';
+                if ($id('cfgPremiumText')) $id('cfgPremiumText').value = typeof cfg.premiumText === 'string' ? cfg.premiumText : '';
+                renderOwnerText();
 
                 // Selalu ditimpa (bawaan kalau kosong): kalau tidak, menu bot
                 // sebelumnya tertinggal di form saat ganti bot lalu ikut
@@ -1911,11 +2043,23 @@ document.addEventListener("DOMContentLoaded", () => {
                 : `Paket ${tierName(botTier())} bot ini maksimal ${maxOwners} nomor owner. Kurangi jumlah nomor atau upgrade bot ini.`, 'err');
         }
 
+        const payload = { number: activeBotNumber, userId: currentUser.id, tier: botTier(), modePublik, botName, ownerNumber, watermark, footer };
+        // Teks sewa & premium ikut tersimpan di sini (satu tombol untuk
+        // seluruh halaman Config). Bot Free tidak mengirimnya sama sekali:
+        // server memang mengabaikannya untuk Free.
+        if (caps.customize) {
+            payload.sewaText = $id('cfgSewaText')?.value.trim() ?? '';
+            payload.premiumText = $id('cfgPremiumText')?.value.trim() ?? '';
+            const panjang = [['Teks sewa', payload.sewaText], ['Teks premium', payload.premiumText]]
+                .find(([, t]) => t.length > OWNER_TEXT_MAX);
+            if (panjang) return say(`${panjang[0]} maksimal ${OWNER_TEXT_MAX} karakter. Ringkas dulu, ya.`, 'err');
+        }
+
         const done = busy(e.currentTarget, 'Menyimpan…');
         try {
             const res = await fetch('/api/bot/config', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: botTier(), modePublik, botName, ownerNumber, watermark, footer })
+                body: JSON.stringify(payload)
             });
             const result = await res.json();
             say(result.success ? (result.message || 'Konfigurasi disimpan!') : serverMsg(res, result, 'Gagal menyimpan konfigurasi.'), result.success ? 'ok' : 'err');
@@ -2947,6 +3091,27 @@ document.addEventListener("DOMContentLoaded", () => {
             last.dispatchEvent(new Event('input', { bubbles: true }));
         });
     });
+
+    // --- TEKS SEWA & PREMIUM ---
+    // Pratinjau mengikuti kolom yang sedang diketik; nama & owner bot di
+    // kartu Identitas ikut memengaruhi isi pratinjau.
+    Object.entries(OTEXT).forEach(([tab, o]) => {
+        const input = $id(o.input);
+        input?.addEventListener('input', renderOwnerText);
+        input?.addEventListener('focus', () => { if (otextTab !== tab) setOwnerTextTab(tab); });
+    });
+    ['cfgBotName', 'cfgOwnerNumber'].forEach(id => $id(id)?.addEventListener('input', renderOwnerText));
+    document.querySelectorAll('[data-otext-tab]').forEach(b =>
+        b.addEventListener('click', () => setOwnerTextTab(b.dataset.otextTab)));
+    document.querySelectorAll('[data-otext-reset]').forEach(b => b.addEventListener('click', () => {
+        const input = $id(b.dataset.otextReset);
+        if (!input || input.disabled) return;
+        input.value = '';
+        input.focus();
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        say('Teks dikosongkan — bot akan memakai teks otomatis. Tekan Simpan config untuk menerapkan.');
+    }));
+    renderOwnerText();
 
     // Buka halaman sesuai #hash di URL (mis. /dashboard#api).
     const initial = (location.hash || '').replace('#', '');

@@ -1,6 +1,7 @@
 // plugins/premium.js
 
 import config from "../../config.js";
+import { getBotIdentity, renderBotText } from "../../lib/bot-scope.js";
 
 // --- Konstanta Data ---
 const THUMBNAIL_URL = "https://autoresbot.com/tmp_files/f1d90ac1-89d5-4303-a4d9-46991586bd06.jpg"; 
@@ -23,11 +24,45 @@ Mau pakai bot tanpa batas dan buka fitur dewa? Begini caranya di Varesa 🚀
 📌 _Paket berlaku per bot, bukan per akun. Punya beberapa bot? Tiap bot bisa beda paket._
 `.trim();
 
+// Teks bawaan bot milik user: premium dijual owner BOT ITU (lewat .addprem,
+// berlaku di bot itu saja), jadi yang ditampilkan nama & kontak owner bot,
+// bukan promo/nomor operator. Owner paket berbayar bisa menggantinya di
+// dashboard (premiumText).
+const TEXT_PREMIUM_BOT = `
+👋 *Halo Kak {pushname}!*
+Mau jadi pengguna *Premium* di *{botname}*? 💎
+
+✨ *Keuntungan Premium:*
+• Bebas limit untuk fitur yang memakai limit
+• Bisa pakai fitur khusus Premium
+
+🛒 *Cara beli:* chat owner bot ini untuk harga & masa aktif:
+{ownerlink}
+
+_Premium dari owner bot ini berlaku di {botname} saja. Cek status kamu: *{prefix}cekpremium*_
+`.trim();
+
 /**
  * Handler untuk command premium
  */
 async function handle(sock, messageInfo) {
-    const { remoteJid, message, pushName } = messageInfo;
+    const { remoteJid, message, pushName, prefix, isJadibot, sessionConfig } = messageInfo;
+
+    if (isJadibot) {
+        // premiumText sudah dikosongkan applyTierCaps untuk bot Free.
+        const identitas = getBotIdentity(messageInfo);
+        const custom = String(sessionConfig?.premiumText || "").trim();
+        const teks = renderBotText(custom || TEXT_PREMIUM_BOT, {
+            botname: identitas.name,
+            owner: identitas.owner,
+            ownerlink: identitas.ownerLink,
+            prefix: prefix || ".",
+            pushname: pushName || "Kak",
+            weburl: config.web_url,
+        });
+        await sock.sendMessage(remoteJid, { text: teks }, { quoted: message });
+        return;
+    }
 
     const fullResponse = `
 ${TEXT_GREETING(pushName)}
