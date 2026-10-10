@@ -23,7 +23,7 @@
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <script>document.documentElement.classList.add("js")</script>
 <link rel="stylesheet" href="/assets/varesa.css?v=31">
-<link rel="stylesheet" href="/landing.css?v=31">
+<link rel="stylesheet" href="/landing.css?v=32">
 </head>
 <body data-page="status">
 
@@ -215,12 +215,12 @@
   <!-- ============ GRAFIK 10 MENIT ============ -->
   <section class="st-section">
     <div class="v-container">
-      <div class="st-title"><h2>Performa</h2><span>10 menit terakhir · sampel tiap 5 dtk</span></div>
+      <div class="st-title"><h2>Performa</h2><span><span data-hist-span>10 menit terakhir</span> · sampel tiap 5 dtk</span></div>
       <div class="st-charts">
         <article class="v-card chartcard">
           <div class="chartcard__head">
             <h3><svg class="i"><use href="#i-cpu"/></svg>Beban CPU</h3>
-            <div class="chartcard__val"><span data-k="server.cpu.percent" data-f="pct">—</span><span class="chartcard__sub"><span data-k="server.cpu.cores" data-f="int">—</span> core · load <span data-k="server.cpu.load1" data-f="dec1">—</span></span></div>
+            <div class="chartcard__val"><span data-k="server.cpu.percent" data-f="pct">—</span><span class="chartcard__sub"><span data-k="server.cpu.cores" data-f="cores">—</span> core · load <span data-k="server.cpu.load1" data-f="dec1">—</span></span></div>
           </div>
           <div class="chartcard__plot" data-chart="cpu" role="img" aria-label="Grafik beban CPU 10 menit terakhir"></div>
         </article>
@@ -323,6 +323,6 @@
 
 <div class="v-toast-wrap" id="toasts" aria-live="polite"></div>
 
-<script src="/landing.js?v=31" defer></script>
+<script src="/landing.js?v=32" defer></script>
 </body>
 </html>

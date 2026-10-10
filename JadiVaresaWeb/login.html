@@ -144,6 +144,39 @@
       padding: 11px 13px; border-radius: var(--r-sm); margin: 16px 0 0;
     }
 
+    .err .err__txt { flex: 1; min-width: 0; }
+    .err .err__retry {
+      flex: none; margin: -3px -4px -3px 0; padding: 4px 10px; border-radius: var(--r-pill);
+      border: 1px solid rgba(242, 85, 90, .4); background: transparent; color: #ffb3b6;
+      font: 600 12px/1.4 var(--font-mono); cursor: pointer;
+    }
+    .err .err__retry:hover { border-color: #ff9a9e; color: #fff; }
+
+    /* Pemberitahuan jujur saat database server sedang putus: login & daftar
+       pasti gagal, jadi lebih baik dikatakan di depan daripada membiarkan
+       orang menunggu ±10 detik lalu dapat pesan "Autentikasi gagal". */
+    .notice {
+      display: flex; align-items: flex-start; gap: 10px; margin: 0 0 18px; padding: 12px 14px;
+      border: 1px solid rgba(245, 181, 68, .3); border-radius: var(--r-sm); background: var(--warn-soft);
+      font-size: 13px; line-height: 1.55; color: var(--text-2); text-align: left;
+    }
+    .notice[hidden] { display: none; }
+    .notice .i { margin-top: 2px; color: var(--warn); }
+    .notice b { display: block; color: var(--text); font-weight: 600; }
+    .notice a { color: var(--warn); font-weight: 600; }
+    .notice a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .notice--down { border-color: rgba(242, 85, 90, .32); background: var(--danger-soft); }
+    .notice--down .i, .notice--down a { color: #ff9a9e; }
+
+    /* Sedang memproses masuk: tombol Google dikunci supaya tidak diklik dua kali */
+    .gsi-wrap.is-busy { opacity: .45; pointer-events: none; }
+    .gsi-hint.is-busy { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-2); }
+    .gsi-hint.is-busy::before {
+      content: ""; width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid var(--line-3); border-top-color: var(--accent); animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     .perks { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 22px 0 0; padding: 18px 0 0; border-top: 1px dashed var(--line-2); list-style: none; }
     .perks li { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-3); }
     .perks .i { width: 14px; height: 14px; color: var(--accent); }
@@ -218,6 +251,11 @@
         <h1>Masuk ke akun kamu</h1>
         <p class="sub">Belum punya akun? Lanjutkan dengan Google, akun langsung dibuatkan otomatis.</p>
 
+        <div class="notice" id="svcNotice" role="status" hidden>
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/></svg>
+          <span><b id="svcTitle"></b><span id="svcText"></span></span>
+        </div>
+
         <label class="tos" for="tos">
           <input type="checkbox" id="tos">
           <span>Saya setuju dengan <a href="#">Syarat &amp; Ketentuan</a> dan <a href="#">Kebijakan Privasi</a></span>
@@ -255,11 +293,56 @@
     const authError = document.getElementById('authError');
     const gsiHint = document.getElementById('gsiHint');
 
-    function showError(msg) {
-      authError.textContent = msg;
+    // `retry`: fungsi yang dijalankan tombol "Coba lagi" di dalam kotak error
+    // (mis. kirim ulang kredensial Google yang sama — masih berlaku ±1 jam,
+    // jadi tidak perlu klik tombol Google lagi).
+    function showError(msg, retry) {
+      authError.textContent = '';
+      const t = document.createElement('span');
+      t.className = 'err__txt';
+      t.textContent = msg;
+      authError.append(t);
+      if (typeof retry === 'function') {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'err__retry';
+        b.textContent = 'Coba lagi';
+        b.addEventListener('click', retry);
+        authError.append(b);
+      }
       authError.style.display = 'flex';
     }
     function hideError() { authError.style.display = 'none'; }
+
+    // Kondisi layanan dari /api/status. `dbDown`: true/false, atau null kalau
+    // belum/tidak bisa dicek. Dipakai untuk pemberitahuan di kartu (skrip di
+    // bawah) dan untuk pesan error yang jelas saat login gagal.
+    const SVC = { dbDown: null, reachable: null };
+    async function checkStatus(timeout = 5000) {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), timeout);
+      try {
+        const res = await fetch('/api/status', { cache: 'no-store', signal: ctl.signal });
+        const d = await res.json();
+        SVC.reachable = true;
+        SVC.dbDown = !!(d && d.layanan && d.layanan.database === 'down');
+      } catch (e) {
+        // Server tidak menjawab sama sekali: status DB tidak diketahui.
+        SVC.reachable = false;
+        SVC.dbDown = null;
+      } finally { clearTimeout(t); }
+      document.dispatchEvent(new CustomEvent('varesa:svc'));
+      return SVC;
+    }
+    const DB_DOWN_MSG = 'Login belum bisa diproses: database server sedang gangguan. Akun & bot kamu aman — coba lagi beberapa menit lagi.';
+
+    function setBusy(on) {
+      gsiWrap.classList.toggle('is-busy', on);
+      if (!gsiHint) return;
+      gsiHint.classList.toggle('is-busy', on);
+      if (on) { gsiHint.textContent = 'Memproses masuk…'; gsiHint.hidden = false; }
+      else { gsiHint.textContent = 'Centang persetujuan di atas untuk mengaktifkan tombol.'; gsiHint.hidden = tosCheckbox.checked; }
+    }
 
     // Tombol Google baru aktif setelah kotak centang dicentang — mencegah
     // klik lalu baru dikasih tahu "harus centang dulu" sesudahnya.
@@ -269,18 +352,40 @@
       if (tosCheckbox.checked) hideError();
     });
 
+    let busy = false, leaving = false;
     async function handleCredentialResponse(response) {
+      if (busy) return;
+      busy = true;
       hideError();
+      setBusy(true);
+      const retry = () => handleCredentialResponse(response);
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 20000);
+      const t0 = Date.now();
       try {
+        // Database diketahui putus → cek ulang sebentar. Kalau masih putus,
+        // langsung beri tahu; mengirim kredensial cuma akan tertahan ±10
+        // detik lalu gagal dengan pesan yang menyesatkan.
+        if (SVC.dbDown) {
+          await checkStatus(4000);
+          if (SVC.dbDown) { showError(DB_DOWN_MSG, retry); return; }
+        }
         const res = await fetch('/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credential: response.credential })
+          body: JSON.stringify({ credential: response.credential }),
+          signal: ctl.signal
         });
-        const result = await res.json();
+        let result = null;
+        try { result = await res.json(); } catch (e) { result = null; }
 
-        if (!result.success) {
-          showError(result.message || 'Autentikasi gagal, silakan coba lagi.');
+        if (!result || !result.success) {
+          // Server menjawab "gagal" — bisa karena token Google memang
+          // ditolak, atau karena database putus di tengah jalan (jawabannya
+          // lama). Pastikan dulu supaya pesannya tidak salah arah.
+          if (res.status === 503 || res.status >= 500 || Date.now() - t0 > 6000) await checkStatus(4000);
+          if (SVC.dbDown) showError(DB_DOWN_MSG, retry);
+          else showError((result && result.message) || 'Autentikasi gagal, silakan coba lagi.', res.status >= 500 ? retry : null);
           return;
         }
 
@@ -301,9 +406,20 @@
           } catch (e) { /* diabaikan, bukan penghalang login */ }
         }
 
+        leaving = true;
         window.location.href = '/dashboard';
+        return;
       } catch (err) {
-        showError('Tidak bisa terhubung ke server. Periksa koneksi kamu dan coba lagi.');
+        const timedOut = err && err.name === 'AbortError';
+        await checkStatus(4000);
+        if (SVC.dbDown) showError(DB_DOWN_MSG, retry);
+        else if (timedOut) showError('Server terlalu lama merespons. Coba lagi sebentar lagi.', retry);
+        else showError('Tidak bisa terhubung ke server. Periksa koneksi kamu dan coba lagi.', retry);
+      } finally {
+        clearTimeout(timer);
+        busy = false;
+        // Tetap terkunci kalau sedang pindah ke dashboard.
+        if (!leaving) setBusy(false);
       }
     }
 
@@ -356,34 +472,89 @@
     });
   </script>
   <script>
-    // Info kecil di bawah kartu: sisa slot server. Sekali ambil saja (bukan
-    // polling) — halaman masuk tidak perlu membebani server, dan kalau gagal
-    // baris ini cukup disembunyikan.
-    (async () => {
+    // Info kecil di bawah kartu: kondisi layanan + sisa slot server.
+    // /api/status (murah) menentukan apakah database tersambung — kalau
+    // putus, login pasti gagal, jadi tampilkan pemberitahuan yang jujur dan
+    // JANGAN pamer "masih muat ±N bot" berwarna hijau. Sisa slot dari
+    // /api/public/live hanya ditampilkan saat semuanya normal. Tidak
+    // dipolling terus; dicek ulang tiap 20 dtk HANYA selama ada gangguan,
+    // supaya pemberitahuan hilang sendiri begitu database pulih.
+    (() => {
       const line = document.getElementById('srvLine');
-      try {
-        const ctl = new AbortController();
-        const t = setTimeout(() => ctl.abort(), 5000);
-        const res = await fetch('/api/public/live', { cache: 'no-store', signal: ctl.signal });
-        clearTimeout(t);
-        const d = await res.json();
-        const c = d && d.success !== false ? d.capacity : null;
-        if (!c || typeof c.remaining !== 'number') return;
-        const name = String((d.server && d.server.name) || 'Server').slice(0, 40);
-        const rem = Math.max(0, Math.round(c.remaining));
-        const fmt = new Intl.NumberFormat('id-ID').format(rem);
-        const dot = document.getElementById('srvDot');
-        let text;
-        if (c.status === 'full' || rem <= 0) { dot.classList.add('v-dot--danger'); text = 'penuh — bot baru menunggu slot kosong'; }
-        else if (c.status === 'limited') { dot.classList.add('v-dot--warn'); text = `hampir penuh · sisa ±${fmt} slot bot`; }
-        else text = `masih muat ±${fmt} bot lagi`;
+      const dot = document.getElementById('srvDot');
+      const txt = document.getElementById('srvText');
+      const notice = document.getElementById('svcNotice');
+      let cap = null, name = 'Server', recheck = 0, ready = false, wasBad = false;
+
+      function setLine(cls, text) {
+        dot.className = 'v-dot v-dot--live' + (cls ? ' ' + cls : '');
         const b = document.createElement('b');
         b.textContent = name;
-        const txt = document.getElementById('srvText');
         txt.textContent = '';
         txt.append(b, ` · ${text}`);
         line.hidden = false;
-      } catch (e) { /* diam saja: baris info tetap tersembunyi */ }
+      }
+      function setNotice(kind, title, text) {
+        if (!kind) { notice.hidden = true; return; }
+        notice.className = 'notice' + (kind === 'down' ? ' notice--down' : '');
+        document.getElementById('svcTitle').textContent = title;
+        const t = document.getElementById('svcText');
+        t.textContent = text + ' ';
+        const a = document.createElement('a');
+        a.href = '/status';
+        a.textContent = 'Lihat status';
+        t.append(a);
+        notice.hidden = false;
+      }
+      function render() {
+        clearTimeout(recheck);
+        const bad = SVC.dbDown === true || SVC.reachable === false;
+        // Baru pulih dari gangguan → ambil ulang sisa slot yang terbaru.
+        if (!bad && wasBad) { wasBad = false; loadLive().then(render); return; }
+        wasBad = bad;
+        if (SVC.dbDown === true) {
+          setNotice('warn', 'Database sedang gangguan', 'Masuk & daftar akun belum bisa diproses untuk sementara. Bot yang sudah aktif tetap jalan — coba lagi beberapa menit lagi.');
+          setLine('v-dot--warn', 'gangguan database · login tertunda');
+          recheck = setTimeout(() => { if (!document.hidden) checkStatus(); else render(); }, 20000);
+          return;
+        }
+        if (SVC.reachable === false) {
+          setNotice('down', 'Server belum bisa dihubungi', 'Kemungkinan sedang ada pemeliharaan atau koneksi kamu terputus. Halaman ini mencoba lagi otomatis.');
+          setLine('v-dot--danger', 'tidak merespons');
+          recheck = setTimeout(() => { if (!document.hidden) checkStatus(); else render(); }, 20000);
+          return;
+        }
+        setNotice(null);
+        if (SVC.dbDown === false && cap) {
+          const rem = Math.max(0, Math.round(cap.remaining));
+          const fmt = new Intl.NumberFormat('id-ID').format(rem);
+          if (cap.status === 'full' || rem <= 0) setLine('v-dot--danger', 'penuh — bot baru menunggu slot kosong');
+          else if (cap.status === 'limited') setLine('v-dot--warn', `hampir penuh · sisa ±${fmt} slot bot`);
+          else setLine('', `masih muat ±${fmt} bot lagi`);
+        } else if (SVC.dbDown === false) {
+          setLine('', 'semua layanan normal');
+        }
+      }
+
+      async function loadLive() {
+        try {
+          const ctl = new AbortController();
+          const t = setTimeout(() => ctl.abort(), 5000);
+          const res = await fetch('/api/public/live', { cache: 'no-store', signal: ctl.signal });
+          clearTimeout(t);
+          const d = await res.json();
+          const c = d && d.success !== false ? d.capacity : null;
+          name = String((d && d.server && d.server.name) || 'Server').slice(0, 40);
+          if (c && typeof c.remaining === 'number') cap = c;
+        } catch (e) { /* diam saja: cukup tanpa info slot */ }
+      }
+
+      document.addEventListener('varesa:svc', () => { if (ready) render(); });
+      // Kedua permintaan jalan bersamaan; baris info baru muncul setelah
+      // keduanya selesai, jadi tidak pernah "hijau dulu, lalu berubah jadi
+      // gangguan".
+      const go = () => { ready = true; render(); };
+      Promise.all([loadLive(), checkStatus()]).then(go, go);
     })();
   </script>
 </body>

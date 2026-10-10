@@ -88,6 +88,19 @@
     if (h > 0) return `${h}j ${m}m`;
     return `${m}m ${sec % 60}d`;
   }
+  // Jumlah core bisa pecahan: di container/panel, kuota CPU sering 0,5 atau
+  // 1,5 core. Dulu dibulatkan jadi "1 core" — menyesatkan saat membaca beban.
+  function fmtCores(n) {
+    const r = Math.round(n * 100) / 100;
+    return Number.isInteger(r) ? nfInt.format(r) : String(r).replace('.', ',');
+  }
+  // Panjang rentang waktu untuk label sumbu-x grafik ("−45 dtk", "−3 mnt").
+  function fmtAgo(ms) {
+    const s = Math.max(1, Math.round(ms / 1000));
+    if (s < 60) return `−${s} dtk`;
+    const m = Math.round(s / 60);
+    return m < 60 ? `−${m} mnt` : `−${dec(s / 3600, 1)} jam`;
+  }
   function relTime(at, now = Date.now()) {
     const s = Math.max(0, Math.round((now - at) / 1000));
     if (s < 5) return 'baru saja';
@@ -128,6 +141,7 @@
     const n = num(v);
     if (n == null) { setEmpty(el); return; }
     if (f === 'uptime') { el.textContent = fmtUptime(n); return; }
+    if (f === 'cores') { el.textContent = fmtCores(n); el._v = n; return; }
     countTo(el, n, FMT[f] || FMT.int);
   }
 
@@ -211,15 +225,30 @@
   /* ------------------------------------------------------------- FAQ */
   function initFaq() {
     const items = $$('.faq__item');
+    const setOpen = (item, open) => {
+      items.forEach((i) => { i.classList.remove('is-open'); const b = $('.faq__q', i); if (b) b.setAttribute('aria-expanded', 'false'); });
+      if (open) { item.classList.add('is-open'); const q = $('.faq__q', item); if (q) q.setAttribute('aria-expanded', 'true'); }
+    };
     items.forEach((item) => {
       const q = $('.faq__q', item);
       if (!q) return;
-      q.addEventListener('click', () => {
-        const open = !item.classList.contains('is-open');
-        items.forEach((i) => { i.classList.remove('is-open'); const b = $('.faq__q', i); if (b) b.setAttribute('aria-expanded', 'false'); });
-        if (open) { item.classList.add('is-open'); q.setAttribute('aria-expanded', 'true'); }
-      });
+      q.addEventListener('click', () => setOpen(item, !item.classList.contains('is-open')));
     });
+    // Tautan langsung ke satu pertanyaan (mis. "Cara kerjanya" di bagian
+    // harga → #faq-multibot) harus membuka jawabannya, bukan cuma menggulir.
+    const fromHash = () => {
+      const id = decodeURIComponent(location.hash.slice(1));
+      const item = id && document.getElementById(id);
+      if (item && item.classList.contains('faq__item')) setOpen(item, true);
+    };
+    window.addEventListener('hashchange', fromHash);
+    // hashchange tidak terpicu kalau hash-nya sama (tautan diklik dua kali).
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest('a[href^="#faq-"]');
+      const item = a && document.getElementById(a.getAttribute('href').slice(1));
+      if (item && item.classList.contains('faq__item')) setOpen(item, true);
+    });
+    fromHash();
   }
 
   /* =================================================================
@@ -558,6 +587,25 @@
     });
   }
 
+  // Batas bot per akun (diatur admin). Paket berlaku per bot, jadi teks
+  // harga & FAQ menyebut berapa bot yang boleh dimiliki satu akun. Kalau
+  // pengaturan gagal dimuat, teks bawaan di HTML (nilai default) dibiarkan.
+  function renderLimits(l) {
+    if (!l || typeof l !== 'object') return;
+    const maxBots = num(l.maxBotsPerUser), maxFree = num(l.maxFreeBotsPerUser);
+    if (maxBots == null || maxFree == null) return;
+    const mb = clamp(Math.round(maxBots), 1, 50), mf = clamp(Math.round(maxFree), 0, 10);
+    const total = mb === 1 ? 'maksimal 1 bot per akun' : `total sampai ${nfInt.format(mb)} bot`;
+    $$('[data-lim-note]').forEach((el) => {
+      el.textContent = mf > 0 ? `${nfInt.format(mf)} bot Free per akun, ${total}.` : `Bot Free sedang ditutup — tiap bot pakai paket berbayar, ${total}.`;
+    });
+    $$('[data-lim-free-per]').forEach((el) => { el.textContent = mf > 0 ? `${nfInt.format(mf)} bot / akun` : 'sedang ditutup'; });
+    $$('[data-lim-max]').forEach((el) => { el.textContent = nfInt.format(mb); });
+    $$('[data-lim-free-sentence]').forEach((el) => {
+      el.textContent = mf > 0 ? `Bot Free dibatasi ${nfInt.format(mf)} per akun.` : 'Untuk saat ini bot Free sedang ditutup, jadi tiap bot memakai paket berbayar.';
+    });
+  }
+
   let SERVER_NAME = '';
   async function loadSettings() {
     let st = null;
@@ -566,6 +614,7 @@
     if (settings.serverName) { SERVER_NAME = String(settings.serverName).slice(0, 40); $$('[data-srv-name]').forEach((el) => { el.textContent = SERVER_NAME; }); }
     renderAnnouncement(settings.announcement);
     renderSocial(settings.social);
+    renderLimits(settings.limits);
     const root = $('#stage');
     if (root) {
       // Pengaturan gagal dimuat → pakai banner bawaan. Pengaturan ada tapi
@@ -634,8 +683,46 @@
     }
   }
 
+  // Daftar LENGKAP nama command (termasuk alias) untuk modal & pencarian.
+  // /api/public/features cuma membawa maks. 40 command per kategori, jadi
+  // ratusan command dulu tidak pernah bisa ditemukan di modal. Dimuat
+  // sekali saja; kalau endpoint belum ada (server lama → 404) atau gagal,
+  // modal tetap jalan memakai data fitur yang ringkas.
+  let COMMANDS = null, commandsJob = null;
+  function loadCommands() {
+    if (COMMANDS) return Promise.resolve(COMMANDS);
+    if (!commandsJob) {
+      commandsJob = getJSON('/api/public/commands', 10000)
+        .then((d) => {
+          const cats = Array.isArray(d.categories) ? d.categories.filter((c) => c && c.key && Array.isArray(c.commands)) : [];
+          if (!cats.length) throw new Error('kosong');
+          COMMANDS = { total: num(d.total), categories: cats };
+          return COMMANDS;
+        })
+        .catch(() => { commandsJob = null; return null; });
+    }
+    return commandsJob;
+  }
+  // Kategori untuk modal: urutan, nama & deskripsi dari data fitur (kalau
+  // ada), daftar command dari data lengkap.
+  function modalCats() {
+    const feat = (FEATURES && FEATURES.categories) || [];
+    if (!COMMANDS) return feat;
+    const byKey = new Map(feat.map((c) => [c.key, c]));
+    return COMMANDS.categories.map((c) => {
+      const f = byKey.get(c.key) || {};
+      return { ...f, ...c, name: c.name || f.name || c.key, desc: f.desc || '', count: c.commands.length };
+    });
+  }
+
   async function loadFeatures() {
-    try { renderFeatures(await getJSON('/api/public/features', 8000)); }
+    try {
+      renderFeatures(await getJSON('/api/public/features', 8000));
+      // Daftar lengkap diambil di muka saat browser senggang, supaya modal
+      // langsung lengkap begitu dibuka.
+      if ('requestIdleCallback' in window) window.requestIdleCallback(() => { loadCommands(); }, { timeout: 5000 });
+      else setTimeout(() => { loadCommands(); }, 2500);
+    }
     catch (e) {
       FEATURES = null;
       const row = $('#pillRow');
@@ -660,8 +747,9 @@
       const raw = '.' + name;
       return esc(raw.slice(0, i)) + '<mark>' + esc(raw.slice(i, i + q.length)) + '</mark>' + esc(raw.slice(i + q.length));
     };
+    let loading = false;
     function render() {
-      const cats = (FEATURES && FEATURES.categories) || [];
+      const cats = modalCats();
       const q = search.value.trim().toLowerCase().replace(/^\./, '');
       const pool = current === '*' ? cats : cats.filter((c) => c.key === current);
       let shown = 0;
@@ -674,21 +762,38 @@
       }).join('');
       body.innerHTML = cats.length
         ? (shown ? groups : `<div class="modal__empty">Tidak ada command yang cocok dengan “${esc(search.value.trim())}”.</div>`)
-        : '<div class="modal__empty">Daftar command belum bisa dimuat.</div>';
+        : (loading ? '<div class="modal__empty">Memuat daftar command…</div>' : '<div class="modal__empty">Daftar command belum bisa dimuat.</div>');
       const totalCount = pool.reduce((a, c) => a + (num(c.count) || 0), 0);
-      foot.innerHTML = `<span>${nfInt.format(shown)} command ditampilkan${totalCount > shown && !q ? ` dari ${nfInt.format(totalCount)}` : ''}</span><span>Klik command untuk menyalin</span>`;
+      const partial = !COMMANDS && totalCount > shown && !q;
+      foot.innerHTML = `<span>${nfInt.format(shown)} command ditampilkan${partial ? ` dari ${nfInt.format(totalCount)}` : ''}${loading ? ' · memuat sisanya…' : ''}</span><span>Klik command untuk menyalin</span>`;
+    }
+    function header() {
+      const cats = modalCats();
+      const c = cats.find((x) => x.key === current);
+      title.textContent = c ? c.name : 'Semua command';
+      const total = num(COMMANDS && COMMANDS.total) ?? num(FEATURES && FEATURES.total) ?? cats.reduce((a, x) => a + (num(x.count) || 0), 0);
+      desc.textContent = c ? (c.desc || `${nfInt.format(num(c.count) || 0)} command di kategori ini`) : `${nfInt.format(total || 0)} command dari ${cats.length} kategori`;
+      ic.innerHTML = icon(c ? catIcon(c) : 'grid');
     }
     function open(key, trigger) {
       lastFocus = trigger || document.activeElement;
       current = key || '*';
-      const cats = (FEATURES && FEATURES.categories) || [];
-      const c = cats.find((x) => x.key === current);
-      if (current !== '*' && !c) current = '*';
-      title.textContent = c ? c.name : 'Semua command';
-      desc.textContent = c ? (c.desc || `${nfInt.format(num(c.count) || 0)} command di kategori ini`) : `${nfInt.format(num(FEATURES && FEATURES.total) || 0)} command dari ${cats.length} kategori`;
-      ic.innerHTML = icon(c ? catIcon(c) : 'grid');
+      if (current !== '*' && !modalCats().some((x) => x.key === current)) current = '*';
       search.value = '';
+      header();
+      loading = !COMMANDS;
       render();
+      if (loading) {
+        // Tampilkan dulu yang sudah ada, lalu ganti dengan daftar lengkap
+        // begitu tiba — tanpa mengosongkan kata kunci yang sedang diketik.
+        loadCommands().then(() => {
+          loading = false;
+          if (modal.hidden) return;
+          const top = body.scrollTop;
+          header(); render();
+          body.scrollTop = top;
+        });
+      }
       modal.hidden = false;
       document.body.classList.add('is-locked');
       body.scrollTop = 0;
@@ -881,11 +986,19 @@ func main() {
     if (!els.length) return;
     try {
       const d = await getJSON('/api/pricing', 8000);
+      // source "default" = harga bawaan kode, belum pernah terbaca dari
+      // database (mis. DB putus sejak server nyala). Angkanya tetap
+      // ditampilkan sebagai gambaran, tapi diberi label "sementara" supaya
+      // tidak dikira harga resmi. "cache" = harga resmi terakhir → normal.
+      const est = d.source === 'default';
       els.forEach((el) => {
         const v = num(d.pricing && d.pricing[el.dataset.price]);
         el.classList.remove('v-skel');
         el.textContent = v == null ? '—' : nfInt.format(v);
+        el.title = est ? 'Harga sementara — harga final tampil di dashboard sebelum bayar' : '';
       });
+      $$('.plans').forEach((el) => el.classList.toggle('is-est', est));
+      $$('[data-price-est]').forEach((el) => { el.hidden = !est; });
       const fee = num(d.fee);
       if (fee) $$('[data-fee]').forEach((el) => { el.textContent = ` (+ biaya layanan Rp ${nfInt.format(fee)})`; });
     } catch (e) {
@@ -952,7 +1065,7 @@ func main() {
         <circle class="chart__end" r="4" cx="${lastX.toFixed(1)}" cy="${Y(last.v).toFixed(1)}"/>
       </svg>
       ${labels}
-      ${axis ? `<div class="chart__xl" style="left:${pl}px;right:${pr}px"><span>${o.xStart || '−10 mnt'}</span><span>${o.xEnd || 'sekarang'}</span></div>` : ''}
+      ${axis ? `<div class="chart__xl" style="left:${pl}px;right:${pr}px"><span>${o.xStart || fmtAgo(t1 - t0)}</span><span>${o.xEnd || 'sekarang'}</span></div>` : ''}
       <div class="chart__tip" hidden></div>`;
     // Lapisan hover: garis bantu + tooltip di titik terdekat
     const svg = el.querySelector('svg'), cross = svg.querySelector('.chart__cross'), dot = svg.querySelector('.chart__dot'), tip = el.querySelector('.chart__tip');
@@ -984,7 +1097,11 @@ func main() {
     offline: { text: 'Tidak terhubung ke server', pill: 'Offline', badge: 'v-badge--danger', dot: 'v-dot--off' },
     stale: { text: 'Koneksi terputus, mencoba lagi…', pill: 'Menghubungkan', badge: 'v-badge--warn', dot: 'v-dot--warn' },
   };
-  const LIVE = { data: null, hist: [], logs: [], lastId: 0, fails: 0, timer: 0, inflight: false, lastHistAt: 0, okAt: 0, rtt: null };
+  const LIVE = { data: null, hist: [], logs: [], lastId: 0, fails: 0, timer: 0, inflight: false, lastHistAt: 0, okAt: 0, rtt: null, skew: 0 };
+  // "x dtk lalu" dihitung dengan jam SERVER (waktu log berasal dari server).
+  // Jam HP/laptop pengunjung bisa meleset beberapa menit dan dulu membuat
+  // log yang baru masuk tampil "3 mnt lalu" atau malah "baru saja" terus.
+  const serverNow = () => Date.now() + LIVE.skew;
 
   function renderServerState(key) {
     const s = SRV[key] || SRV.operational;
@@ -1075,7 +1192,7 @@ func main() {
       <span class="clog__tag">[${ok ? 'CMD' : 'ERR'}]</span>
       <span class="clog__bot">${esc(l.bot || '—')}</span>
       <span class="clog__cmd">.${esc(String(l.cmd || '?').replace(/^\./, ''))}<span class="clog__meta">${chat ? ' · ' + esc(chat) : ''}</span><span class="clog__meta clog__meta--ms">${ms != null ? ' · ' + Math.round(ms) + 'ms' : ''}</span></span>
-      <span class="clog__time" data-at="${num(l.at) || ''}">${l.at ? relTime(l.at) : ''}</span>
+      <span class="clog__time" data-at="${num(l.at) || ''}">${l.at ? relTime(l.at, serverNow()) : ''}</span>
     </div>`;
   }
 
@@ -1119,10 +1236,23 @@ func main() {
       const pts = LIVE.hist.map((h) => ({ t: num(h.t) || 0, v: num(h[def.key]) ?? 0 }));
       drawChart(el, pts, { ...def, axis: !!el.dataset.chart, byIndex: false });
     });
+    // Judul grafik ikut rentang riwayat yang benar-benar ada: server yang
+    // baru nyala baru punya 1–2 menit data, bukan "10 menit terakhir".
+    const h = LIVE.hist, span = h.length > 1 ? h[h.length - 1].t - h[0].t : 0;
+    $$('[data-hist-span]').forEach((el) => {
+      const sec = Math.round(span / 1000);
+      el.textContent = h.length < 2 ? 'Mengumpulkan data'
+        : sec < 60 ? `${Math.max(1, sec)} detik terakhir`
+          : `${Math.max(1, Math.round(sec / 60))} menit terakhir`;
+    });
   }
 
   function onLive(d, withHistory) {
     LIVE.data = d; LIVE.okAt = Date.now();
+    // Selisih jam server − jam lokal. Dikurangi setengah waktu tempuh
+    // supaya kira-kira sama dengan saat server menulis "now".
+    const srvNow = num(d.now);
+    if (srvNow) LIVE.skew = srvNow - (Date.now() - (LIVE.rtt || 0) / 2);
     // Bot nomor & angka dasar
     $$('[data-k]').forEach((el) => setVal(el, get(d, el.dataset.k), el.dataset.f || 'int'));
     const st = get(d, 'server.status');
@@ -1217,7 +1347,8 @@ func main() {
       if (document.hidden) return;
       const now = new Date();
       $$('[data-clock]').forEach((el) => { el.textContent = clock(now); });
-      $$('[data-at]').forEach((el) => { const at = num(el.dataset.at); if (at) el.textContent = relTime(at, now.getTime()); });
+      const sNow = serverNow();
+      $$('[data-at]').forEach((el) => { const at = num(el.dataset.at); if (at) el.textContent = relTime(at, sNow); });
     }, 1000);
     window.addEventListener('resize', () => { if (LIVE.data) renderCapacity(LIVE.data.capacity); });
   }

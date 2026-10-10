@@ -33,7 +33,7 @@
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <script>document.documentElement.classList.add("js")</script>
 <link rel="stylesheet" href="/assets/varesa.css?v=31">
-<link rel="stylesheet" href="/landing.css?v=31">
+<link rel="stylesheet" href="/landing.css?v=32">
 
 <script type="application/ld+json">
 {
@@ -74,6 +74,8 @@
           "acceptedAnswer": { "@type": "Answer", "text": "Ya. Bot berjalan di server Varesa, jadi tetap aktif walau HP kamu mati atau tidak ada internet. Jika sesi terputus, tekan Start lagi di dashboard." } },
         { "@type": "Question", "name": "Bagaimana cara menghubungkan nomor?",
           "acceptedAnswer": { "@type": "Answer", "text": "Masuk dengan Google, isi nomor bot di dashboard lalu tekan Start. Setelah pairing code muncul, buka WhatsApp, masuk ke Perangkat Tertaut, pilih Tautkan dengan nomor telepon saja, lalu ketik kodenya." } },
+        { "@type": "Question", "name": "Bisa punya beberapa bot? Paketnya per akun atau per bot?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Bisa. Paket Varesa berlaku per bot: satu akun bisa punya beberapa bot, masing-masing dengan paket dan masa aktif sendiri. Bot Free dibatasi satu per akun. Saat upgrade di dashboard, kamu memilih bot mana yang dinaikkan paketnya." } },
         { "@type": "Question", "name": "Bisa kirim pesan dari aplikasi sendiri lewat API?",
           "acceptedAnswer": { "@type": "Answer", "text": "Bisa. Setiap bot punya token API di dashboard. Kirim POST ke /api/v1/text atau /api/v1/image dengan header x-varesa-token. Kuota harian mengikuti paket." } },
         { "@type": "Question", "name": "Bagaimana kalau server sedang penuh?",
@@ -256,7 +258,7 @@
       <div class="stats v-card">
         <div class="stats__grid">
           <div class="v-stat">
-            <span class="v-stat__label"><svg class="i"><use href="#i-send"/></svg>Pesan terkirim</span>
+            <span class="v-stat__label"><svg class="i"><use href="#i-send"/></svg>Pesan diproses</span>
             <span class="v-stat__value" data-k="traffic.totalMessages" data-f="compact">—</span>
           </div>
           <div class="v-stat">
@@ -393,10 +395,12 @@
         <div>
           <span class="sec-eyebrow">04 · Harga</span>
           <h2 class="v-display v-h2">Harga &amp; paket</h2>
-          <p class="sec-lead">Mulai gratis, naik paket saat grup kamu makin ramai. Bayar pakai QRIS, paket aktif otomatis.</p>
+          <p class="sec-lead">Paket berlaku <b>per bot</b>. Mulai gratis, naikkan paket bot yang grupnya makin ramai. Bayar pakai QRIS, paket aktif otomatis.</p>
         </div>
         <a class="v-btn v-btn--ghost" href="#faq">Ada pertanyaan?<svg class="i"><use href="#i-arrow-right"/></svg></a>
       </div>
+
+      <p class="plans__est" data-price-est hidden><svg class="i"><use href="#i-info"/></svg><span><b>Harga sementara.</b> Harga resmi belum terbaca dari server — harga final selalu tampil di dashboard sebelum kamu bayar.</span></p>
 
       <div class="plans v-reveal">
         <article class="plan">
@@ -404,7 +408,7 @@
             <h3>Free</h3>
             <p>Untuk mencoba dulu, aktif selamanya.</p>
           </header>
-          <div class="plan__price"><span class="plan__num">Gratis</span></div>
+          <div class="plan__price"><span class="plan__num">Gratis</span><span class="plan__per" data-lim-free-per>1 bot / akun</span></div>
           <div class="plan__spec"><span>Kuota API</span><b>50 / hari</b></div>
           <ul class="plan__list">
             <li><svg class="i"><use href="#i-check"/></svg><span>1 grup bebas anggota, atau 2 grup kecil</span></li>
@@ -421,7 +425,7 @@
             <h3>Core</h3>
             <p>Untuk satu grup yang aktif.</p>
           </header>
-          <div class="plan__price"><small>IDR</small><span class="plan__num v-skel" data-price="basic">7.500</span><span class="plan__per">/ bulan</span></div>
+          <div class="plan__price"><small>IDR</small><span class="plan__num v-skel" data-price="basic">7.500</span><span class="plan__per">per bot / bulan</span></div>
           <div class="plan__spec"><span>Kuota API</span><b>1.000 / hari</b></div>
           <ul class="plan__list">
             <li><svg class="i"><use href="#i-check"/></svg><span><b>1</b> nomor owner</span></li>
@@ -439,7 +443,7 @@
             <h3>Prime</h3>
             <p>Untuk beberapa grup sekaligus.</p>
           </header>
-          <div class="plan__price"><small>IDR</small><span class="plan__num v-skel" data-price="plus">15.000</span><span class="plan__per">/ bulan</span></div>
+          <div class="plan__price"><small>IDR</small><span class="plan__num v-skel" data-price="plus">15.000</span><span class="plan__per">per bot / bulan</span></div>
           <div class="plan__spec"><span>Kuota API</span><b>5.000 / hari</b></div>
           <ul class="plan__list">
             <li><svg class="i"><use href="#i-check"/></svg><span><b>3</b> nomor owner</span></li>
@@ -456,7 +460,7 @@
             <h3>Zenith</h3>
             <p>Untuk komunitas besar.</p>
           </header>
-          <div class="plan__price"><small>IDR</small><span class="plan__num v-skel" data-price="booster">25.000</span><span class="plan__per">/ bulan</span></div>
+          <div class="plan__price"><small>IDR</small><span class="plan__num v-skel" data-price="booster">25.000</span><span class="plan__per">per bot / bulan</span></div>
           <div class="plan__spec"><span>Kuota API</span><b>20.000 / hari</b></div>
           <ul class="plan__list">
             <li><svg class="i"><use href="#i-check"/></svg><span><b>5</b> nomor owner</span></li>
@@ -468,7 +472,10 @@
           <a class="v-btn v-btn--outline v-btn--block" href="/login" data-auth-cta data-plan="booster"><span>Pilih Zenith</span><svg class="i"><use href="#i-arrow-right"/></svg></a>
         </article>
       </div>
-      <p class="plans__note v-reveal"><svg class="i"><use href="#i-shield"/></svg><span>Bayar lewat QRIS dari e-wallet atau m-banking mana pun<span data-fee></span>. Berhenti langganan? Pengaturan bot tetap tersimpan.</span></p>
+      <div class="plans__foot v-reveal">
+        <p class="plans__multi"><span class="plans__multi-ic"><svg class="i"><use href="#i-bot"/></svg></span><span><b>Punya beberapa bot?</b> Tiap bot bisa beda paket. <span data-lim-note>1 bot Free per akun, total sampai 5 bot.</span></span><a href="#faq-multibot">Cara kerjanya<svg class="i"><use href="#i-arrow-right"/></svg></a></p>
+        <p class="plans__note"><svg class="i"><use href="#i-shield"/></svg><span>Bayar lewat QRIS dari e-wallet atau m-banking mana pun<span data-fee></span>. Berhenti langganan? Pengaturan bot tetap tersimpan.</span></p>
+      </div>
     </div>
   </section>
 
@@ -559,7 +566,7 @@
               <div class="v-meter" data-meter="cap"><i></i></div>
             </div>
             <div class="meterrow">
-              <div class="meterrow__top"><span><svg class="i"><use href="#i-cpu"/></svg>CPU</span><b><span data-k="server.cpu.percent" data-f="pct">—</span> <i>·</i> <span data-k="server.cpu.cores" data-f="int">—</span> core</b></div>
+              <div class="meterrow__top"><span><svg class="i"><use href="#i-cpu"/></svg>CPU</span><b><span data-k="server.cpu.percent" data-f="pct">—</span> <i>·</i> <span data-k="server.cpu.cores" data-f="cores">—</span> core</b></div>
               <div class="v-meter" data-meter="cpu"><i></i></div>
             </div>
             <div class="meterrow">
@@ -627,6 +634,10 @@
         <div class="faq__item">
           <button class="faq__q" type="button" aria-expanded="false">Bagaimana cara menghubungkan nomor?<svg class="i"><use href="#i-chevron"/></svg></button>
           <div class="faq__a"><div><p>Masuk dengan Google, isi nomor bot di dashboard lalu tekan <b>Start</b>. Setelah pairing code muncul, buka WhatsApp › <b>Perangkat Tertaut</b> › <b>Tautkan perangkat</b> › <b>Tautkan dengan nomor telepon saja</b>, lalu ketik kodenya.</p></div></div>
+        </div>
+        <div class="faq__item" id="faq-multibot">
+          <button class="faq__q" type="button" aria-expanded="false">Bisa punya beberapa bot? Paketnya per akun atau per bot?<svg class="i"><use href="#i-chevron"/></svg></button>
+          <div class="faq__a"><div><p>Bisa, dan paketnya <b>per bot</b>. Satu akun bisa punya sampai <b data-lim-max>5</b> bot, masing-masing dengan paket &amp; masa aktif sendiri — misalnya bot toko pakai Zenith, bot grup kelas cukup Core. <span data-lim-free-sentence>Bot Free dibatasi 1 per akun.</span></p><p>Waktu upgrade di dashboard, kamu pilih bot mana yang dinaikkan paketnya. Kalau bot berbayar dihapus, sisa paketnya disimpan dan otomatis dipasang ke bot berikutnya yang kamu tambahkan.</p></div></div>
         </div>
         <div class="faq__item">
           <button class="faq__q" type="button" aria-expanded="false">Bisa kirim pesan dari aplikasi sendiri (API)?<svg class="i"><use href="#i-chevron"/></svg></button>
@@ -717,6 +728,6 @@
 
 <div class="v-toast-wrap" id="toasts" aria-live="polite"></div>
 
-<script src="/landing.js?v=31" defer></script>
+<script src="/landing.js?v=32" defer></script>
 </body>
 </html>
