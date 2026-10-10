@@ -1,0 +1,52 @@
+{
+  "120363404508924017@g.us": {
+    "listBadword": [
+      "kontol,asw,hehe"
+    ],
+    "createdAt": "2026-08-22T16:11:06.644Z",
+    "updatedAt": "2026-08-22T16:12:55.682Z"
+  },
+  "global-badword": {
+    "listBadword": [],
+    "createdAt": "2026-08-22T16:11:19.807Z",
+    "updatedAt": "2026-08-22T16:11:19.807Z"
+  },
+  "120363408215969500@g.us": {
+    "listBadword": [
+      "kontol,asu,memek,puki"
+    ],
+    "createdAt": "2026-08-22T16:13:41.027Z",
+    "updatedAt": "2026-08-22T16:13:41.029Z"
+  },
+  "120363426213923002@g.us": {
+    "listBadword": [
+      "sv",
+      "svb",
+      "sevbek",
+      "simpen",
+      "nomor"
+    ],
+    "createdAt": "2026-08-23T10:32:27.523Z",
+    "updatedAt": "2026-08-29T10:28:32.012Z"
+  },
+  "120363411813023421@g.us": {
+    "listBadword": [
+      "memek",
+      "memeo"
+    ],
+    "createdAt": "2026-09-02T03:25:59.912Z",
+    "updatedAt": "2026-09-02T04:42:01.137Z"
+  },
+  "120363325159093417@g.us": {
+    "listBadword": [
+      "tolol"
+    ],
+    "createdAt": "2026-10-01T01:01:19.483Z",
+    "updatedAt": "2026-10-01T01:01:19.486Z"
+  },
+  "120363413051603530@g.us": {
+    "listBadword": [],
+    "createdAt": "2026-10-01T04:55:46.395Z",
+    "updatedAt": "2026-10-01T04:55:46.395Z"
+  }
+}

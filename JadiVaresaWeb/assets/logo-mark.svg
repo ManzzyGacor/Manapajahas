@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Varesa">
+  <defs>
+    <linearGradient id="vrs-tile" x1="32" y1="0" x2="32" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#151A18"/>
+      <stop offset="1" stop-color="#0A0C0B"/>
+    </linearGradient>
+    <linearGradient id="vrs-g" x1="16" y1="16" x2="38" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9DFFDA"/>
+      <stop offset="1" stop-color="#1FC98A"/>
+    </linearGradient>
+    <radialGradient id="vrs-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(46.5 20.5) scale(15)">
+      <stop offset="0" stop-color="#5CF0B4" stop-opacity=".34"/>
+      <stop offset="1" stop-color="#5CF0B4" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- Ubin gelap dengan cahaya tipis dari atas -->
+  <rect width="64" height="64" rx="18" fill="url(#vrs-tile)"/>
+  <circle cx="46.5" cy="20.5" r="15" fill="url(#vrs-glow)"/>
+  <rect x="1" y="1" width="62" height="62" rx="17" stroke="#FFFFFF" stroke-opacity=".1" stroke-width="2"/>
+  <!-- V: kaki kanan berhenti lebih pendek, lalu "menyala" jadi titik online -->
+  <path d="M17 18.5 29.5 43.7c1.1 2.2 4.2 2.2 5.3 0L40.8 31.4" stroke="url(#vrs-g)" stroke-width="7.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="46.5" cy="20.5" r="5.2" fill="#9DFFDA"/>
+  <circle cx="46.5" cy="20.5" r="8.6" stroke="#5CF0B4" stroke-opacity=".26" stroke-width="1.4"/>
+</svg>

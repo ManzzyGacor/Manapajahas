@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Masuk — Varesa</title>
+  <meta name="description" content="Masuk ke dashboard Varesa dengan akun Google. Akun baru dibuat otomatis, tanpa kata sandi.">
+  <link rel="canonical" href="https://varesa.mom/login">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#08090a">
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-mark.svg">
+  <link rel="icon" href="/icons/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="/assets/varesa.css?v=31">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    /* Token warna, font & tombol datang dari /assets/varesa.css.
+       Di sini hanya tata letak khusus halaman masuk. */
+    body {
+      /* Kolom, bukan baris: header, isi, dan catatan bawah bertumpuk ke
+         bawah. min-height pakai dvh supaya ikut menyusut saat address bar
+         HP muncul. */
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex; flex-direction: column;
+      position: relative;
+      /* Jangan overflow:hidden — konten yang lebih tinggi dari layar harus
+         tetap bisa di-scroll. Cukup kunci arah horizontal. */
+      overflow-x: hidden;
+    }
+    /* Kisi tipis + cahaya mint di belakang, senada dengan hero beranda */
+    .bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+    .bg::before {
+      content: ""; position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, .045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, .045) 1px, transparent 1px);
+      background-size: 56px 56px; background-position: center top;
+      -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 10%, transparent 72%);
+      mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 10%, transparent 72%);
+    }
+    .bg::after {
+      content: ""; position: absolute; width: min(760px, 120vw); aspect-ratio: 1.3; left: 50%; top: -12%;
+      transform: translateX(-30%);
+      background: radial-gradient(closest-side, rgba(92, 240, 180, .14), rgba(92, 240, 180, .04) 55%, transparent);
+    }
+
+    .top { position: relative; z-index: 2; }
+    .top__in { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: var(--nav-h); }
+    .top .i { width: 15px; height: 15px; }
+
+    .wrap {
+      position: relative; z-index: 1; flex: 1;
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+      align-items: center; gap: clamp(32px, 6vw, 96px);
+      padding-top: clamp(24px, 4vw, 48px); padding-bottom: clamp(32px, 5vw, 64px);
+    }
+
+    /* Kolom kiri (desktop): pengingat singkat apa yang didapat */
+    .pitch { max-width: 520px; }
+    .pitch .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px;
+      font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+    }
+    .pitch .eyebrow::before { content: ""; width: 14px; height: 1px; background: currentColor; opacity: .6; }
+    .pitch h2 { font-size: clamp(32px, 3.8vw, 46px); line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+    .pitch h2 .v-fade-text { color: #6f747d; }
+    .pitch__list { list-style: none; margin: 30px 0 0; padding: 0; display: grid; gap: 16px; }
+    .pitch__list li { display: grid; grid-template-columns: 30px 1fr; gap: 14px; align-items: start; }
+    .pitch__list b { display: block; font-size: 15px; font-weight: 600; }
+    .pitch__list span { display: block; margin-top: 2px; font-size: 13.5px; color: var(--text-2); line-height: 1.6; }
+    .pitch__no {
+      width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%;
+      border: 1px solid var(--line-2); background: var(--surface);
+      font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--text-2);
+    }
+
+    .card {
+      position: relative; width: 100%;
+      padding: 34px 30px 28px;
+      background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r-xl);
+      box-shadow: 0 0 0 6px rgba(255, 255, 255, .018), 0 40px 90px -40px rgba(0, 0, 0, .9), 0 0 140px -60px rgba(92, 240, 180, .35);
+      opacity: 0; transform: translateY(14px);
+      animation: cardIn .5s var(--ease) forwards;
+    }
+    @keyframes cardIn { to { opacity: 1; transform: none; } }
+    .card__mark { width: 52px; height: 52px; border-radius: 15px; margin-bottom: 22px; box-shadow: 0 10px 30px -12px rgba(92, 240, 180, .5); }
+    h1 { margin: 0 0 8px; font-family: var(--font-display); font-weight: 700; font-size: 26px; letter-spacing: -.03em; line-height: 1.15; }
+    .sub { margin: 0 0 24px; color: var(--text-2); font-size: 14px; line-height: 1.65; }
+
+    .tos {
+      display: flex; align-items: flex-start; gap: 11px; text-align: left;
+      padding: 12px 14px; margin-bottom: 18px;
+      border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg-soft);
+      font-size: 13px; color: var(--text-2); line-height: 1.55;
+      cursor: pointer; user-select: none; transition: border-color .2s;
+    }
+    .tos:hover { border-color: var(--line-2); }
+    .tos:has(input:checked) { border-color: var(--accent-line); }
+    .tos input {
+      appearance: none; -webkit-appearance: none; margin: 1px 0 0;
+      width: 18px; height: 18px; flex-shrink: 0;
+      border: 1.5px solid var(--line-3); border-radius: 5px; background: transparent; cursor: pointer;
+      position: relative; transition: border-color .15s, background-color .15s;
+    }
+    .tos input:checked { background: var(--accent); border-color: var(--accent); }
+    .tos input:checked::after {
+      content: ""; position: absolute; left: 5px; top: 1.5px;
+      width: 5px; height: 9px; border: solid var(--text-inv); border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .tos a { color: var(--accent); }
+    .tos a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+    .gsi-wrap { display: flex; justify-content: center; min-height: 44px; width: 100%; overflow: hidden; border-radius: 999px; }
+    .gsi-wrap.disabled { opacity: .4; pointer-events: none; filter: grayscale(.3); transition: opacity .2s, filter .2s; }
+    /* Layanan Google gagal dimuat: tombol muat ulang harus tetap bisa diklik
+       walau kotak persetujuan belum dicentang. */
+    .gsi-wrap.is-failed { opacity: 1; pointer-events: auto; filter: none; }
+    /* Tampil sampai tombol resmi Google selesai dirender */
+    .gsi-ph {
+      width: 100%; height: 44px; display: flex; align-items: center; justify-content: center; gap: 10px;
+      border-radius: 999px; background: var(--surface-3); border: 1px solid var(--line-2);
+      font-weight: 600; font-size: 14px; color: var(--text-2);
+    }
+    .gsi-ph svg { width: 18px; height: 18px; flex: none; }
+    .gsi-ph.is-loading { position: relative; overflow: hidden; }
+    .gsi-ph.is-loading::after {
+      content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .06), transparent);
+      animation: v-shimmer 1.4s infinite;
+    }
+    button.gsi-ph { cursor: pointer; font-family: inherit; }
+    button.gsi-ph:hover { color: var(--text); border-color: var(--line-3); }
+    .gsi-hint { margin: 10px 0 0; text-align: center; font-size: 12px; color: var(--text-3); }
+
+    .err {
+      display: none; align-items: flex-start; gap: 9px;
+      background: var(--danger-soft); border: 1px solid rgba(242, 85, 90, .3);
+      color: #ff9a9e; font-size: 13px; line-height: 1.5;
+      padding: 11px 13px; border-radius: var(--r-sm); margin: 16px 0 0;
+    }
+
+    .err .err__txt { flex: 1; min-width: 0; }
+    .err .err__retry {
+      flex: none; margin: -3px -4px -3px 0; padding: 4px 10px; border-radius: var(--r-pill);
+      border: 1px solid rgba(242, 85, 90, .4); background: transparent; color: #ffb3b6;
+      font: 600 12px/1.4 var(--font-mono); cursor: pointer;
+    }
+    .err .err__retry:hover { border-color: #ff9a9e; color: #fff; }
+
+    /* Pemberitahuan jujur saat database server sedang putus: login & daftar
+       pasti gagal, jadi lebih baik dikatakan di depan daripada membiarkan
+       orang menunggu ±10 detik lalu dapat pesan "Autentikasi gagal". */
+    .notice {
+      display: flex; align-items: flex-start; gap: 10px; margin: 0 0 18px; padding: 12px 14px;
+      border: 1px solid rgba(245, 181, 68, .3); border-radius: var(--r-sm); background: var(--warn-soft);
+      font-size: 13px; line-height: 1.55; color: var(--text-2); text-align: left;
+    }
+    .notice[hidden] { display: none; }
+    .notice .i { margin-top: 2px; color: var(--warn); }
+    .notice b { display: block; color: var(--text); font-weight: 600; }
+    .notice a { color: var(--warn); font-weight: 600; }
+    .notice a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .notice--down { border-color: rgba(242, 85, 90, .32); background: var(--danger-soft); }
+    .notice--down .i, .notice--down a { color: #ff9a9e; }
+
+    /* Sedang memproses masuk: tombol Google dikunci supaya tidak diklik dua kali */
+    .gsi-wrap.is-busy { opacity: .45; pointer-events: none; }
+    .gsi-hint.is-busy { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-2); }
+    .gsi-hint.is-busy::before {
+      content: ""; width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid var(--line-3); border-top-color: var(--accent); animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .perks { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 22px 0 0; padding: 18px 0 0; border-top: 1px dashed var(--line-2); list-style: none; }
+    .perks li { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-3); }
+    .perks .i { width: 14px; height: 14px; color: var(--accent); }
+
+    .srvline {
+      display: flex; align-items: center; justify-content: center; gap: 8px; margin: 18px 0 0;
+      font-family: var(--font-mono); font-size: 12px; color: var(--text-3); text-align: center;
+    }
+    .srvline[hidden] { display: none; }
+    .srvline b { color: var(--text-2); font-weight: 500; }
+
+    .i {
+      display: inline-block; flex: none; width: 16px; height: 16px;
+      fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    .fine {
+      position: relative; z-index: 1; padding: 0 0 24px; text-align: center;
+      font-size: 12.5px; color: var(--text-3);
+    }
+    .fine a { color: var(--text-2); font-weight: 600; }
+    .fine a:hover { color: var(--accent); }
+
+    @media (max-width: 920px) {
+      .wrap { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+      .pitch { display: none; }
+      .card-col { width: 100%; max-width: 420px; }
+    }
+    /* Layar HP sempit: rapatkan padding & kecilkan tipografi supaya
+       seluruh kartu tetap muat tanpa perlu scroll. */
+    @media (max-width: 420px) {
+      .card { padding: 26px 20px 22px; border-radius: 22px; }
+      .card__mark { width: 44px; height: 44px; border-radius: 13px; margin-bottom: 18px; }
+      h1 { font-size: 23px; }
+      .sub { font-size: 13.5px; margin-bottom: 20px; }
+      .tos { font-size: 12.5px; padding: 11px 12px; }
+      .top .v-btn span { display: none; }
+    }
+    /* Layar pendek (HP landscape): jangan paksa tengah, biarkan mengalir. */
+    @media (max-height: 560px) {
+      .wrap { align-items: start; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .card { animation: none; opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg" aria-hidden="true"></div>
+
+  <header class="top">
+    <div class="v-container top__in">
+      <a class="v-logo" href="/" aria-label="Varesa — beranda"><img src="/assets/logo-mark.svg" alt="" width="30" height="30"><span>VARESA</span></a>
+      <a class="v-btn v-btn--ghost v-btn--sm" href="/"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg><span>Kembali ke beranda</span></a>
+    </div>
+  </header>
+
+  <main class="v-container wrap">
+    <section class="pitch" aria-label="Tentang Varesa">
+      <span class="eyebrow">Masuk · Daftar</span>
+      <h2 class="v-display">Satu akun Google, <span class="v-fade-text">bot WhatsApp kamu langsung jalan.</span></h2>
+      <ul class="pitch__list">
+        <li><span class="pitch__no">01</span><div><b>Akun dibuat otomatis</b><span>Belum pernah daftar? Cukup lanjutkan dengan Google, tanpa kata sandi baru.</span></div></li>
+        <li><span class="pitch__no">02</span><div><b>Tautkan nomor lewat pairing code</b><span>Isi nomor bot di dashboard, ketik kodenya di WhatsApp — tanpa scan QR.</span></div></li>
+        <li><span class="pitch__no">03</span><div><b>Atur semuanya dari dashboard</b><span>Menu, owner, balasan otomatis, token API, sampai paket langganan.</span></div></li>
+      </ul>
+    </section>
+
+    <div class="card-col">
+      <div class="card">
+        <img class="card__mark" src="/assets/logo-mark.svg" alt="Varesa" width="52" height="52">
+        <h1>Masuk ke akun kamu</h1>
+        <p class="sub">Belum punya akun? Lanjutkan dengan Google, akun langsung dibuatkan otomatis.</p>
+
+        <div class="notice" id="svcNotice" role="status" hidden>
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/></svg>
+          <span><b id="svcTitle"></b><span id="svcText"></span></span>
+        </div>
+
+        <label class="tos" for="tos">
+          <input type="checkbox" id="tos">
+          <span>Saya setuju dengan <a href="#">Syarat &amp; Ketentuan</a> dan <a href="#">Kebijakan Privasi</a></span>
+        </label>
+
+        <div id="gsiButton" class="gsi-wrap disabled">
+          <!-- Pengganti sementara; dihapus begitu tombol Google selesai dimuat -->
+          <div class="gsi-ph is-loading" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.6 12.3c0-.8-.1-1.5-.2-2.3H12v4.3h5.9a5 5 0 0 1-2.2 3.3v2.7h3.6c2.1-1.9 3.3-4.8 3.3-8z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.7c-1 .7-2.2 1-3.7 1-2.8 0-5.2-1.9-6.1-4.5H2.2v2.8A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.9 14.1a6.6 6.6 0 0 1 0-4.2V7.1H2.2a11 11 0 0 0 0 9.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.2 1.6l3.1-3.1A11 11 0 0 0 2.2 7.1l3.7 2.8C6.8 7.3 9.2 5.4 12 5.4z"/></svg>
+            Lanjutkan dengan Google
+          </div>
+        </div>
+        <p class="gsi-hint" id="gsiHint">Centang persetujuan di atas untuk mengaktifkan tombol.</p>
+        <p id="authError" class="err"></p>
+
+        <ul class="perks">
+          <li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Gratis untuk mulai</li>
+          <li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Tanpa kata sandi</li>
+          <li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Bisa berhenti kapan saja</li>
+        </ul>
+      </div>
+      <p class="srvline" id="srvLine" hidden><span class="v-dot v-dot--live" id="srvDot"></span><span id="srvText"></span></p>
+    </div>
+  </main>
+
+  <p class="fine">Kembali ke <a href="/">halaman utama</a> · <a href="/status">Status server</a></p>
+
+  <script>
+    // ID client Google yang sama dengan yang dipakai backend (lib/webserver.js)
+    // untuk verifikasi token, jadi wajib identik.
+    const GOOGLE_CLIENT_ID = "141130713954-udk7re4el6sugi4n39t9lus71rur76mg.apps.googleusercontent.com";
+
+    const tosCheckbox = document.getElementById('tos');
+    const gsiWrap = document.getElementById('gsiButton');
+    const authError = document.getElementById('authError');
+    const gsiHint = document.getElementById('gsiHint');
+
+    // `retry`: fungsi yang dijalankan tombol "Coba lagi" di dalam kotak error
+    // (mis. kirim ulang kredensial Google yang sama — masih berlaku ±1 jam,
+    // jadi tidak perlu klik tombol Google lagi).
+    function showError(msg, retry) {
+      authError.textContent = '';
+      const t = document.createElement('span');
+      t.className = 'err__txt';
+      t.textContent = msg;
+      authError.append(t);
+      if (typeof retry === 'function') {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'err__retry';
+        b.textContent = 'Coba lagi';
+        b.addEventListener('click', retry);
+        authError.append(b);
+      }
+      authError.style.display = 'flex';
+    }
+    function hideError() { authError.style.display = 'none'; }
+
+    // Kondisi layanan dari /api/status. `dbDown`: true/false, atau null kalau
+    // belum/tidak bisa dicek. Dipakai untuk pemberitahuan di kartu (skrip di
+    // bawah) dan untuk pesan error yang jelas saat login gagal.
+    const SVC = { dbDown: null, reachable: null };
+    async function checkStatus(timeout = 5000) {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), timeout);
+      try {
+        const res = await fetch('/api/status', { cache: 'no-store', signal: ctl.signal });
+        const d = await res.json();
+        SVC.reachable = true;
+        SVC.dbDown = !!(d && d.layanan && d.layanan.database === 'down');
+      } catch (e) {
+        // Server tidak menjawab sama sekali: status DB tidak diketahui.
+        SVC.reachable = false;
+        SVC.dbDown = null;
+      } finally { clearTimeout(t); }
+      document.dispatchEvent(new CustomEvent('varesa:svc'));
+      return SVC;
+    }
+    const DB_DOWN_MSG = 'Login belum bisa diproses: database server sedang gangguan. Akun & bot kamu aman — coba lagi beberapa menit lagi.';
+
+    function setBusy(on) {
+      gsiWrap.classList.toggle('is-busy', on);
+      if (!gsiHint) return;
+      gsiHint.classList.toggle('is-busy', on);
+      if (on) { gsiHint.textContent = 'Memproses masuk…'; gsiHint.hidden = false; }
+      else { gsiHint.textContent = 'Centang persetujuan di atas untuk mengaktifkan tombol.'; gsiHint.hidden = tosCheckbox.checked; }
+    }
+
+    // Tombol Google baru aktif setelah kotak centang dicentang — mencegah
+    // klik lalu baru dikasih tahu "harus centang dulu" sesudahnya.
+    tosCheckbox.addEventListener('change', () => {
+      gsiWrap.classList.toggle('disabled', !tosCheckbox.checked);
+      if (gsiHint) gsiHint.hidden = tosCheckbox.checked;
+      if (tosCheckbox.checked) hideError();
+    });
+
+    let busy = false, leaving = false;
+    async function handleCredentialResponse(response) {
+      if (busy) return;
+      busy = true;
+      hideError();
+      setBusy(true);
+      const retry = () => handleCredentialResponse(response);
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 20000);
+      const t0 = Date.now();
+      try {
+        // Database diketahui putus → cek ulang sebentar. Kalau masih putus,
+        // langsung beri tahu; mengirim kredensial cuma akan tertahan ±10
+        // detik lalu gagal dengan pesan yang menyesatkan.
+        if (SVC.dbDown) {
+          await checkStatus(4000);
+          if (SVC.dbDown) { showError(DB_DOWN_MSG, retry); return; }
+        }
+        const res = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credential: response.credential }),
+          signal: ctl.signal
+        });
+        let result = null;
+        try { result = await res.json(); } catch (e) { result = null; }
+
+        if (!result || !result.success) {
+          // Server menjawab "gagal" — bisa karena token Google memang
+          // ditolak, atau karena database putus di tengah jalan (jawabannya
+          // lama). Pastikan dulu supaya pesannya tidak salah arah.
+          if (res.status === 503 || res.status >= 500 || Date.now() - t0 > 6000) await checkStatus(4000);
+          if (SVC.dbDown) showError(DB_DOWN_MSG, retry);
+          else showError((result && result.message) || 'Autentikasi gagal, silakan coba lagi.', res.status >= 500 ? retry : null);
+          return;
+        }
+
+        // Kunci 'currentUser' ini wajib sama dengan yang dibaca app.js & admin.html.
+        localStorage.setItem('currentUser', JSON.stringify(result.user));
+
+        // Kalau datang lewat link undangan (?ref=KODE), langsung pakai
+        // kodenya. Gagal di sini tidak boleh menghalangi login — user tetap
+        // bisa memasukkannya manual di halaman Ajak Teman.
+        const ref = new URLSearchParams(location.search).get('ref');
+        if (ref) {
+          try {
+            await fetch('/api/referral/claim', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: result.user.id, code: ref })
+            });
+          } catch (e) { /* diabaikan, bukan penghalang login */ }
+        }
+
+        leaving = true;
+        window.location.href = '/dashboard';
+        return;
+      } catch (err) {
+        const timedOut = err && err.name === 'AbortError';
+        await checkStatus(4000);
+        if (SVC.dbDown) showError(DB_DOWN_MSG, retry);
+        else if (timedOut) showError('Server terlalu lama merespons. Coba lagi sebentar lagi.', retry);
+        else showError('Tidak bisa terhubung ke server. Periksa koneksi kamu dan coba lagi.', retry);
+      } finally {
+        clearTimeout(timer);
+        busy = false;
+        // Tetap terkunci kalau sedang pindah ke dashboard.
+        if (!leaving) setBusy(false);
+      }
+    }
+
+    function renderGoogleButton() {
+      gsiWrap.innerHTML = '';
+      // Sebelumnya width dikunci 320px — di layar HP sempit itu lebih lebar
+      // dari kartu login (max-width 400px dikurangi padding), jadi tombolnya
+      // tumpah keluar kartu. Sekarang dihitung dari ruang yang benar-benar
+      // tersedia, dengan batas atas 360px.
+      const width = Math.min(360, Math.max(220, Math.floor(gsiWrap.offsetWidth)));
+      google.accounts.id.renderButton(
+        gsiWrap,
+        // Tema terang (outline) supaya tombol Google tetap menonjol di kartu gelap.
+        { theme: 'outline', size: 'large', width, text: 'continue_with', shape: 'pill' }
+      );
+    }
+
+    window.addEventListener('load', () => {
+      if (!window.google || !window.google.accounts) {
+        showError('Gagal memuat layanan Google. Coba refresh halaman ini.');
+        // Pengganti tombol diubah jadi tombol muat ulang, supaya tidak
+        // terlihat seperti tombol yang bisa diklik tapi diam saja.
+        const ph = gsiWrap.querySelector('.gsi-ph');
+        if (ph) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'gsi-ph';
+          btn.textContent = 'Muat ulang halaman';
+          btn.addEventListener('click', () => location.reload());
+          ph.replaceWith(btn);
+        }
+        gsiWrap.classList.add('is-failed');
+        if (gsiHint) gsiHint.hidden = true;
+        return;
+      }
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleCredentialResponse
+      });
+      renderGoogleButton();
+    });
+
+    // Render ulang saat orientasi/ukuran layar berubah supaya tombol tetap pas.
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (window.google?.accounts) renderGoogleButton();
+      }, 250);
+    });
+  </script>
+  <script>
+    // Info kecil di bawah kartu: kondisi layanan + sisa slot server.
+    // /api/status (murah) menentukan apakah database tersambung — kalau
+    // putus, login pasti gagal, jadi tampilkan pemberitahuan yang jujur dan
+    // JANGAN pamer "masih muat ±N bot" berwarna hijau. Sisa slot dari
+    // /api/public/live hanya ditampilkan saat semuanya normal. Tidak
+    // dipolling terus; dicek ulang tiap 20 dtk HANYA selama ada gangguan,
+    // supaya pemberitahuan hilang sendiri begitu database pulih.
+    (() => {
+      const line = document.getElementById('srvLine');
+      const dot = document.getElementById('srvDot');
+      const txt = document.getElementById('srvText');
+      const notice = document.getElementById('svcNotice');
+      let cap = null, name = 'Server', recheck = 0, ready = false, wasBad = false;
+
+      function setLine(cls, text) {
+        dot.className = 'v-dot v-dot--live' + (cls ? ' ' + cls : '');
+        const b = document.createElement('b');
+        b.textContent = name;
+        txt.textContent = '';
+        txt.append(b, ` · ${text}`);
+        line.hidden = false;
+      }
+      function setNotice(kind, title, text) {
+        if (!kind) { notice.hidden = true; return; }
+        notice.className = 'notice' + (kind === 'down' ? ' notice--down' : '');
+        document.getElementById('svcTitle').textContent = title;
+        const t = document.getElementById('svcText');
+        t.textContent = text + ' ';
+        const a = document.createElement('a');
+        a.href = '/status';
+        a.textContent = 'Lihat status';
+        t.append(a);
+        notice.hidden = false;
+      }
+      function render() {
+        clearTimeout(recheck);
+        const bad = SVC.dbDown === true || SVC.reachable === false;
+        // Baru pulih dari gangguan → ambil ulang sisa slot yang terbaru.
+        if (!bad && wasBad) { wasBad = false; loadLive().then(render); return; }
+        wasBad = bad;
+        if (SVC.dbDown === true) {
+          setNotice('warn', 'Database sedang gangguan', 'Masuk & daftar akun belum bisa diproses untuk sementara. Bot yang sudah aktif tetap jalan — coba lagi beberapa menit lagi.');
+          setLine('v-dot--warn', 'gangguan database · login tertunda');
+          recheck = setTimeout(() => { if (!document.hidden) checkStatus(); else render(); }, 20000);
+          return;
+        }
+        if (SVC.reachable === false) {
+          setNotice('down', 'Server belum bisa dihubungi', 'Kemungkinan sedang ada pemeliharaan atau koneksi kamu terputus. Halaman ini mencoba lagi otomatis.');
+          setLine('v-dot--danger', 'tidak merespons');
+          recheck = setTimeout(() => { if (!document.hidden) checkStatus(); else render(); }, 20000);
+          return;
+        }
+        setNotice(null);
+        if (SVC.dbDown === false && cap) {
+          const rem = Math.max(0, Math.round(cap.remaining));
+          const fmt = new Intl.NumberFormat('id-ID').format(rem);
+          if (cap.status === 'full' || rem <= 0) setLine('v-dot--danger', 'penuh — bot baru menunggu slot kosong');
+          else if (cap.status === 'limited') setLine('v-dot--warn', `hampir penuh · sisa ±${fmt} slot bot`);
+          else setLine('', `masih muat ±${fmt} bot lagi`);
+        } else if (SVC.dbDown === false) {
+          setLine('', 'semua layanan normal');
+        }
+      }
+
+      async function loadLive() {
+        try {
+          const ctl = new AbortController();
+          const t = setTimeout(() => ctl.abort(), 5000);
+          const res = await fetch('/api/public/live', { cache: 'no-store', signal: ctl.signal });
+          clearTimeout(t);
+          const d = await res.json();
+          const c = d && d.success !== false ? d.capacity : null;
+          name = String((d && d.server && d.server.name) || 'Server').slice(0, 40);
+          if (c && typeof c.remaining === 'number') cap = c;
+        } catch (e) { /* diam saja: cukup tanpa info slot */ }
+      }
+
+      document.addEventListener('varesa:svc', () => { if (ready) render(); });
+      // Kedua permintaan jalan bersamaan; baris info baru muncul setelah
+      // keduanya selesai, jadi tidak pernah "hijau dulu, lalu berubah jadi
+      // gangguan".
+      const go = () => { ready = true; render(); };
+      Promise.all([loadLive(), checkStatus()]).then(go, go);
+    })();
+  </script>
+</body>
+</html>

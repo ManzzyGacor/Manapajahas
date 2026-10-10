@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Varesa — Bot WhatsApp siap pakai, online dalam semenit</title>
+<meta name="description" content="Ubah nomor WhatsApp kamu jadi bot: tautkan lewat pairing code, atur balasan otomatis, download media, moderasi grup, sampai kirim pesan lewat API. Tanpa sewa server, tanpa koding.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta name="google-site-verification" content="RZ3NsyPuXT2iiNSO0bhuhfJ-W60E8tAlXTu7MjsUFpk" />
+<link rel="canonical" href="https://varesa.mom/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+
+<!-- Open Graph: dipakai WhatsApp, Facebook, Telegram saat link dibagikan -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Varesa">
+<meta property="og:locale" content="id_ID">
+<meta property="og:url" content="https://varesa.mom/">
+<meta property="og:title" content="Varesa — Bot WhatsApp siap pakai, online dalam semenit">
+<meta property="og:description" content="Tautkan nomor lewat pairing code, atur balasan otomatis, dan biarkan bot menjawab grup kamu sepanjang hari. Tanpa server sendiri, tanpa koding.">
+<meta property="og:image" content="https://varesa.mom/icons/icon-512.png">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Varesa — Bot WhatsApp siap pakai">
+<meta name="twitter:description" content="Bot WhatsApp siap pakai: pairing code, balasan otomatis, API kirim pesan, dan pantau dari dashboard.">
+<meta name="twitter:image" content="https://varesa.mom/icons/icon-512.png">
+
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#08090a">
+<link rel="icon" type="image/svg+xml" href="/assets/logo-mark.svg">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="stylesheet" href="/assets/varesa.css?v=31">
+<link rel="stylesheet" href="/landing.css?v=32">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "name": "Varesa",
+      "url": "https://varesa.mom/",
+      "logo": "https://varesa.mom/icons/icon-512.png"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "Varesa",
+      "url": "https://varesa.mom/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "inLanguage": "id",
+      "description": "Layanan bot WhatsApp siap pakai. Tautkan nomor lewat pairing code, atur balasan otomatis, kirim pesan lewat API, dan pantau bot dari dashboard.",
+      "offers": {
+        "@type": "AggregateOffer",
+        "priceCurrency": "IDR",
+        "lowPrice": "0",
+        "highPrice": "25000",
+        "offerCount": "4"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "Apakah Varesa resmi dari WhatsApp?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Bukan. Varesa adalah layanan independen yang menyambungkan nomor kamu lewat fitur Perangkat Tertaut milik WhatsApp, sama seperti WhatsApp Web. Varesa tidak berafiliasi dengan WhatsApp maupun Meta." } },
+        { "@type": "Question", "name": "Apakah Varesa aman digunakan?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Pairing code hanya muncul di dashboard pemilik bot, nomor yang tampil di halaman publik selalu disamarkan, dan isi pesan tidak pernah ditampilkan. Kamu bisa memutus sesi kapan saja dari menu Perangkat Tertaut di HP." } },
+        { "@type": "Question", "name": "Apakah nomor saya bisa diblokir WhatsApp?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Risiko selalu ada untuk bot tidak resmi, terutama jika dipakai spam. Pakai nomor cadangan khusus bot, jangan kirim pesan massal ke orang yang tidak dikenal, dan biarkan nomor baru dipakai normal beberapa hari dulu." } },
+        { "@type": "Question", "name": "Apakah bot aktif 24 jam?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Ya. Bot berjalan di server Varesa, jadi tetap aktif walau HP kamu mati atau tidak ada internet. Jika sesi terputus, tekan Start lagi di dashboard." } },
+        { "@type": "Question", "name": "Bagaimana cara menghubungkan nomor?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Masuk dengan Google, isi nomor bot di dashboard lalu tekan Start. Setelah pairing code muncul, buka WhatsApp, masuk ke Perangkat Tertaut, pilih Tautkan dengan nomor telepon saja, lalu ketik kodenya." } },
+        { "@type": "Question", "name": "Bisa punya beberapa bot? Paketnya per akun atau per bot?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Bisa. Paket Varesa berlaku per bot: satu akun bisa punya beberapa bot, masing-masing dengan paket dan masa aktif sendiri. Bot Free dibatasi satu per akun. Saat upgrade di dashboard, kamu memilih bot mana yang dinaikkan paketnya." } },
+        { "@type": "Question", "name": "Bisa kirim pesan dari aplikasi sendiri lewat API?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Bisa. Setiap bot punya token API di dashboard. Kirim POST ke /api/v1/text atau /api/v1/image dengan header x-varesa-token. Kuota harian mengikuti paket." } },
+        { "@type": "Question", "name": "Bagaimana kalau server sedang penuh?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Bot yang sudah aktif tetap berjalan normal. Hanya sesi baru yang ditahan sampai ada slot kosong. Sisa slot ditampilkan langsung di halaman utama dan halaman status." } }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body data-page="landing">
+
+<!-- Ikon dipakai ulang lewat <use>, jadi tidak perlu font ikon -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-arrow-up-right" viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15h-.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3 10 14"/><path d="m21 3-7 18-4-7-7-4z"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="3.5"/><path d="M12 8V4.5"/><circle cx="12" cy="3.5" r="1"/><path d="M9 13.5v1.5M15 13.5v1.5M2 13v3M22 13v3"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="m7 9.5 3 2.5-3 2.5M12.5 15H17"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 2.5V6M15 2.5V6M9 18v3.5M15 18v3.5M2.5 9H6M2.5 15H6M18 9h3.5M18 15h3.5"/></symbol>
+    <symbol id="i-memory" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="10" rx="2"/><path d="M7 10v2M11 10v2M15 10v2M7 16v3M12 16v3M17 16v3"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+    <symbol id="i-gamepad" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="6"/><path d="M6 12h4M8 10v4M15 12h.01M18 10.5h.01"/></symbol>
+    <symbol id="i-wand" viewBox="0 0 24 24"><path d="M4 20 15 9M14 5l5 5"/><path d="M19 3v3M17.5 4.5h3M6 4v3M4.5 5.5h3M20 15v3M18.5 16.5h3"/></symbol>
+    <symbol id="i-tools" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 7.5 5.5 4h13L20 7.5"/><path d="M4 7.5h16v1.5a3 3 0 0 1-5.33 1.9A3 3 0 0 1 12 12a3 3 0 0 1-2.67-1.1A3 3 0 0 1 4 9z"/><path d="M5 12v8h14v-8M10 20v-4h4v4"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11 3.5 12.9 8.6 18 10.5l-5.1 1.9L11 17.5l-1.9-5.1L4 10.5l5.1-1.9z"/><path d="M19 15v4M17 17h4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5v-15A1.5 1.5 0 0 1 5.5 3H20v15H5.5A1.5 1.5 0 0 0 4 19.5A1.5 1.5 0 0 0 5.5 21H20"/></symbol>
+    <symbol id="i-news" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M7 8.5h10M7 12h10M7 15.5h6"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.7-8.7M17 6l2.5 2.5M14.5 8.5l2 2"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.2 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4M12 17h.01"/></symbol>
+    <symbol id="i-hash" viewBox="0 0 24 24"><path d="M5 9h14M5 15h14M10 3 8 21M16 3l-2 18"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.4A8.5 8.5 0 1 1 21 11.5z"/></symbol>
+    <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M3 10v4a1 1 0 0 0 1 1h3l7 4.5v-15L7 9H4a1 1 0 0 0-1 1z"/><path d="M18 8.5a5 5 0 0 1 0 7"/></symbol>
+    <symbol id="i-whatsapp" viewBox="0 0 24 24"><path d="M3.5 20.5 4.9 16.6A8.6 8.6 0 1 1 7.6 19.3z"/><path d="M9.2 8.3c-.4.4-.7 1-.6 1.7.3 2.4 2.9 5 5.3 5.3.7.1 1.3-.2 1.7-.6l.4-.6-1.9-1.1-.9.7a4.4 4.4 0 0 1-2.9-2.9l.7-.9-1.1-1.9z"/></symbol>
+    <symbol id="i-instagram" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/></symbol>
+    <symbol id="i-tiktok" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 0 1-2.59 2.5c-1.42 0-2.6-1.16-2.6-2.6 0-1.72 1.66-3.01 3.37-2.48V9.66c-3.45-.46-6.47 2.22-6.47 5.64 0 3.33 2.76 5.7 5.69 5.7 3.14 0 5.69-2.55 5.69-5.7V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3s-1.88.09-3.24-1.48z"/></symbol>
+    <symbol id="i-github" viewBox="0 0 16 16"><path fill="currentColor" stroke="none" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></symbol>
+  </defs>
+</svg>
+
+<a class="skip" href="#main">Langsung ke konten</a>
+
+<!-- ============ PENGUMUMAN (diatur dari admin) ============ -->
+<div class="ann" id="ann" hidden>
+  <div class="v-container ann__in">
+    <span class="ann__tag">Info</span>
+    <div class="v-marquee ann__marquee" id="annMarquee"><div class="v-marquee__track" id="annTrack"></div></div>
+    <a class="ann__link" id="annLink" href="#" hidden><span id="annLinkLabel">Lihat</span><svg class="i"><use href="#i-arrow-right"/></svg></a>
+    <button class="ann__close" id="annClose" type="button" aria-label="Tutup pengumuman"><svg class="i"><use href="#i-x"/></svg></button>
+  </div>
+</div>
+
+<!-- ============ NAVIGASI ============ -->
+<header class="nav" id="nav">
+  <div class="v-container nav__in">
+    <a class="v-logo nav__logo" href="/" aria-label="Varesa — beranda">
+      <img src="/assets/logo-mark.svg" alt="" width="30" height="30">
+      <span>VARESA</span>
+    </a>
+    <nav class="nav__links" aria-label="Navigasi utama">
+      <a href="#fitur">Fitur</a>
+      <a href="#harga">Harga</a>
+      <a href="#api">API</a>
+      <a href="/status">Status</a>
+    </nav>
+    <div class="nav__right">
+      <a class="v-btn v-btn--ghost v-btn--sm nav__login" href="/login" data-auth-link>Masuk</a>
+      <a class="v-btn v-btn--primary v-btn--sm nav__cta" href="/login" data-auth-cta><span data-auth-label>Mulai Gratis</span><svg class="i"><use href="#i-arrow-up-right"/></svg></a>
+      <button class="v-btn v-btn--outline v-btn--sm v-btn--icon nav__menu" id="menuBtn" type="button" aria-label="Buka menu" aria-expanded="false" aria-controls="menuSheet"><svg class="i"><use href="#i-menu"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<div class="msheet" id="menuSheet" hidden>
+  <div class="msheet__scrim" data-close-menu></div>
+  <div class="msheet__panel" role="dialog" aria-modal="true" aria-label="Menu">
+    <nav class="msheet__links">
+      <a href="#fitur" data-close-menu><span>Fitur</span><small>Kategori command</small></a>
+      <a href="#cara" data-close-menu><span>Cara kerja</span><small>Empat langkah</small></a>
+      <a href="#harga" data-close-menu><span>Harga</span><small>Free · Core · Prime · Zenith</small></a>
+      <a href="#api" data-close-menu><span>API</span><small>Kirim pesan dari aplikasi</small></a>
+      <a href="#aktivitas" data-close-menu><span>Aktivitas server</span><small>Live</small></a>
+      <a href="/status"><span>Status</span><small>Performa real-time</small></a>
+    </nav>
+    <div class="msheet__foot">
+      <a class="v-btn v-btn--outline v-btn--block" href="/login" data-auth-link>Masuk</a>
+      <a class="v-btn v-btn--primary v-btn--block" href="/login" data-auth-cta><span data-auth-label>Mulai Gratis</span><svg class="i"><use href="#i-arrow-up-right"/></svg></a>
+    </div>
+  </div>
+</div>
+
+<main id="main">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero" id="top">
+    <div class="hero__bg" aria-hidden="true"></div>
+    <div class="v-container hero__grid">
+      <div class="hero__copy">
+        <a class="hero__chip" href="#api">
+          <span class="v-badge v-badge--accent">Baru</span>
+          <span>Kirim pesan dari aplikasi kamu lewat API</span>
+          <svg class="i"><use href="#i-arrow-right"/></svg>
+        </a>
+        <h1 class="v-display hero__title">Nomor WhatsApp kamu, <span class="v-fade-text">jadi bot yang menjawab sendiri.</span></h1>
+        <p class="hero__lead">
+          Tautkan nomor lewat pairing code, lalu atur semuanya dari dashboard: balasan otomatis,
+          download media, chatbot AI, sampai moderasi grup. <b><span data-feat-total>Ratusan</span> command</b>
+          langsung siap dipakai — tanpa sewa server, tanpa koding.
+        </p>
+        <div class="hero__cta">
+          <a class="v-btn v-btn--primary v-btn--lg" href="/login" data-auth-cta><span data-auth-label>Mulai Gratis</span><svg class="i"><use href="#i-arrow-up-right"/></svg></a>
+          <a class="v-btn v-btn--outline v-btn--lg" href="#cara">Lihat cara kerja</a>
+        </div>
+        <ul class="hero__proof">
+          <li><svg class="i"><use href="#i-check"/></svg><span>Gratis untuk mulai</span></li>
+          <li><svg class="i"><use href="#i-phone"/></svg>Pairing code, tanpa scan QR</li>
+          <li class="hero__cap" data-cap-wrap><span class="v-dot" data-cap-dot></span><span data-cap-short>Memeriksa slot server…</span></li>
+        </ul>
+      </div>
+
+      <div class="hero__media">
+        <!-- Banner bergerak: isinya diatur admin lewat /api/site/settings -->
+        <div class="stage" id="stage" aria-roledescription="carousel" aria-label="Banner Varesa">
+          <div class="stage__bar">
+            <span class="stage__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="stage__url"><svg class="i"><use href="#i-shield"/></svg>varesa.mom</span>
+            <span class="stage__tools"><span class="stage__count" id="stageCount"></span><button class="stage__toggle" id="stageToggle" type="button" aria-label="Jeda banner" hidden><svg class="i"><use href="#i-pause"/></svg></button></span>
+          </div>
+          <div class="stage__view" id="stageView">
+            <div class="stage__skel v-skel" aria-hidden="true"></div>
+          </div>
+          <div class="stage__progress" id="stageProgress" role="tablist" aria-label="Pilih banner"></div>
+        </div>
+        <div class="hero__status">
+          <span class="v-dot v-dot--live" data-srv-dot></span>
+          <span data-srv-status>Menghubungkan ke server…</span>
+          <span class="hero__status-sep">·</span>
+          <span class="v-mono" data-srv-name>Server 1</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ JELAJAH + ANGKA ============ -->
+  <section class="explore" aria-label="Ringkasan">
+    <div class="v-container">
+      <div class="pillrow">
+        <span class="pillrow__label">Jelajahi fitur</span>
+        <div class="pillrow__scroll" id="pillRow">
+          <span class="v-pill v-skel">Memuat</span><span class="v-pill v-skel">kategori</span><span class="v-pill v-skel">command</span><span class="v-pill v-skel">bot</span>
+        </div>
+      </div>
+
+      <div class="stats v-card">
+        <div class="stats__grid">
+          <div class="v-stat">
+            <span class="v-stat__label"><svg class="i"><use href="#i-message"/></svg>Pesan diproses</span>
+            <span class="v-stat__value" data-k="traffic.totalMessages" data-f="compact">—</span>
+          </div>
+          <div class="v-stat">
+            <span class="v-stat__label"><svg class="i"><use href="#i-bot"/></svg>Bot online</span>
+            <span class="v-stat__value" data-k="bots.online" data-f="int">—</span>
+          </div>
+          <div class="v-stat">
+            <span class="v-stat__label"><svg class="i"><use href="#i-terminal"/></svg>Command tersedia</span>
+            <span class="v-stat__value" data-feat-stat>—</span>
+          </div>
+          <div class="v-stat">
+            <span class="v-stat__label"><svg class="i"><use href="#i-users"/></svg>Pengguna</span>
+            <span class="v-stat__value" data-k="users" data-f="compact">—</span>
+          </div>
+        </div>
+        <div class="stats__foot"><span class="v-dot" data-srv-dot></span><span>Angka <span data-srv-name>Server 1</span> · diperbarui langsung tiap 3 detik</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ KEMAMPUAN BOT ============ -->
+  <section class="v-section" id="fitur">
+    <div class="v-container split">
+      <div class="split__aside v-reveal">
+        <span class="sec-eyebrow">01 · Fitur</span>
+        <h2 class="v-display v-h2">Kemampuan bot</h2>
+        <p class="sec-lead"><b data-feat-total>Ratusan</b> command, dibaca langsung dari engine yang sedang berjalan — bukan daftar karangan.</p>
+        <button class="v-btn v-btn--outline" type="button" data-open-cat="*">Daftar lengkap command<svg class="i"><use href="#i-arrow-right"/></svg></button>
+      </div>
+      <div class="catgrid-wrap v-reveal">
+        <div class="catgrid" id="catGrid">
+          <div class="cat v-skel"></div><div class="cat v-skel"></div><div class="cat v-skel"></div>
+          <div class="cat v-skel"></div><div class="cat v-skel"></div><div class="cat v-skel"></div>
+        </div>
+        <button class="catgrid__more" id="catMore" type="button" hidden></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CARA KERJA ============ -->
+  <section class="v-section" id="cara">
+    <div class="v-container">
+      <div class="sec-head v-reveal">
+        <div>
+          <span class="sec-eyebrow">02 · Cara kerja</span>
+          <h2 class="v-display v-h2">Empat langkah,<br>bot langsung online</h2>
+        </div>
+        <a class="v-btn v-btn--ghost" href="/login" data-auth-cta><span>Coba sekarang</span><svg class="i"><use href="#i-arrow-right"/></svg></a>
+      </div>
+      <ol class="steps v-reveal">
+        <li class="step">
+          <span class="step__no">01</span>
+          <h3>Masuk dengan Google</h3>
+          <p>Satu klik, akun langsung dibuat. Tidak ada formulir panjang atau verifikasi email.</p>
+          <div class="step__hint"><span>tekan</span><kbd class="v-kbd">Lanjutkan dengan Google</kbd></div>
+        </li>
+        <li class="step">
+          <span class="step__no">02</span>
+          <h3>Isi nomor bot</h3>
+          <p>Ketik nomor WhatsApp yang mau dijadikan bot di dashboard, lalu tekan Start.</p>
+          <div class="step__hint"><span>isi</span><kbd class="v-kbd">628xxxxxxxxxx</kbd></div>
+        </li>
+        <li class="step">
+          <span class="step__no">03</span>
+          <h3>Masukkan pairing code</h3>
+          <p>Buka WhatsApp › Perangkat Tertaut › Tautkan dengan nomor telepon, lalu ketik kodenya.</p>
+          <div class="step__hint"><span>kode</span><kbd class="v-kbd">K7F2-9QLM</kbd></div>
+        </li>
+        <li class="step step--done">
+          <span class="step__no"><svg class="i"><use href="#i-check"/></svg></span>
+          <h3>Bot online</h3>
+          <p>Bot langsung menjawab di grup &amp; chat. Atur menu, owner, dan balasan otomatis dari dashboard.</p>
+          <div class="step__hint"><span>kirim</span><kbd class="v-kbd">.menu</kbd></div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ API ============ -->
+  <section class="v-section" id="api">
+    <div class="v-container">
+      <div class="sec-head v-reveal">
+        <div>
+          <span class="sec-eyebrow">03 · API</span>
+          <h2 class="v-display v-h2">Kirim pesan<br>dari aplikasi kamu</h2>
+          <p class="sec-lead">Tiap bot punya token sendiri. Satu request POST, pesan terkirim dari nomor bot kamu — dari n8n, backend, atau skrip apa pun.</p>
+        </div>
+        <a class="v-btn v-btn--outline" href="/dashboard">Ambil token di dashboard<svg class="i"><use href="#i-arrow-up-right"/></svg></a>
+      </div>
+
+      <div class="apigrid v-reveal">
+        <div class="apicol">
+          <div class="apihead">
+            <span class="apihead__method">POST</span>
+            <code class="apihead__path">/api/v1/text</code>
+            <span class="apihead__note">Contoh request</span>
+          </div>
+          <div class="tabs" role="tablist" aria-label="Bahasa contoh kode" id="codeTabs">
+            <button role="tab" type="button" class="tabs__btn is-active" data-lang="curl" aria-selected="true">cURL</button>
+            <button role="tab" type="button" class="tabs__btn" data-lang="js" aria-selected="false">JavaScript</button>
+            <button role="tab" type="button" class="tabs__btn" data-lang="py" aria-selected="false">Python</button>
+            <button role="tab" type="button" class="tabs__btn" data-lang="go" aria-selected="false">Go</button>
+          </div>
+          <div class="v-panel code">
+            <div class="v-panel__bar"><span id="codeFile">request.sh</span>
+              <button class="code__copy" type="button" id="codeCopy" aria-label="Salin kode"><svg class="i"><use href="#i-copy"/></svg><span>Salin</span></button>
+            </div>
+            <pre class="code__pre" id="codeReq" tabindex="0"></pre>
+          </div>
+        </div>
+        <div class="apicol">
+          <div class="apihead">
+            <span class="apihead__ok"><svg class="i"><use href="#i-check"/></svg></span>
+            <code class="apihead__path">200 OK · application/json</code>
+            <span class="apihead__note">Contoh respons</span>
+          </div>
+          <div class="v-panel code code--res">
+            <div class="v-panel__bar"><span class="code__lights" aria-hidden="true"><i></i><i></i><i></i></span><span>response.json</span><span></span></div>
+            <pre class="code__pre" id="codeRes" tabindex="0"></pre>
+          </div>
+          <p class="apinote">
+            Token API ada di dashboard, di halaman bot kamu. Endpoint lain: <code>POST /api/v1/image</code> untuk kirim gambar dan
+            <code>GET /api/v1/me</code> untuk cek kuota. Kuota harian ikut paket — Free 50, Core 1.000, Prime 5.000, Zenith 20.000 pesan.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HARGA ============ -->
+  <section class="v-section" id="harga">
+    <div class="v-container">
+      <div class="sec-head v-reveal">
+        <div>
+          <span class="sec-eyebrow">04 · Harga</span>
+          <h2 class="v-display v-h2">Harga &amp; paket</h2>
+          <p class="sec-lead">Paket berlaku <b>per bot</b>. Mulai gratis, naikkan paket bot yang grupnya makin ramai. Bayar pakai QRIS, paket aktif otomatis.</p>
+        </div>
+        <a class="v-btn v-btn--ghost" href="#faq">Ada pertanyaan?<svg class="i"><use href="#i-arrow-right"/></svg></a>
+      </div>
+
+      <p class="plans__est" data-price-est hidden><svg class="i"><use href="#i-info"/></svg><span><b>Harga sementara.</b> Harga resmi belum terbaca dari server — harga final selalu tampil di dashboard sebelum kamu bayar.</span></p>
+
+      <div class="plans v-reveal">
+        <article class="plan">
+          <header class="plan__head">
+            <h3>Free</h3>
+            <p>Coba dulu, aktif selamanya.</p>
+          </header>
+          <div class="plan__price"><span class="plan__num">Gratis</span><span class="plan__per" data-lim-free-per>1 bot / akun</span></div>
+          <div class="plan__spec"><span>Kuota API</span><b>50 / hari</b></div>
+          <ul class="plan__list">
+            <li><svg class="i"><use href="#i-check"/></svg><span>1 grup bebas anggota, atau 2 grup kecil</span></li>
+            <li><svg class="i"><use href="#i-check"/></svg><span>Mode publik atau khusus grup</span></li>
+            <li class="is-off"><svg class="i"><use href="#i-x"/></svg><span>Nomor owner tambahan</span></li>
+            <li class="is-off"><svg class="i"><use href="#i-x"/></svg><span>Balasan otomatis</span></li>
+            <li class="is-off"><svg class="i"><use href="#i-x"/></svg><span>Bot menyisipkan watermark</span></li>
+          </ul>
+          <a class="v-btn v-btn--outline v-btn--block" href="/login" data-auth-cta><span>Mulai Gratis</span><svg class="i"><use href="#i-arrow-right"/></svg></a>
+        </article>
+
+        <article class="plan">
+          <header class="plan__head">
+            <h3>Core</h3>
+            <p>Untuk satu grup yang aktif.</p>
+          </header>
+          <div class="plan__price"><small>IDR</small><span class="plan__num v-skel" data-price="basic">7.500</span><span class="plan__per">per bot / bulan</span></div>
+          <div class="plan__spec"><span>Kuota API</span><b>1.000 / hari</b></div>
+          <ul class="plan__list">
+            <li><svg class="i"><use href="#i-check"/></svg><span><b>1</b> nomor owner</span></li>
+            <li><svg class="i"><use href="#i-check"/></svg><span>Balasan otomatis <b>10</b> aturan</span></li>
+            <li><svg class="i"><use href="#i-check"/></svg><span>Tanpa watermark</span></li>
+            <li><svg class="i"><use href="#i-check"/></svg><span>Menu &amp; identitas bot bisa diubah</span></li>
+            <li class="is-off"><svg class="i"><use href="#i-x"/></svg><span>Custom command</span></li>
+          </ul>
+          <a class="v-btn v-btn--outline v-btn--block" href="/login" data-auth-cta data-plan="basic"><span>Pilih Core</span><svg class="i"><use href="#i-arrow-right"/></svg></a>
+        </article>
+
+        <article class="plan plan--pick">
+          <span class="plan__badge">Paling populer</span>
+          <header class="plan__head">
+            <h3>Prime</h3>
+            <p>Untuk beberapa grup sekaligus.</p>
+          </header>
+          <div class="plan__price"><small>IDR</small><span class="plan__num v-skel" data-price="plus">15.000</span><span class="plan__per">per bot / bulan</span></div>
+          <div class="plan__spec"><span>Kuota API</span><b>5.000 / hari</b></div>
+          <ul class="plan__list">
+            <li><svg class="i"><use href="#i-check"/></svg><span><b>3</b> nomor owner</span></li>
+            <li><svg class="i"><use href="#i-check"/></svg><span>Balasan otomatis <b>30</b> aturan</span></li>
+            <li><svg class="i"><use href="#i-check"/></svg><span><b>15</b> custom command</span></li>
+            <li><svg class="i"><use href="#i-check"/></svg><span>Semua yang ada di Core</span></li>
+            <li><svg class="i"><use href="#i-check"/></svg><span>Antrean update lebih dulu</span></li>
+          </ul>
+          <a class="v-btn v-btn--primary v-btn--block" href="/login" data-auth-cta data-plan="plus"><span>Pilih Prime</span><svg class="i"><use href="#i-arrow-right"/></svg></a>
+        </article>
+
+        <article class="plan">
+          <header class="plan__head">
+            <h3>Zenith</h3>
+            <p>Untuk komunitas besar.</p>
+          </header>
+          <div class="plan__price"><small>IDR</small><span class="plan__num v-skel" data-price="booster">25.000</span><span class="plan__per">per bot / bulan</span></div>
+          <div class="plan__spec"><span>Kuota API</span><b>20.000 / hari</b></div>
+          <ul class="plan__list">
+            <li><svg class="i"><use href="#i-check"/></svg><span><b>5</b> nomor owner</span></li>
+            <li><svg class="i"><use href="#i-check"/></svg><span>Balasan otomatis <b>100</b> aturan</span></li>
+            <li><svg class="i"><use href="#i-check"/></svg><span><b>50</b> custom command</span></li>
+            <li><svg class="i"><use href="#i-check"/></svg><span>Foto atau GIF di menu bot</span></li>
+            <li><svg class="i"><use href="#i-check"/></svg><span>Add-on cek akun Mobile Legends</span></li>
+          </ul>
+          <a class="v-btn v-btn--outline v-btn--block" href="/login" data-auth-cta data-plan="booster"><span>Pilih Zenith</span><svg class="i"><use href="#i-arrow-right"/></svg></a>
+        </article>
+      </div>
+      <div class="plans__foot v-reveal">
+        <p class="plans__multi"><span class="plans__multi-ic"><svg class="i"><use href="#i-bot"/></svg></span><span><b>Punya beberapa bot?</b> Tiap bot bisa beda paket. <span data-lim-note>1 bot Free per akun, total sampai 5 bot.</span></span><a href="#faq-multibot">Cara kerjanya<svg class="i"><use href="#i-arrow-right"/></svg></a></p>
+        <p class="plans__note"><svg class="i"><use href="#i-shield"/></svg><span>Bayar lewat QRIS dari e-wallet atau m-banking mana pun<span data-fee></span>. Berhenti langganan? Pengaturan bot tetap tersimpan.</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ AKTIVITAS SERVER (LIVE) ============ -->
+  <section class="v-section" id="aktivitas">
+    <div class="v-container">
+      <div class="sec-head v-reveal">
+        <div>
+          <span class="sec-eyebrow">05 · Live</span>
+          <h2 class="v-display v-h2">Aktivitas server</h2>
+          <p class="sec-lead">Apa yang sedang dikerjakan server sekarang — angka asli dari mesin yang sedang jalan, bukan ilustrasi. Nomor bot selalu disamarkan.</p>
+        </div>
+        <a class="v-btn v-btn--outline" href="/status">Halaman status<svg class="i"><use href="#i-arrow-right"/></svg></a>
+      </div>
+
+      <div class="live v-reveal" id="livePanel">
+        <div class="live__bar">
+          <span class="live__title"><span class="v-dot v-dot--live" data-srv-dot></span>Aktivitas <span data-srv-name>Server 1</span></span>
+          <span class="live__tag" data-live-tag>LIVE · 3 dtk</span>
+          <span class="live__clock v-mono" data-clock>--:--:--</span>
+        </div>
+        <div class="live__body">
+          <div class="live__main">
+            <div class="mps">
+              <div class="mps__num">
+                <span class="v-eyebrow">Pesan / detik</span>
+                <span class="mps__val" data-k="traffic.msgPerSec" data-f="dec1">—</span>
+                <span class="mps__sub">Puncak <b data-k="traffic.peakMsgPerSec" data-f="dec1">—</b></span>
+              </div>
+              <div class="mps__chart spark" data-spark="mps" aria-label="Grafik pesan per detik 10 menit terakhir" role="img"></div>
+            </div>
+            <div class="tiles">
+              <div class="tile"><span class="tile__k">Pesan hari ini</span><span class="tile__v" data-k="traffic.messagesToday" data-f="compact">—</span></div>
+              <div class="tile"><span class="tile__k">Sesi aktif</span><span class="tile__v"><span data-k="capacity.used" data-f="int">—</span><small>/<span data-k="capacity.max" data-f="int">—</span></small></span></div>
+              <div class="tile"><span class="tile__k">Command hari ini</span><span class="tile__v" data-k="traffic.commandsToday" data-f="compact">—</span></div>
+              <div class="tile"><span class="tile__k">Pengguna</span><span class="tile__v" data-k="users" data-f="compact">—</span></div>
+              <div class="tile"><span class="tile__k">Grup terhubung</span><span class="tile__v" data-k="bots.groups" data-f="compact">—</span></div>
+              <div class="tile"><span class="tile__k">Uptime</span><span class="tile__v" data-k="server.uptimeSec" data-f="uptime">—</span></div>
+            </div>
+            <div class="topcmd">
+              <span class="topcmd__k">Terpakai hari ini</span>
+              <div class="topcmd__list" data-topcmd><span class="chip v-skel">.menu 00×</span><span class="chip v-skel">.tiktok 00×</span><span class="chip v-skel">.sticker 00×</span></div>
+            </div>
+          </div>
+          <div class="live__log">
+            <div class="live__loghead"><span>Command terbaru</span><span class="v-dim">nomor disamarkan</span></div>
+            <div class="clog" data-live-log data-max="8" aria-live="off">
+              <div class="clog__empty">Menunggu aktivitas…</div>
+            </div>
+          </div>
+        </div>
+        <div class="live__foot">
+          <span class="live__foot-l"><span class="v-dot" data-srv-dot></span><span data-srv-status>Menghubungkan…</span><span class="v-dim">·</span><span><b data-k="traffic.totalCommands" data-f="compact">—</b> command diproses</span></span>
+          <span class="live__load"><span class="v-dim">Beban CPU</span><span class="v-meter" data-meter="cpu"><i></i></span><b data-k="server.cpu.percent" data-f="pct">—</b></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ KAPASITAS ============ -->
+  <section class="v-section" id="kapasitas">
+    <div class="v-container">
+      <div class="sec-head v-reveal">
+        <div>
+          <span class="sec-eyebrow">06 · Kapasitas</span>
+          <h2 class="v-display v-h2">Kapasitas server</h2>
+          <p class="sec-lead">Kami membatasi jumlah sesi per server supaya setiap bot tetap responsif. Sisa slot dihitung langsung dari RAM &amp; CPU yang tersedia.</p>
+        </div>
+      </div>
+
+      <div class="capgrid v-reveal">
+        <article class="srv v-card">
+          <header class="srv__head">
+            <span class="srv__icon"><svg class="i"><use href="#i-server"/></svg></span>
+            <div class="srv__name">
+              <b data-srv-name>Server 1</b>
+              <span><svg class="i"><use href="#i-globe"/></svg><span data-k="server.host" data-f="text">varesa.mom</span></span>
+            </div>
+            <span class="v-dot v-dot--live" data-srv-dot></span>
+          </header>
+          <div class="srv__badges">
+            <span class="v-badge" data-srv-pill>Memeriksa…</span>
+            <span class="v-badge"><svg class="i"><use href="#i-globe"/></svg><span data-k="server.region" data-f="text">—</span></span>
+          </div>
+          <div class="srv__meters">
+            <div class="meterrow">
+              <div class="meterrow__top"><span><svg class="i"><use href="#i-bot"/></svg>Kapasitas bot</span><b><span data-k="capacity.used" data-f="int">—</span> <i>/</i> <span data-k="capacity.max" data-f="int">—</span></b></div>
+              <div class="v-meter" data-meter="cap"><i></i></div>
+            </div>
+            <div class="meterrow">
+              <div class="meterrow__top"><span><svg class="i"><use href="#i-cpu"/></svg>CPU</span><b><span data-k="server.cpu.percent" data-f="pct">—</span> <i>·</i> <span data-k="server.cpu.cores" data-f="cores">—</span> core</b></div>
+              <div class="v-meter" data-meter="cpu"><i></i></div>
+            </div>
+            <div class="meterrow">
+              <div class="meterrow__top"><span><svg class="i"><use href="#i-memory"/></svg>RAM</span><b><span data-k="server.ram.usedMB" data-f="mb">—</span> <i>/</i> <span data-k="server.ram.limitMB" data-f="mb">—</span></b></div>
+              <div class="v-meter" data-meter="ram"><i></i></div>
+            </div>
+          </div>
+          <dl class="srv__spec">
+            <div><dt><svg class="i"><use href="#i-globe"/></svg>Region</dt><dd data-k="server.region" data-f="text">—</dd></div>
+            <div><dt><svg class="i"><use href="#i-cpu"/></svg>Processor</dt><dd data-k="server.cpu.model" data-f="text">—</dd></div>
+            <div><dt><svg class="i"><use href="#i-terminal"/></svg>Sistem</dt><dd data-k="server.os" data-f="text">—</dd></div>
+            <div><dt><svg class="i"><use href="#i-zap"/></svg>Runtime</dt><dd data-k="server.node" data-f="node">—</dd></div>
+          </dl>
+        </article>
+
+        <article class="capcard v-card" data-cap-card data-state="unknown">
+          <span class="v-eyebrow">Slot bot tersedia</span>
+          <div class="capcard__big">
+            <span class="capcard__num" data-cap-num>—</span>
+            <span class="capcard__unit">bot lagi</span>
+          </div>
+          <p class="capcard__sentence" data-cap-sentence>Memeriksa kapasitas server…</p>
+          <div class="capbar" data-cap-bar aria-hidden="true"></div>
+          <div class="capcard__legend">
+            <span><i class="sw sw--used"></i><b data-k="capacity.used" data-f="int">—</b> terpakai</span>
+            <span><i class="sw sw--free"></i><b data-k="capacity.remaining" data-f="int">—</b> tersisa</span>
+            <span class="v-dim" data-cap-basis></span>
+          </div>
+          <p class="capcard__note" data-cap-note>Perkiraan dari RAM tersisa &amp; rata-rata pemakaian per bot.</p>
+          <div class="capcard__cta">
+            <a class="v-btn v-btn--primary" href="/login" data-auth-cta data-cap-cta><span data-auth-label>Amankan slot kamu</span><svg class="i"><use href="#i-arrow-up-right"/></svg></a>
+            <a class="v-btn v-btn--ghost" href="/status">Lihat performa<svg class="i"><use href="#i-arrow-right"/></svg></a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="v-section" id="faq">
+    <div class="v-container split">
+      <div class="split__aside v-reveal">
+        <span class="sec-eyebrow">07 · FAQ</span>
+        <h2 class="v-display v-h2">Pertanyaan yang sering muncul</h2>
+        <p class="sec-lead">Belum terjawab? Tanya langsung ke kami lewat WhatsApp.</p>
+        <a class="v-btn v-btn--outline" href="/login" data-support><svg class="i"><use href="#i-whatsapp"/></svg>Hubungi support</a>
+      </div>
+      <div class="faq v-reveal" id="faqList">
+        <div class="faq__item is-open">
+          <button class="faq__q" type="button" aria-expanded="true">Apakah Varesa resmi dari WhatsApp?<svg class="i"><use href="#i-chevron"/></svg></button>
+          <div class="faq__a"><div><p>Bukan. Varesa adalah layanan independen yang menyambungkan nomor kamu lewat fitur <b>Perangkat Tertaut</b> milik WhatsApp — sama seperti saat kamu memakai WhatsApp Web. Kami tidak berafiliasi dengan WhatsApp maupun Meta.</p></div></div>
+        </div>
+        <div class="faq__item">
+          <button class="faq__q" type="button" aria-expanded="false">Apakah aman digunakan?<svg class="i"><use href="#i-chevron"/></svg></button>
+          <div class="faq__a"><div><p>Pairing code hanya muncul di dashboard pemilik bot, nomor yang tampil di halaman publik selalu disamarkan, dan isi pesan tidak pernah ditampilkan di mana pun. Kamu juga bisa memutus sesi kapan saja dari menu Perangkat Tertaut di HP.</p></div></div>
+        </div>
+        <div class="faq__item">
+          <button class="faq__q" type="button" aria-expanded="false">Apakah nomor saya bisa diblokir WhatsApp?<svg class="i"><use href="#i-chevron"/></svg></button>
+          <div class="faq__a"><div><p>Risiko selalu ada untuk bot yang tidak resmi, terutama kalau dipakai spam. Supaya aman: pakai nomor cadangan khusus bot, jangan kirim pesan massal ke orang yang tidak dikenal, dan biarkan nomor baru dipakai normal beberapa hari dulu sebelum ramai.</p></div></div>
+        </div>
+        <div class="faq__item">
+          <button class="faq__q" type="button" aria-expanded="false">Apakah bot aktif 24 jam?<svg class="i"><use href="#i-chevron"/></svg></button>
+          <div class="faq__a"><div><p>Ya. Bot berjalan di server kami, jadi tetap aktif walau HP kamu mati atau sedang tidak ada internet. Kalau sesi terputus (misalnya logout dari HP), cukup tekan Start lagi di dashboard dengan nomor yang sama.</p></div></div>
+        </div>
+        <div class="faq__item">
+          <button class="faq__q" type="button" aria-expanded="false">Bagaimana cara menghubungkan nomor?<svg class="i"><use href="#i-chevron"/></svg></button>
+          <div class="faq__a"><div><p>Masuk dengan Google, isi nomor bot di dashboard lalu tekan <b>Start</b>. Setelah pairing code muncul, buka WhatsApp › <b>Perangkat Tertaut</b> › <b>Tautkan perangkat</b> › <b>Tautkan dengan nomor telepon saja</b>, lalu ketik kodenya.</p></div></div>
+        </div>
+        <div class="faq__item" id="faq-multibot">
+          <button class="faq__q" type="button" aria-expanded="false">Bisa punya beberapa bot? Paketnya per akun atau per bot?<svg class="i"><use href="#i-chevron"/></svg></button>
+          <div class="faq__a"><div><p>Bisa, dan paketnya <b>per bot</b>. Satu akun bisa punya sampai <b data-lim-max>5</b> bot, masing-masing dengan paket &amp; masa aktif sendiri — misalnya bot toko pakai Zenith, bot grup kelas cukup Core. <span data-lim-free-sentence>Bot Free dibatasi 1 per akun.</span></p><p>Waktu upgrade di dashboard, kamu pilih bot mana yang dinaikkan paketnya. Kalau bot berbayar dihapus, sisa paketnya disimpan dan otomatis dipasang ke bot berikutnya yang kamu tambahkan.</p></div></div>
+        </div>
+        <div class="faq__item">
+          <button class="faq__q" type="button" aria-expanded="false">Bisa kirim pesan dari aplikasi sendiri (API)?<svg class="i"><use href="#i-chevron"/></svg></button>
+          <div class="faq__a"><div><p>Bisa. Setiap bot punya token API di dashboard. Kirim <code>POST /api/v1/text</code> atau <code>/api/v1/image</code> dengan header <code>x-varesa-token</code>. Kuota harian ikut paket: Free 50, Core 1.000, Prime 5.000, Zenith 20.000 pesan. <a href="#api">Lihat contoh kode</a>.</p></div></div>
+        </div>
+        <div class="faq__item">
+          <button class="faq__q" type="button" aria-expanded="false">Bagaimana kalau server sedang penuh?<svg class="i"><use href="#i-chevron"/></svg></button>
+          <div class="faq__a"><div><p>Bot yang sudah aktif tetap berjalan seperti biasa. Hanya sesi <b>baru</b> yang ditahan sampai ada slot kosong. Sisa slot ditampilkan langsung di bagian <a href="#kapasitas">Kapasitas server</a> dan halaman <a href="/status">Status</a>, jadi kamu bisa cek kapan tersedia lagi.</p></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PENUTUP ============ -->
+  <section class="closing">
+    <div class="v-container">
+      <div class="closing__card v-reveal">
+        <div class="closing__glow" aria-hidden="true"></div>
+        <div class="closing__copy">
+          <h2 class="v-display v-h2">Siap bikin bot kamu online?</h2>
+          <p>Tautkan nomor WhatsApp, bot jalan dalam semenit. Gratis untuk mulai, upgrade kapan pun.</p>
+          <p class="closing__cap"><span class="v-dot" data-cap-dot></span><span data-cap-short>Memeriksa slot server…</span></p>
+        </div>
+        <div class="closing__cta">
+          <a class="v-btn v-btn--primary v-btn--lg" href="/login" data-auth-cta><span data-auth-label>Mulai Gratis</span><svg class="i"><use href="#i-arrow-up-right"/></svg></a>
+          <a class="v-btn v-btn--outline v-btn--lg" href="/status">Lihat status server</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="foot">
+  <div class="v-container">
+    <div class="foot__grid">
+      <div class="foot__brand">
+        <a class="v-logo" href="/"><img src="/assets/logo-mark.svg" alt="" width="30" height="30"><span>VARESA</span></a>
+        <p>Bot WhatsApp siap pakai dan API kirim pesan, dikelola dari satu dashboard.</p>
+        <span class="foot__sys"><span class="v-dot v-dot--live" data-srv-dot></span><span data-srv-status>Menghubungkan…</span> · <span data-srv-name>Server 1</span></span>
+      </div>
+      <div class="foot__col">
+        <h4>Produk</h4>
+        <a href="#fitur">Fitur bot</a>
+        <a href="#harga">Harga &amp; paket</a>
+        <a href="#kapasitas">Kapasitas server</a>
+        <a href="/dashboard">Dashboard</a>
+      </div>
+      <div class="foot__col">
+        <h4>Developer</h4>
+        <a href="#api">API kirim pesan</a>
+        <a href="#cara">Cara menghubungkan</a>
+        <a href="/status">Status &amp; performa</a>
+      </div>
+      <div class="foot__col" id="footHelp">
+        <h4>Bantuan</h4>
+        <a href="#faq">Tanya jawab</a>
+        <a href="/login">Masuk</a>
+      </div>
+    </div>
+    <div class="foot__bottom">
+      <p>&copy; <span data-year>2026</span> Varesa · Dikelola oleh <a href="https://www.instagram.com/manzz_wakeup" target="_blank" rel="noopener">@ManzzyID</a></p>
+      <div class="foot__social" id="footSocial"></div>
+    </div>
+  </div>
+</footer>
+
+<!-- ============ MODAL DAFTAR COMMAND ============ -->
+<div class="modal" id="catModal" hidden>
+  <div class="modal__scrim" data-close-modal></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="catModalTitle">
+    <header class="modal__head">
+      <span class="modal__icon" id="catModalIcon"><svg class="i"><use href="#i-grid"/></svg></span>
+      <div class="modal__titles">
+        <h3 id="catModalTitle">Semua command</h3>
+        <p id="catModalDesc"></p>
+      </div>
+      <button class="v-btn v-btn--ghost v-btn--sm v-btn--icon" type="button" data-close-modal aria-label="Tutup"><svg class="i"><use href="#i-x"/></svg></button>
+    </header>
+    <div class="modal__search">
+      <svg class="i"><use href="#i-search"/></svg>
+      <input class="v-input" id="catSearch" type="search" placeholder="Cari command, mis. tiktok" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="modal__body" id="catModalBody"></div>
+    <footer class="modal__foot" id="catModalFoot"></footer>
+  </div>
+</div>
+
+<div class="v-toast-wrap" id="toasts" aria-live="polite"></div>
+
+<script src="/landing.js?v=32" defer></script>
+</body>
+</html>

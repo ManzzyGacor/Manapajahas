@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Invoice · Varesa</title>
+  <!-- Halaman pribadi per pesanan: jangan diindeks mesin pencari. -->
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#08090a">
+  <link rel="icon" href="/assets/logo-mark.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/favicon.ico" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/assets/varesa.css?v=31">
+  <link rel="stylesheet" href="/invoice.css?v=2">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="inv">
+
+  <header class="inv-nav">
+    <div class="inv-nav__in">
+      <a class="v-logo" href="/" aria-label="Varesa — beranda">
+        <img src="/assets/logo-mark.svg" alt="" width="30" height="30"> VARESA
+      </a>
+      <a href="/dashboard" class="v-btn v-btn--ghost v-btn--sm"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+    </div>
+  </header>
+
+  <main class="inv-main">
+    <!-- Memuat -->
+    <div id="invoiceLoading" class="v-card inv-loading" role="status">
+      <span class="inv-spinner" aria-hidden="true"></span>
+      <p>Memuat invoice…</p>
+    </div>
+
+    <div id="invoiceBox" style="display: none;">
+      <!-- Kepala invoice -->
+      <div class="invoice-head">
+        <div class="invoice-head__id">
+          <p class="v-eyebrow">Invoice · QRIS</p>
+          <h1 id="invOrderId" class="inv-id">-</h1>
+          <!-- Paket sekarang dibeli untuk SATU bot: tunjukkan bot yang mana -->
+          <p class="inv-for" id="invFor" style="display: none;">
+            <i class="fa-brands fa-whatsapp"></i>
+            <span id="invForLead">Paket untuk bot</span>
+            <b id="invForName"></b>
+            <span class="v-mono" id="invForNum"></span>
+          </p>
+        </div>
+        <span id="invStatusBadge" class="inv-status pending"><span class="v-dot"></span><span id="invStatusText">Menunggu Pembayaran</span></span>
+      </div>
+
+      <!-- Langkah: dibuat -> dibayar -> aktif -->
+      <ol class="inv-steps" id="invSteps" aria-label="Status pesanan">
+        <li class="is-done"><i class="fa-solid fa-check"></i><span>Invoice dibuat</span></li>
+        <li class="is-now" id="stepPay"><i class="fa-solid fa-qrcode"></i><span id="stepPayText">Bayar via QRIS</span></li>
+        <li id="stepActive"><i class="fa-solid fa-bolt"></i><span>Paket aktif</span></li>
+      </ol>
+
+      <div class="inv-grid">
+        <div class="inv-col">
+          <!-- Panel QRIS (saat pending) -->
+          <section class="v-card inv-pay" id="qrisPanel" aria-label="Pembayaran QRIS">
+            <div id="countdownBox" class="countdown-box">
+              <div class="countdown-box__row">
+                <span><i class="fa-regular fa-clock"></i> Bayar dalam</span>
+                <strong id="countdown" class="v-num">--:--</strong>
+              </div>
+              <div class="v-meter" id="countdownMeter"><i></i></div>
+            </div>
+
+            <div class="qr-stage">
+              <div class="qr-wrap">
+                <div class="qr-wrap__brand"><span>QRIS</span><span>Varesa</span></div>
+                <div id="qrcode"></div>
+                <div class="qr-wrap__amount"><span>Total</span><strong id="qrAmount">-</strong></div>
+              </div>
+
+              <ol class="qr-howto">
+                <li>Buka aplikasi e-wallet atau m-banking apa pun yang mendukung <b>QRIS</b>.</li>
+                <li>Scan kode di samping — atau unduh gambarnya lalu pilih dari galeri.</li>
+                <li>Pastikan nominalnya sama persis dengan <b>Total bayar</b>, lalu konfirmasi.</li>
+              </ol>
+            </div>
+
+            <div class="qr-actions">
+              <button type="button" class="v-btn v-btn--outline" id="btnCopyQr"><i class="fa-regular fa-copy"></i> Salin kode QR</button>
+              <button type="button" class="v-btn v-btn--outline" id="btnDownloadQr"><i class="fa-solid fa-download"></i> Unduh QR</button>
+            </div>
+
+            <div class="checking-live">
+              <span class="v-dot v-dot--live"></span> Otomatis mengecek pembayaran… halaman ini berubah sendiri begitu lunas.
+            </div>
+          </section>
+
+          <!-- Panel sukses -->
+          <section class="v-card inv-state success-panel" id="successPanel" style="display: none;">
+            <div class="state-icon state-icon--ok"><i class="fa-solid fa-check"></i></div>
+            <h2>Pembayaran berhasil!</h2>
+            <p id="successText">Paket <strong id="successTier">-</strong> kamu sudah aktif. Bot langsung memakai fitur barunya — tidak perlu restart.</p>
+            <a href="/dashboard" class="v-btn v-btn--primary v-btn--lg">Buka Dashboard <i class="fa-solid fa-arrow-right"></i></a>
+          </section>
+
+          <!-- Panel gagal/expired -->
+          <section class="v-card inv-state" id="failedPanel" style="display: none;">
+            <div class="state-icon state-icon--off"><i class="fa-solid fa-xmark"></i></div>
+            <h2 id="failedTitle">Invoice Kedaluwarsa</h2>
+            <p>Invoice ini sudah tidak bisa dibayar. Silakan buat pesanan baru dari halaman Upgrade.</p>
+            <a href="/dashboard" class="v-btn v-btn--primary v-btn--lg">Kembali ke Dashboard</a>
+          </section>
+        </div>
+
+        <!-- Rincian -->
+        <aside class="v-card inv-summary" aria-label="Rincian pesanan">
+          <div class="inv-summary__head">
+            <h2>Rincian pesanan</h2>
+            <span class="v-help" id="invCreated"></span>
+          </div>
+          <div class="inv-rows">
+            <div class="inv-row inv-row--bot" id="rowBot" style="display: none;"><span>Untuk bot</span><strong id="invBot">-</strong></div>
+            <div class="inv-row"><span>Paket</span><strong id="invTier">-</strong></div>
+            <div class="inv-row"><span>Durasi</span><strong id="invMonths">-</strong></div>
+            <div class="inv-row"><span>Metode</span><strong>QRIS</strong></div>
+            <div class="inv-row inv-row--sep"><span>Subtotal</span><strong id="invSubtotal">-</strong></div>
+            <div class="inv-row" id="rowDiscount" style="display: none;"><span>Diskon <span id="invPromo" class="promo-tag"></span></span><strong id="invDiscount" class="is-minus">-</strong></div>
+            <div class="inv-row" id="rowRef" style="display: none;"><span>Diskon referral</span><strong id="invRef" class="is-minus">-</strong></div>
+            <div class="inv-row" id="rowCredit" style="display: none;"><span>Kredit dipakai</span><strong id="invCredit" class="is-minus">-</strong></div>
+            <div class="inv-row"><span>Biaya admin</span><strong id="invFee">-</strong></div>
+            <div class="inv-row total"><span>Total bayar</span><strong id="invTotal">-</strong></div>
+          </div>
+
+          <div class="inv-summary__foot" id="cancelWrap">
+            <button type="button" class="v-btn v-btn--ghost v-btn--sm inv-cancel" id="btnCancelInvoice"><i class="fa-solid fa-ban"></i> Batalkan invoice</button>
+          </div>
+          <p class="inv-note"><i class="fa-solid fa-shield-halved"></i> Pembayaran diproses payment gateway resmi. Varesa tidak pernah meminta transfer ke rekening pribadi.</p>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <footer class="inv-foot">
+    <p>&copy; 2026 Varesa · Dikelola oleh <a href="https://www.instagram.com/manzz_wakeup" target="_blank" rel="noopener">@ManzzyID</a></p>
+    <p><a href="/status">Status server</a></p>
+  </footer>
+
+  <div class="v-toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+  <script>
+    // Logika halaman ini SAMA dengan versi lama (order_id, polling status
+    // tiap 5 detik, batal, QR dari gambar gateway atau qrcodejs, redirect).
+    // Yang berubah hanya tampilan + notifikasi kecil (toast) pengganti alert
+    // untuk pesan informatif.
+    const TIER_LABEL = { free: 'Free', basic: 'Core', plus: 'Prime', booster: 'Zenith' };
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('order_id');
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+
+    let pollTimer = null, countdownTimer = null, qrRendered = false;
+
+    const rupiah = n => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+    // HARUS sama dengan maskNumber() di lib/monitor.js & live.js.
+    const maskNumber = n => {
+      const d = String(n || '').replace(/\D/g, '');
+      if (!d) return '';
+      return d.length < 8 ? `${d.slice(0, 2)}xxxx` : `${d.slice(0, 4)}xxxx${d.slice(-3)}`;
+    };
+    const TIER_RANK = { free: 0, basic: 1, plus: 2, booster: 3 };
+
+    // Nama bot (label dari dashboard) kalau diketahui: dari salinan daftar
+    // bot di browser ini dulu, kalau tidak ada tanya server sekali.
+    let botLabel = null;
+    let botLabelAsked = false;
+    function cachedBotLabel(number) {
+      try {
+        const c = JSON.parse(localStorage.getItem('vrs_bots') || 'null');
+        if (!c || !currentUser || c.uid !== currentUser.id || !Array.isArray(c.bots)) return null;
+        const b = c.bots.find(x => String(x.number) === String(number));
+        return b ? (b.label || '') : null;
+      } catch { return null; }
+    }
+    async function fetchBotLabel(number) {
+      if (botLabelAsked || !currentUser?.id) return;
+      botLabelAsked = true;
+      try {
+        const res = await fetch(`/api/bots/mine?userId=${encodeURIComponent(currentUser.id)}`);
+        if (!res.ok) return;
+        const d = await res.json();
+        const b = (d.bots || []).find(x => String(x.number) === String(number));
+        if (b && b.label) { botLabel = b.label; renderBot(number); }
+      } catch { /* label hanya hiasan */ }
+    }
+    let lastOrder = null;
+    let lastBotInfo = null; // { number, label, tier, tierExpiredAt } dari server (kalau ada)
+    function renderBot(number) {
+      const forBox = document.getElementById('invFor');
+      const row = document.getElementById('rowBot');
+      if (!number) { forBox.style.display = 'none'; row.style.display = 'none'; return; }
+      if (botLabel === null) {
+        botLabel = cachedBotLabel(number);
+        if (botLabel === null) fetchBotLabel(number);
+      }
+      const masked = maskNumber(number);
+      const isAddon = lastOrder && lastOrder.kind === 'addon';
+      document.getElementById('invForLead').innerText = isAddon ? 'Add-on untuk bot' : 'Paket untuk bot';
+      document.getElementById('invForName').innerText = botLabel || '';
+      document.getElementById('invForName').style.display = botLabel ? '' : 'none';
+      document.getElementById('invForNum').innerText = masked;
+      forBox.style.display = 'flex';
+      document.getElementById('invBot').innerHTML = botLabel
+        ? `${esc(botLabel)}<span class="v-mono">${esc(masked)}</span>`
+        : esc(masked);
+      row.style.display = 'flex';
+      // Teks sukses ikut menyebut botnya (diisi ulang kalau label baru datang).
+      if (lastOrder && lastOrder.status === 'completed') renderSuccessText(lastOrder);
+    }
+    function renderSuccessText(order) {
+      const what = order.kind === 'addon'
+        ? (order.addonType === 'mlbb_unlimited' ? 'Unlimited Access' : order.addonType)
+        : (TIER_LABEL[order.tier] || order.tier);
+      const el = document.getElementById('successText');
+      if (!order.botNumber) {
+        el.innerHTML = `Paket <strong id="successTier">${esc(what)}</strong> kamu sudah aktif. Bot langsung memakai fitur barunya — tidak perlu restart.`;
+        return;
+      }
+      const who = botLabel
+        ? `<strong>${esc(botLabel)}</strong> <span class="v-mono">(${esc(maskNumber(order.botNumber))})</span>`
+        : `<span class="v-mono">${esc(maskNumber(order.botNumber))}</span>`;
+      // appliedTo "pending": saat lunas bot itu sudah dihapus / pindah akun,
+      // jadi server MENYIMPAN paketnya untuk bot berikutnya. Jangan bilang
+      // "bot langsung memakai fitur barunya" — botnya sudah tidak ada.
+      if (order.kind !== 'addon' && order.appliedTo === 'pending') {
+        el.innerHTML = `Paket <strong id="successTier">${esc(what)}</strong> untuk bot ${who} sudah dibayar. Bot itu sudah tidak ada di akun kamu, jadi paketnya disimpan dan otomatis dipasang ke bot berikutnya yang kamu tambahkan.`;
+        return;
+      }
+      el.innerHTML = `${order.kind === 'addon' ? 'Add-on' : 'Paket'} <strong id="successTier">${esc(what)}</strong> untuk bot ${who} sudah aktif. Bot langsung memakai fitur barunya — tidak perlu restart.`;
+    }
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    function toast(message, type) {
+      const wrap = document.getElementById('toastWrap');
+      const el = document.createElement('div');
+      el.className = 'v-toast' + (type ? ' v-toast--' + type : '');
+      el.textContent = message;
+      wrap.appendChild(el);
+      setTimeout(() => el.remove(), 3500);
+    }
+
+    if (!currentUser) window.location.href = '/login';
+    if (!orderId) window.location.href = '/dashboard';
+
+    async function loadInvoice() {
+      try {
+        const res = await fetch(`/api/payment/status/${encodeURIComponent(orderId)}`);
+        const result = await res.json();
+        if (!result.success) {
+          document.getElementById('invoiceLoading').innerHTML =
+            `<div class="state-icon state-icon--off"><i class="fa-solid fa-file-circle-xmark"></i></div>
+             <p class="inv-loading__err">${esc(result.message || 'Invoice tidak ditemukan.')}</p>
+             <a href="/dashboard" class="v-btn v-btn--outline v-btn--sm">Kembali ke Dashboard</a>`;
+          return;
+        }
+        // Server menyertakan info bot tujuan (label dari dashboard) bila ada.
+        if (result.bot && typeof result.bot.label === 'string' && result.bot.label) botLabel = result.bot.label;
+        lastBotInfo = result.bot || null;
+        if (!result.order.botNumber && result.botNumber) result.order.botNumber = result.botNumber;
+        render(result.order);
+      } catch (err) {
+        console.error('Gagal memuat invoice:', err);
+      }
+    }
+
+    function setStatus(kind, text) {
+      const badge = document.getElementById('invStatusBadge');
+      badge.className = 'inv-status ' + kind;
+      document.getElementById('invStatusText').innerText = text;
+      const steps = document.getElementById('invSteps');
+      steps.dataset.state = kind;
+    }
+
+    function render(order) {
+      document.getElementById('invoiceLoading').style.display = 'none';
+      document.getElementById('invoiceBox').style.display = 'block';
+
+      document.getElementById('invOrderId').innerText = order.orderId;
+      lastOrder = order;
+      renderBot(order.botNumber || '');
+      if (order.createdAt) {
+        const d = new Date(order.createdAt);
+        if (!isNaN(d)) document.getElementById('invCreated').innerText =
+          d.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      }
+      // Invoice bisa berupa paket ATAU add-on; labelnya disesuaikan.
+      if (order.kind === 'addon') {
+        document.getElementById('invTier').innerText = order.addonType === 'mlbb_unlimited'
+          ? 'Add-On: Unlimited Access' : `Add-On: ${order.addonType}`;
+        document.getElementById('invMonths').innerText = `${order.addonDays} hari`;
+      } else {
+        document.getElementById('invTier').innerText = TIER_LABEL[order.tier] || order.tier;
+        document.getElementById('invMonths').innerText = `${order.months} bulan`;
+      }
+      document.getElementById('invSubtotal').innerText = rupiah(order.subtotal);
+      document.getElementById('invFee').innerText = rupiah(order.fee);
+      document.getElementById('invTotal').innerText = rupiah(order.totalPayment || order.amount);
+      document.getElementById('qrAmount').innerText = rupiah(order.totalPayment || order.amount);
+
+      if (order.discount > 0) {
+        document.getElementById('rowDiscount').style.display = 'flex';
+        document.getElementById('invDiscount').innerText = '- ' + rupiah(order.discount);
+        document.getElementById('invPromo').innerText = order.promoCode;
+      }
+      // Potongan referral & kredit ikut ditampilkan supaya rincian
+      // benar-benar menjumlah ke Total bayar (dulu tidak terlihat).
+      if (order.refDiscount > 0) {
+        document.getElementById('rowRef').style.display = 'flex';
+        document.getElementById('invRef').innerText = '- ' + rupiah(order.refDiscount);
+      }
+      if (order.creditUsed > 0) {
+        document.getElementById('rowCredit').style.display = 'flex';
+        document.getElementById('invCredit').innerText = '- ' + rupiah(order.creditUsed);
+      }
+
+      const qrisPanel = document.getElementById('qrisPanel');
+      const successPanel = document.getElementById('successPanel');
+      const failedPanel = document.getElementById('failedPanel');
+      const cancelWrap = document.getElementById('cancelWrap');
+
+      if (order.status === 'completed') {
+        setStatus('completed', 'Lunas');
+        document.getElementById('stepPayText').innerText = 'Pembayaran diterima';
+        qrisPanel.style.display = 'none';
+        failedPanel.style.display = 'none';
+        cancelWrap.style.display = 'none';
+        successPanel.style.display = 'block';
+        // Kabari user kalau tab invoice sedang tidak dilihat — pembayaran
+        // QRIS sering dilakukan di aplikasi lain, jadi tab ini di latar belakang.
+        if ('Notification' in window && Notification.permission === 'granted') {
+          navigator.serviceWorker?.ready?.then(reg => {
+            reg.active?.postMessage({
+              type: 'notify',
+              title: 'Pembayaran berhasil',
+              body: 'Paket kamu sudah aktif. Selamat menikmati.',
+              tag: 'jv-pay', url: '/dashboard'
+            });
+          }).catch(() => {});
+        }
+
+        renderSuccessText(order);
+        stopTimers();
+
+        // Sinkronkan localStorage supaya dashboard langsung update. Paket
+        // sekarang per bot: user.tier hanya ringkasan (paket TERTINGGI), jadi
+        // cuma dinaikkan — dan tidak disentuh untuk add-on (tier-nya kosong).
+        if (currentUser && currentUser.id === order.userId) {
+          const tersimpan = order.appliedTo === 'pending'; // paket menunggu bot berikutnya
+          if (order.kind !== 'addon' && !tersimpan && TIER_RANK[order.tier] > (TIER_RANK[currentUser.tier] || 0)) {
+            currentUser.tier = order.tier;
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          }
+          // Dashboard dibuka langsung di bot yang baru di-upgrade, dan salinan
+          // daftar bot di browser ikut diperbarui supaya paketnya tidak tampil
+          // basi sebelum dashboard sempat bertanya ke server.
+          if (tersimpan) {
+            try { localStorage.removeItem('vrs_bots'); } catch { /* abaikan */ }
+          } else if (order.botNumber) {
+            try {
+              localStorage.setItem('active_bot_num', String(order.botNumber));
+              const c = JSON.parse(localStorage.getItem('vrs_bots') || 'null');
+              const b = c && Array.isArray(c.bots) ? c.bots.find(x => String(x.number) === String(order.botNumber)) : null;
+              if (b && order.kind !== 'addon') {
+                if (lastBotInfo && lastBotInfo.tier) {
+                  b.tier = lastBotInfo.tier;
+                  b.tierExpiredAt = lastBotInfo.tierExpiredAt || '';
+                  localStorage.setItem('vrs_bots', JSON.stringify(c));
+                } else localStorage.removeItem('vrs_bots');
+              }
+            } catch { /* abaikan */ }
+          }
+        }
+        return;
+      }
+
+      if (order.status === 'cancelled' || order.status === 'expired') {
+        setStatus('failed', order.status === 'cancelled' ? 'Dibatalkan' : 'Kedaluwarsa');
+        document.getElementById('stepPayText').innerText = order.status === 'cancelled' ? 'Dibatalkan' : 'Waktu habis';
+        qrisPanel.style.display = 'none';
+        successPanel.style.display = 'none';
+        cancelWrap.style.display = 'none';
+        failedPanel.style.display = 'block';
+        document.getElementById('failedTitle').innerText =
+          order.status === 'cancelled' ? 'Invoice Dibatalkan' : 'Invoice Kedaluwarsa';
+        stopTimers();
+        return;
+      }
+
+      // --- status pending ---
+      setStatus('pending', 'Menunggu Pembayaran');
+      if (!qrRendered && (order.qrUrl || order.paymentNumber)) {
+        const box = document.getElementById('qrcode');
+
+        if (order.qrUrl) {
+          // Gateway sudah menyediakan gambar QRIS jadi. Dipakai langsung
+          // supaya QR pasti tampil walau library QR gagal dimuat.
+          const img = new Image();
+          img.width = 240; img.height = 240; img.alt = 'Kode QRIS';
+          img.src = order.qrUrl;
+          img.onerror = () => {
+            // Cadangan: gambar sendiri dari qr_string.
+            box.innerHTML = '';
+            if (order.paymentNumber && window.QRCode) {
+              new QRCode(box, {
+                text: order.paymentNumber, width: 240, height: 240,
+                colorDark: '#000000', colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M
+              });
+            } else {
+              box.innerHTML = '<p class="qr-fail">Gagal memuat QR. Muat ulang halaman.</p>';
+            }
+          };
+          box.appendChild(img);
+        } else {
+          new QRCode(box, {
+            text: order.paymentNumber, width: 240, height: 240,
+            colorDark: '#000000', colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        }
+        qrRendered = true;
+
+        document.getElementById('btnCopyQr').onclick = () => {
+          navigator.clipboard.writeText(order.paymentNumber)
+            .then(() => toast('Kode QR (QRIS string) disalin.', 'ok'))
+            .catch(() => toast('Gagal menyalin. Unduh gambar QR-nya saja.', 'err'));
+        };
+        document.getElementById('btnDownloadQr').onclick = () => {
+          const img = document.querySelector('#qrcode img') || document.querySelector('#qrcode canvas');
+          if (!img) return;
+          const a = document.createElement('a');
+          a.href = img.tagName === 'IMG' ? img.src : img.toDataURL('image/png');
+          a.download = `QRIS-${order.orderId}.png`;
+          a.click();
+        };
+      }
+
+      if (order.expiredAt) startCountdown(new Date(order.expiredAt), order.createdAt ? new Date(order.createdAt) : null);
+      if (!pollTimer) pollTimer = setInterval(loadInvoice, 5000);
+
+      document.getElementById('btnCancelInvoice').onclick = async () => {
+        if (!confirm('Batalkan invoice ini?')) return;
+        try {
+          const res = await fetch('/api/payment/cancel', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: order.orderId, userId: currentUser.id })
+          });
+          const result = await res.json();
+          toast(result.message || 'Selesai.', result.success ? 'ok' : 'err');
+          loadInvoice();
+        } catch (e) {}
+      };
+    }
+
+    function startCountdown(expiry, created) {
+      if (countdownTimer) return;
+      // Panjang batas waktu untuk bilah sisa waktu (bawaan gateway 5 menit).
+      const total = created && expiry - created > 0 ? expiry - created : 5 * 60000;
+      const meter = document.getElementById('countdownMeter');
+      const tick = () => {
+        const diff = expiry - new Date();
+        if (diff <= 0) {
+          document.getElementById('countdown').innerText = '00:00';
+          meter.style.setProperty('--v', '0%');
+          clearInterval(countdownTimer); countdownTimer = null;
+          loadInvoice();
+          return;
+        }
+        const m = Math.floor(diff / 60000), s = Math.floor((diff % 60000) / 1000);
+        document.getElementById('countdown').innerText =
+          `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        const pct = Math.max(0, Math.min(100, (diff / total) * 100));
+        meter.style.setProperty('--v', pct.toFixed(1) + '%');
+        // Sisa < 1 menit: tandai supaya user bergegas.
+        document.getElementById('countdownBox').classList.toggle('is-urgent', diff < 60000);
+      };
+      tick();
+      countdownTimer = setInterval(tick, 1000);
+    }
+
+    function stopTimers() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    }
+
+    loadInvoice();
+  </script>
+</body>
+</html>
