@@ -76,6 +76,27 @@
     const d = new Date(ts);
     return isNaN(d) ? '--:--:--' : d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/\./g, ':');
   }
+  const DAY_MS = 86400000;
+  const shortDate = (ts) => new Date(ts).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  // Sisa hari dari tanggal ISO (dibulatkan ke atas, sama dengan daysLeftOf()
+  // di server). Baris bot sudah membawa daysLeft; baris user hanya tanggal.
+  function daysLeftOf(iso) {
+    if (!iso) return null;
+    const ms = new Date(iso).getTime() - Date.now();
+    return Number.isNaN(ms) ? null : Math.max(0, Math.ceil(ms / DAY_MS));
+  }
+
+  // Ringkasan masa aktif satu paket untuk kartu bot, tabel user, dan dialog
+  // ubah paket. Paket berbayar tanpa tanggal = diatur admin (permanen).
+  function expiryInfo(tier, iso, daysLeft) {
+    if (!tier || tier === 'free') return { date: 'Tidak ada', sub: 'paket gratis', soon: false, none: true };
+    if (!iso) return { date: 'Permanen', sub: 'diatur admin', soon: false, forever: true };
+    if (Number.isNaN(new Date(iso).getTime())) return { date: '–', sub: '', soon: false };
+    const left = daysLeft ?? daysLeftOf(iso);
+    return { date: shortDate(iso), sub: left > 0 ? `${fmt(left)} hari lagi` : 'habis hari ini', soon: left <= 3, left };
+  }
+
   function fmtDate(ts, withTime = false) {
     const d = new Date(ts);
     if (isNaN(d)) return '–';
@@ -332,7 +353,7 @@
   /* ==================================================================
      DATA UTAMA (/api/admin/dashboard)
      ================================================================== */
-  const state = { users: [], orders: [], promos: [], revenue: 0, activeSessions: 0 };
+  const state = { users: [], orders: [], promos: [], revenue: 0, activeSessions: 0, pricing: null };
 
   async function loadAdminData() {
     try {
@@ -343,6 +364,7 @@
       state.promos = Array.isArray(d.promos) ? d.promos : [];
       state.revenue = num(d.revenue);
       state.activeSessions = num(d.activeSessionsCount);
+      if (d.pricing) state.pricing = d.pricing;
 
       setText('admTotalUser', fmt(state.users.length));
       setText('admActiveBot', fmt(state.activeSessions));
@@ -356,7 +378,7 @@
       if (err.auth) return;
       // Jangan gagal diam-diam: tampilkan sebabnya di tabel supaya langsung kelihatan.
       console.warn('Gagal load data admin:', err);
-      $('adminTableBody').innerHTML = `<tr><td colspan="7" class="td-empty is-err"><i class="fa-solid fa-triangle-exclamation"></i>Gagal memuat data admin.<br><small>${esc(err.message)}</small></td></tr>`;
+      $('adminTableBody').innerHTML = `<tr><td colspan="6" class="td-empty is-err"><i class="fa-solid fa-triangle-exclamation"></i>Gagal memuat data admin.<br><small>${esc(err.message)}</small></td></tr>`;
       toast('Gagal memuat data admin: ' + err.message, 'err');
     }
   }
@@ -364,17 +386,19 @@
   /* ---------------- Ikhtisar ---------------- */
   function renderOverview() {
     const users = state.users;
-    const paid = users.filter((u) => (u.tier || 'free') !== 'free').length;
+    const paid = users.filter((u) => topTierOf(u) !== 'free').length;
     setText('ovUsers', fmt(users.length));
-    setText('ovUsersSub', `${fmt(paid)} akun berbayar`);
+    setText('ovUsersSub', `${fmt(paid)} punya bot berbayar`);
     setText('ovRevenue', rupiah(state.revenue));
     setText('ovPending', fmt(state.orders.filter((o) => o.status === 'pending').length));
     if (!live.data) setText('ovBots', fmt(state.activeSessions));
 
-    // Sebaran paket
+    // Sebaran paket dihitung per BOT: paket sekarang melekat di bot, satu
+    // akun bisa punya beberapa bot dengan paket berbeda.
     const counts = { free: 0, basic: 0, plus: 0, booster: 0 };
-    users.forEach((u) => { const t = u.tier || 'free'; counts[t] = (counts[t] || 0) + 1; });
-    const total = users.length || 1;
+    botList.forEach((b) => { const t = b.tier || 'free'; counts[t] = (counts[t] || 0) + 1; });
+    const total = botList.length || 1;
+    setText('ovDistNote', `Dari ${fmt(botList.length)} bot terdaftar — paket dihitung per bot.`);
     $('ovDist').innerHTML = TIERS.map((t) => `
       <div class="dist__row" data-t="${t}">
         <span>${tierName(t)}</span>
@@ -398,21 +422,36 @@
   /* ---------------- Pengguna ---------------- */
   const userFilter = { q: '', tier: '' };
 
-  function expiryCell(u) {
-    const tier = u.tier || 'free';
-    if (tier === 'free') return '<span class="muted">–</span>';
-    if (!u.tierExpiredAt) return '<span class="muted" title="Diatur admin, tanpa tanggal kedaluwarsa">permanen</span>';
-    const exp = new Date(u.tierExpiredAt);
-    if (isNaN(exp)) return '<span class="muted">–</span>';
-    const daysLeft = Math.ceil((exp - new Date()) / 86400000);
-    const dateStr = exp.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-    const sub = daysLeft > 0 ? `${daysLeft} hari lagi` : 'sudah lewat';
-    return `<span class="cell-user"><strong class="${daysLeft <= 3 ? 'is-err' : ''}">${esc(dateStr)}</strong><span>${sub}</span></span>`;
+  // Paket di baris user hanya RINGKASAN (paket tertinggi yang aktif di
+  // antara bot-botnya). Server lama belum mengirim topTier/botsCount, jadi
+  // ada cadangan ke field lama.
+  const topTierOf = (u) => u.topTier || u.tier || 'free';
+  const userBots = (u) => (Array.isArray(u.botNumbers) ? u.botNumbers : []);
+  const botsCountOf = (u) => (u.botsCount !== undefined && Number.isFinite(Number(u.botsCount)) ? Number(u.botsCount) : userBots(u).length);
+
+  function pkgCell(u) {
+    const tier = topTierOf(u);
+    const badge = `<span class="tier tier--${esc(tier)}">${esc(tierName(tier))}</span>`;
+    if (tier === 'free') return `<span class="cell-pkg">${badge}</span>`;
+    const e = expiryInfo(tier, u.tierExpiredAt);
+    const sub = e.forever ? 'permanen' : `s/d ${e.date} · ${e.sub}`;
+    return `<span class="cell-pkg">${badge}<small class="${e.soon ? 'is-err' : ''}">${esc(sub)}</small></span>`;
+  }
+
+  function botsCell(u) {
+    const list = userBots(u);
+    const n = botsCountOf(u);
+    const pend = u.pending && u.pending.tier
+      ? `<small class="cell-pending" title="Dipasang otomatis ke bot berikutnya yang ditambahkan user"><i class="fa-regular fa-clock"></i> tertunda: ${esc(u.pending.tierName || tierName(u.pending.tier))}${u.pending.daysLeft != null ? ` · ${fmt(u.pending.daysLeft)} hr` : ''}</small>`
+      : '';
+    if (!n) return `<span class="cell-bots"><span class="muted">belum ada</span>${pend}</span>`;
+    const first = list[0] ? `<small class="cell-mono">${esc(list[0])}${list.length > 1 ? ` <span class="muted">+${list.length - 1}</span>` : ''}</small>` : '';
+    return `<span class="cell-bots"><b>${fmt(n)} bot</b>${first}${pend}</span>`;
   }
 
   function userMatches(u) {
     const f = userFilter;
-    const tier = u.tier || 'free';
+    const tier = topTierOf(u);
     if (f.tier === 'free' && tier !== 'free') return false;
     if (f.tier === 'paid' && tier === 'free') return false;
     if (f.tier === 'admin' && u.role !== 'admin') return false;
@@ -426,49 +465,40 @@
     const list = state.users.filter(userMatches);
     setText('userCount', `${fmt(list.length)} dari ${fmt(state.users.length)} akun`);
     if (!list.length) {
-      tbody.innerHTML = `<tr><td colspan="7" class="td-empty"><i class="fa-regular fa-face-meh"></i>${state.users.length ? 'Tidak ada user yang cocok dengan filter.' : 'Belum ada user.'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="td-empty"><i class="fa-regular fa-face-meh"></i>${state.users.length ? 'Tidak ada user yang cocok dengan filter.' : 'Belum ada user.'}</td></tr>`;
       return;
     }
+    const opts = TIERS.map((t) => `<option value="${t}">${tierName(t)}</option>`).join('');
     tbody.innerHTML = list.map((u) => {
-      const tier = u.tier || 'free';
       const role = u.role || 'user';
-      const bots = Array.isArray(u.botNumbers) ? u.botNumbers : [];
-      const botCell = bots.length
-        ? `<span class="cell-mono">${esc(bots[0])}</span>${bots.length > 1 ? ` <span class="muted">+${bots.length - 1}</span>` : ''}`
-        : '<span class="muted">belum ada</span>';
-      const opts = TIERS.map((t) => `<option value="${t}">${tierName(t)}${t === tier ? ' (sekarang)' : ''}</option>`).join('');
+      const n = botsCountOf(u);
+      const name = u.username || u.id || '';
       return `
         <tr>
           <td class="td-main"><span class="cell-user"><strong>${esc(u.username || '-')}</strong><span>${esc(u.email || u.id || '')}</span></span></td>
           <td data-label="Role"><span class="tier ${role === 'admin' ? 'role-admin' : ''}">${esc(role)}</span></td>
-          <td data-label="Paket"><span class="tier tier--${esc(tier)}">${esc(tierName(tier))}</span></td>
-          <td data-label="Kedaluwarsa">${expiryCell(u)}</td>
-          <td data-label="Bot">${botCell}</td>
-          <td data-label="Ubah tier">
-            <select class="v-select is-sm tier-select" data-user="${esc(u.id)}" data-name="${esc(u.username || u.id)}" aria-label="Ubah tier ${esc(u.username || '')}">
-              <option value="" selected disabled>Ubah tier…</option>${opts}
+          <td data-label="Bot">${botsCell(u)}</td>
+          <td data-label="Paket tertinggi">${pkgCell(u)}</td>
+          <td data-label="Terapkan ke semua bot">
+            <select class="v-select is-sm tier-select" data-user="${esc(u.id)}" data-name="${esc(name)}" data-bots="${n}" aria-label="Terapkan paket ke semua bot milik ${esc(name)}">
+              <option value="" selected disabled>Pilih paket…</option>${opts}
             </select>
           </td>
-          <td data-label="Sesi WA" class="right">
-            ${bots.length
-              ? `<button type="button" class="v-btn v-btn--outline v-btn--sm is-quiet-danger" data-act="force-delete" data-number="${esc(bots[0])}" title="Hapus paksa sesi ${esc(bots[0])}"><i class="fa-solid fa-power-off"></i> Hapus sesi</button>`
+          <td data-label="Aksi" class="right">
+            ${n
+              ? `<button type="button" class="v-btn v-btn--outline v-btn--sm" data-act="user-bots" data-user="${esc(u.id)}" data-name="${esc(name)}" title="Lihat & atur paket bot milik ${esc(name)}"><i class="fa-solid fa-robot"></i> Lihat bot</button>`
               : '<span class="muted">–</span>'}
           </td>
         </tr>`;
     }).join('');
 
-    // Statistik ringkas di atas tabel
-    const paid = state.users.filter((u) => (u.tier || 'free') !== 'free');
+    // Statistik ringkas di atas tabel. "Habis ≤ 3 hari" dihitung per bot di
+    // renderBotsTable() karena masa aktif sekarang melekat di bot.
+    const paid = state.users.filter((u) => topTierOf(u) !== 'free');
     const c = { basic: 0, plus: 0, booster: 0 };
-    paid.forEach((u) => { if (c[u.tier] !== undefined) c[u.tier]++; });
+    paid.forEach((u) => { const t = topTierOf(u); if (c[t] !== undefined) c[t]++; });
     setText('admPaidUser', fmt(paid.length));
     setText('admPaidSub', `${c.basic} Core · ${c.plus} Prime · ${c.booster} Zenith`);
-    const soon = paid.filter((u) => {
-      if (!u.tierExpiredAt) return false;
-      const days = (new Date(u.tierExpiredAt) - new Date()) / 86400000;
-      return days > 0 && days <= 3;
-    }).length;
-    setText('admExpiring', fmt(soon));
   }
 
   $('userSearch').addEventListener('input', (e) => { userFilter.q = e.target.value.trim().toLowerCase(); renderUsers(); });
@@ -479,47 +509,91 @@
     if (sel && sel.value) updateUserTier(sel.dataset.user, sel.value, sel.dataset.name, sel);
   });
 
+  // KOMPATIBILITAS: endpoint lama per akun. Server memasang paket ke SEMUA
+  // bot milik user (permanen) — atau jadi paket tertunda kalau user belum
+  // punya bot. Untuk satu bot saja, admin memakai dialog "Ubah paket".
   async function updateUserTier(userId, newTier, name, sel) {
+    const n = num(sel?.dataset.bots);
+    const who = name || 'user ini';
+    const label = tierName(newTier);
+    let body;
+    if (n) {
+      body = `Paket ${label.toUpperCase()} akan dipasang ke SEMUA ${n} bot milik ${who}, permanen (tanpa tanggal habis). Masa aktif yang sedang berjalan di bot-botnya ikut diganti.\n\nCuma mau ubah satu bot? Pakai “Ubah paket” di Bot & Node.`;
+    } else if (newTier === 'free') {
+      body = `${who} belum punya bot. Paket tertunda miliknya (kalau ada) akan dikosongkan.`;
+    } else {
+      body = `${who} belum punya bot — paket ${label.toUpperCase()} disimpan sebagai paket tertunda dan otomatis dipasang ke bot pertama yang dia tambahkan.`;
+    }
     const ok = await ask({
-      title: 'Ubah paket user?',
-      body: `Paket ${name || 'user ini'} akan diubah menjadi ${tierName(newTier).toUpperCase()}.\n\nTier dari admin berlaku permanen (tanpa tanggal kedaluwarsa) sampai diubah lagi, dan langsung diteruskan ke bot miliknya.`,
-      ok: `Jadikan ${tierName(newTier)}`,
+      title: n ? 'Terapkan ke semua bot?' : 'Simpan paket tertunda?',
+      body,
+      ok: n ? `Jadikan ${label} (${n} bot)` : (newTier === 'free' ? 'Kosongkan' : `Simpan ${label}`),
     });
     if (!ok) { if (sel) sel.value = ''; return; }
     try {
       const result = await api('/api/admin/update-tier', { method: 'POST', body: { userId, newTier } });
-      toast(result.message || 'Tier diperbarui.');
+      toast(result.message || 'Paket diperbarui.');
     } catch (err) {
       if (!err.auth) toast(err.network ? 'Gagal terhubung ke server. Perubahan BELUM tersimpan.' : err.message, 'err');
     }
     loadAdminData();
+    loadBotsData();
   }
 
   /* ---------------- Bot & node ---------------- */
   const BOTS_PER_PAGE = 12;
   let botList = [];
   let botPage = 0;
-  const botFilter = { q: '', state: '' };
+  // owner = id akun (filter dari tombol "Lihat bot" di tabel user).
+  const botFilter = { q: '', state: '', owner: '' };
+  // Kartu yang baru diubah paketnya diberi sorotan sebentar.
+  const flashBot = { number: '', at: 0 };
 
   function renderBotsTable(bots) {
     botList = Array.isArray(bots) ? bots : [];
     const online = botList.filter((b) => b.isOnline).length;
+    const paid = botList.filter((b) => (b.tier || 'free') !== 'free');
+    const c = { basic: 0, plus: 0, booster: 0 };
+    paid.forEach((b) => { if (c[b.tier] !== undefined) c[b.tier]++; });
+    const owners = new Set(botList.map((b) => b.ownerId).filter(Boolean)).size;
     setText('botOnlineCount', fmt(online));
+    setText('botOnlineSub', `${fmt(botList.length - online)} offline`);
     setText('botTotalCount', fmt(botList.length));
-    setText('botOfflineCount', fmt(botList.length - online));
-    setText('botFreeCount', fmt(botList.filter((b) => (b.tier || 'free') === 'free').length));
+    setText('botOwnerSub', owners ? `milik ${fmt(owners)} akun` : 'semua status');
+    setText('botPaidCount', fmt(paid.length));
+    setText('botPaidSub', `${c.basic} Core · ${c.plus} Prime · ${c.booster} Zenith`);
+    setText('botFreeCount', fmt(botList.length - paid.length));
+
+    // Pengingat perpanjangan dihitung per bot (masa aktif melekat di bot).
+    const soon = paid.filter((b) => {
+      if (!b.tierExpiredAt) return false;
+      const d = b.daysLeft ?? daysLeftOf(b.tierExpiredAt);
+      return d !== null && d > 0 && d <= 3;
+    }).length;
+    setText('admExpiring', fmt(soon));
+    setText('admExpiringSub', soon ? 'ingatkan pemiliknya' : 'aman untuk 3 hari ke depan');
     renderBotPage();
   }
 
   function filteredBots() {
-    const { q, state: st } = botFilter;
+    const { q, state: st, owner } = botFilter;
     return botList.filter((b) => {
       if (st === 'on' && !b.isOnline) return false;
       if (st === 'off' && b.isOnline) return false;
+      if (owner && b.ownerId !== owner) return false;
       if (!q) return true;
-      return `${b.number} ${b.ownerNumber || ''}`.toLowerCase().includes(q);
+      return [b.number, b.ownerNumber, b.label, b.ownerName, tierName(b.tier || 'free')].join(' ').toLowerCase().includes(q);
     });
   }
+
+  function setOwnerFilter(id, name) {
+    botFilter.owner = id || '';
+    $('botOwnerChip').hidden = !botFilter.owner;
+    setText('botOwnerName', name || id || '');
+    botPage = 0;
+    renderBotPage();
+  }
+  $('botOwnerChip').addEventListener('click', () => setOwnerFilter(''));
 
   function renderBotPage() {
     const board = $('botBoard');
@@ -527,7 +601,10 @@
     const list = filteredBots();
 
     if (!list.length) {
-      board.innerHTML = `<p class="board-empty"><i class="fa-solid fa-robot"></i>${botList.length ? 'Tidak ada bot yang cocok dengan filter.' : 'Belum ada bot yang pernah dibuat.'}</p>`;
+      const why = !botList.length ? 'Belum ada bot yang pernah dibuat.'
+        : botFilter.owner && !botFilter.q && !botFilter.state ? 'Akun ini belum punya bot terdaftar.'
+          : 'Tidak ada bot yang cocok dengan filter.';
+      board.innerHTML = `<p class="board-empty"><i class="fa-solid fa-robot"></i>${why}</p>`;
       pager.hidden = true;
       return;
     }
@@ -543,15 +620,28 @@
       const on = !!b.isOnline;
       const st = perBot.get(String(b.number));
       const canStop = on || (b.status && b.status !== 'stop');
+      const e = expiryInfo(tier, b.tierExpiredAt, b.daysLeft);
+      const flash = flashBot.number === b.number && Date.now() - flashBot.at < 2500;
+      const owner = b.ownerName
+        ? `<button type="button" class="link-btn" data-act="owner-filter" data-user="${esc(b.ownerId)}" data-name="${esc(b.ownerName)}" title="Tampilkan semua bot milik ${esc(b.ownerName)}">${esc(b.ownerName)}</button>`
+        : `<span class="muted">${b.ownerId ? 'akun terhapus' : 'tanpa akun'}</span>`;
       return `
-        <article class="bot-card ${on ? 'is-on' : ''}">
+        <article class="bot-card ${on ? 'is-on' : ''} ${flash ? 'is-flash' : ''}" data-number="${esc(b.number)}">
           <header class="bot-card__top">
             <span class="bot-state"><span class="v-dot ${on ? 'v-dot--live' : 'v-dot--off'}"></span>${on ? 'Online' : 'Offline'}</span>
             <span class="tier tier--${esc(tier)}">${esc(tierName(tier))}</span>
           </header>
-          <div class="bot-number">${esc(b.number)}</div>
+          <div class="bot-id">
+            <div class="bot-number">${esc(b.number)}</div>
+            ${b.label ? `<div class="bot-label" title="Label dari pemilik">${esc(b.label)}</div>` : '<div class="bot-label is-empty">tanpa label</div>'}
+          </div>
+          <div class="bot-pkg ${e.soon ? 'is-soon' : ''} ${e.none ? 'is-free' : ''}">
+            <div class="bot-pkg__txt"><span>Masa aktif</span><b>${esc(e.date)}</b><small>${esc(e.sub)}</small></div>
+            <button type="button" class="v-btn v-btn--outline v-btn--sm" data-act="bot-tier" data-number="${esc(b.number)}" title="Ubah paket bot ${esc(b.number)}"><i class="fa-regular fa-gem"></i> Ubah paket</button>
+          </div>
           <dl class="bot-meta">
-            <div><dt>Owner</dt><dd>${b.ownerNumber ? esc(b.ownerNumber) : '<span class="muted">belum diatur</span>'}</dd></div>
+            <div><dt>Akun</dt><dd>${owner}</dd></div>
+            <div><dt>Owner WA</dt><dd>${b.ownerNumber ? esc(b.ownerNumber) : '<span class="muted">belum diatur</span>'}</dd></div>
             <div><dt>Status DB</dt><dd>${esc(b.status || '-')}</dd></div>
             ${st ? `<div><dt>Pesan · cmd</dt><dd>${fmt(st.messages)} · ${fmt(st.commands)}</dd></div>` : ''}
           </dl>
@@ -592,8 +682,8 @@
   $('btnSyncTiers').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     const ok = await ask({
-      title: 'Sinkronkan tier?',
-      body: 'Samakan tier semua bot dengan tier akun pemiliknya?\n\nIni memperbaiki user yang sudah bayar tapi bot-nya masih Free.',
+      title: 'Sinkronkan paket bot?',
+      body: 'Samakan pemilik & paket di config setiap bot dengan data paket per bot di database, sekaligus memindahkan paket akun lama yang belum termigrasi ke bot pertamanya.\n\nAman dijalankan berulang kali.',
       ok: 'Sinkronkan',
     });
     if (!ok) return;
@@ -609,12 +699,12 @@
   $('btnDeleteFree').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     const jumlah = botList.filter((b) => (b.tier || 'free') === 'free').length;
-    if (!jumlah) { toast('Tidak ada bot user Free.', 'info'); return; }
+    if (!jumlah) { toast('Tidak ada bot berpaket Free.', 'info'); return; }
     // Konfirmasi dua langkah: aksi ini tidak bisa dibatalkan dan memutus
     // WhatsApp user. Mengetik angka mencegah salah klik.
     const ketik = await ask({
       title: 'Hapus semua bot Free?',
-      body: `${jumlah} bot user Free akan dihapus PERMANEN dan sesi WhatsApp-nya diputus.`,
+      body: `${jumlah} bot berpaket Free akan dihapus PERMANEN dan sesi WhatsApp-nya diputus. Bot berbayar tidak ikut terhapus.`,
       ok: 'Hapus permanen',
       danger: true,
       input: { label: `Ketik ${jumlah} untuk melanjutkan`, placeholder: String(jumlah), inputMode: 'numeric' },
@@ -638,7 +728,146 @@
     if (!b || b.disabled) return;
     if (b.dataset.act === 'force-delete') forceDeleteBot(b.dataset.number || '', b);
     if (b.dataset.act === 'stop') stopBot(b.dataset.number, b);
+    if (b.dataset.act === 'bot-tier') openBotTier(b.dataset.number);
+    if (b.dataset.act === 'owner-filter') setOwnerFilter(b.dataset.user, b.dataset.name);
+    if (b.dataset.act === 'user-bots') {
+      // Dari tabel user: buka Bot & Node dengan filter akun saja, supaya
+      // pencarian/status lama tidak menyembunyikan bot miliknya.
+      botFilter.q = ''; $('botSearch').value = '';
+      botFilter.state = '';
+      qsa('#botStateSeg .seg__btn').forEach((x) => x.classList.toggle('is-active', !x.dataset.state));
+      setOwnerFilter(b.dataset.user, b.dataset.name);
+      showView('bots');
+    }
   });
+
+  /* ---------------- Ubah paket SATU bot (/api/admin/bot-tier) ---------------- */
+  const btModal = $('botTierModal');
+  const bt = { bot: null };
+  const btTier = () => btModal.querySelector('input[name="btTier"]:checked')?.value || 'free';
+  const readDays = () => { const v = $('btDays').value.trim(); return v === '' ? NaN : Number(v); };
+  const daysValid = (d) => Number.isInteger(d) && d >= 1 && d <= 3650;
+  // Sisa hari paket berbayar yang sedang berjalan (null = Free / permanen).
+  const btLeft = (b) => ((b.tier || 'free') !== 'free' && b.tierExpiredAt ? (b.daysLeft ?? daysLeftOf(b.tierExpiredAt)) : null);
+
+  function openBotTier(number) {
+    const b = botList.find((x) => x.number === number);
+    if (!b) { toast('Bot tidak ada di daftar. Coba Refresh dulu.', 'err'); return; }
+    bt.bot = b;
+    const tier = b.tier || 'free';
+    const e = expiryInfo(tier, b.tierExpiredAt, b.daysLeft);
+    setText('btNumber', b.number);
+    setText('btWho', [b.label, b.ownerName ? `milik ${b.ownerName}` : 'tanpa akun pemilik'].filter(Boolean).join(' · '));
+    const badge = $('btNowBadge');
+    badge.className = `tier tier--${tier}`;
+    badge.textContent = tierName(tier);
+    setText('btNowText', tier === 'free'
+      ? 'Sekarang Free — belum ada paket berbayar di bot ini.'
+      : e.forever ? `Sekarang ${tierName(tier)}, permanen (diatur admin).`
+        : `Sekarang ${tierName(tier)}, berlaku s/d ${e.date} (${e.sub}).`);
+    const pr = state.pricing || {};
+    qsa('[data-price]', btModal).forEach((el) => {
+      const t = el.dataset.price;
+      el.textContent = t === 'free' ? 'gratis' : pr[t] ? rupiah(pr[t]) : '–';
+    });
+    // Mulai dari paket sekarang: kasus paling sering adalah perpanjang.
+    btModal.querySelector(`input[name="btTier"][value="${TIERS.includes(tier) ? tier : 'free'}"]`).checked = true;
+    $('btDays').value = 30;
+    setText('btErr', '');
+    updateBotTierPreview();
+    openModal(btModal, btModal.querySelector('input[name="btTier"]:checked'));
+  }
+
+  function updateBotTierPreview() {
+    const b = bt.bot;
+    if (!b) return;
+    const now = b.tier || 'free';
+    const t = btTier();
+    const left = btLeft(b);
+    const free = t === 'free';
+    const d = readDays();
+
+    $('btDaysField').hidden = free;
+    qsa('.bt-tier', btModal).forEach((l) => l.classList.toggle('is-on', l.dataset.t === t));
+    const ext = $('btExtend');
+    ext.hidden = !(left > 0 && t === now);
+    if (left > 0) ext.textContent = `Sisa + 30 = ${fmt(Math.min(3650, left + 30))}`;
+    qsa('.bt-chip[data-days]', btModal).forEach((c) => c.classList.toggle('is-on', Number(c.dataset.days) === d));
+    ext.classList.toggle('is-on', left > 0 && d === Math.min(3650, left + 30));
+
+    let val; let note; let same = false; let warn = false;
+    if (free) {
+      same = now === 'free';
+      warn = !same;
+      val = 'Free · tanpa masa aktif';
+      note = same
+        ? 'Bot ini sudah Free — tidak ada yang berubah.'
+        : `Fitur berbayar bot ini langsung terkunci${left ? ` dan sisa ${fmt(left)} hari paket ${tierName(now)} hangus (tidak jadi paket tertunda)` : ''}.`;
+    } else if (!daysValid(d)) {
+      same = true;
+      val = 'masa aktif tidak valid';
+      note = 'Isi angka bulat 1–3650 hari.';
+    } else {
+      val = `${tierName(t)} s/d ${shortDate(Date.now() + d * DAY_MS)}`;
+      if (t === now && left !== null) note = `${fmt(d)} hari dari sekarang — MENGGANTI sisa ${fmt(left)} hari, bukan ditambahkan.`;
+      else if (t === now) note = `${fmt(d)} hari dari sekarang — paket permanen jadi punya tanggal habis.`;
+      else note = `${fmt(d)} hari dari sekarang.${now !== 'free' ? ` Paket ${tierName(now)} diganti${left ? `, sisa ${fmt(left)} harinya hangus` : ''}.` : ''}`;
+    }
+    $('btPreview').className = 'preview-box' + (same ? ' is-same' : '') + (warn ? ' is-warn' : '');
+    setText('btPreviewVal', val);
+    setText('btPreviewNote', note);
+    $('btSave').disabled = free && now === 'free';
+    $('btSave').querySelector('span').textContent = free && now !== 'free' ? 'Jadikan Free' : 'Simpan paket';
+  }
+
+  btModal.addEventListener('change', (e) => {
+    if (e.target.name !== 'btTier') return;
+    setText('btErr', '');
+    updateBotTierPreview();
+  });
+  $('btDays').addEventListener('input', () => { setText('btErr', ''); updateBotTierPreview(); });
+  $('btDays').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('btSave').click(); } });
+  $('btPresets').addEventListener('click', (e) => {
+    const c = e.target.closest('.bt-chip');
+    if (!c || !bt.bot) return;
+    const d = c.id === 'btExtend' ? num(btLeft(bt.bot)) + 30 : Number(c.dataset.days);
+    $('btDays').value = Math.min(3650, d);
+    setText('btErr', '');
+    updateBotTierPreview();
+  });
+  $('btSave').addEventListener('click', (e) => saveBotTier(e.currentTarget));
+
+  async function saveBotTier(btn) {
+    const b = bt.bot;
+    if (!b || btn.disabled) return;
+    const tier = btTier();
+    // Free tidak punya masa aktif: server mengosongkan tanggalnya, jadi
+    // `days` tidak dikirim sama sekali.
+    const body = { number: b.number, tier };
+    if (tier !== 'free') {
+      const d = readDays();
+      if (!daysValid(d)) { setText('btErr', 'Masa aktif harus angka bulat 1–3650 hari.'); $('btDays').focus(); return; }
+      body.days = d;
+    }
+    await busy(btn, 'Menyimpan…', async () => {
+      try {
+        const result = await api('/api/admin/bot-tier', { method: 'POST', body });
+        // Baris dari server tidak membawa status sesi & owner WA — gabung
+        // dengan baris lama supaya kartu tidak kehilangan info itu.
+        const i = botList.findIndex((x) => x.number === b.number);
+        if (i !== -1 && result.bot) botList[i] = { ...botList[i], ...result.bot };
+        flashBot.number = b.number;
+        flashBot.at = Date.now();
+        closeModal(btModal);
+        renderBotsTable(botList);
+        toast(result.message || `Paket bot ${b.number} diperbarui.`);
+        loadAdminData(); // paket tertinggi user & sebaran paket ikut berubah
+      } catch (err) {
+        if (err.auth) return;
+        setText('btErr', err.network ? 'Gagal terhubung ke server. Paket BELUM berubah.' : err.message);
+      }
+    });
+  }
 
   async function stopBot(number, btn) {
     if (!number) return;
@@ -720,7 +949,7 @@
       if (status === 'failed' && !(o.status === 'cancelled' || o.status === 'expired')) return false;
       if (status && status !== 'failed' && o.status !== status) return false;
       if (!q) return true;
-      return `${o.orderId} ${o.username || ''} ${o.email || ''}`.toLowerCase().includes(q);
+      return `${o.orderId} ${o.username || ''} ${o.email || ''} ${o.botNumber || ''}`.toLowerCase().includes(q);
     });
     setText('orderCount', `${fmt(list.length)} invoice`);
 
@@ -735,7 +964,7 @@
         <tr>
           <td class="td-main"><span class="cell-user"><a class="cell-mono" href="/invoice?order_id=${encodeURIComponent(o.orderId)}" target="_blank" rel="noopener">${esc(o.orderId)}</a><span>${esc(fmtDate(o.createdAt, true))}</span></span></td>
           <td data-label="User"><span class="cell-user"><strong>${esc(o.username || '-')}</strong><span>${esc(o.email || '')}</span></span></td>
-          <td data-label="Paket"><span>${esc(pkg.name)} <span class="muted">${esc(pkg.dur)}</span>${o.promoCode ? ` <span class="promo-code" style="font-size:11px">${esc(o.promoCode)}</span>` : ''}</span></td>
+          <td data-label="Paket"><span class="cell-order"><span>${esc(pkg.name)} <span class="muted">${esc(pkg.dur)}</span>${o.promoCode ? ` <span class="promo-code" style="font-size:11px">${esc(o.promoCode)}</span>` : ''}</span>${o.botNumber ? `<small title="Paket dibayar untuk bot ini">bot ${esc(o.botNumber)}</small>` : ''}</span></td>
           <td data-label="Total" class="right num">${rupiah(o.totalPayment || o.amount)}</td>
           <td data-label="Status">${orderBadge(o.status)}</td>
         </tr>`;
@@ -826,10 +1055,11 @@
 
   /* ---------------- Riwayat admin ---------------- */
   const AUDIT_LABEL = {
-    'ubah-tier': 'Ubah tier',
+    'ubah-tier': 'Paket semua bot user',
+    'ubah-paket-bot': 'Ubah paket bot',
     'ubah-harga': 'Ubah harga',
     'hapus-bot-free': 'Hapus bot Free',
-    'sinkron-tier': 'Sinkron tier',
+    'sinkron-tier': 'Sinkron paket',
     'ubah-pengaturan-situs': 'Ubah tampilan situs',
     'unggah-media-situs': 'Unggah media',
   };
@@ -1384,6 +1614,76 @@
     });
   });
 
+  /* ---------------- Batas bot per akun (settings.limits) ----------------
+     Paket sekarang per bot, jadi satu akun boleh punya beberapa bot. Batas
+     ini dicek server saat user menambah bot BARU; admin selalu lolos.
+     Rentang SAMA dengan validasi lib/site-settings.js. */
+  const LIMIT_DEFAULT = { maxBotsPerUser: 5, maxFreeBotsPerUser: 1 };
+  const limForm = { max: $('limMaxBots'), free: $('limMaxFree') };
+  let limSaved = { ...LIMIT_DEFAULT };
+
+  function fillLimitsForm(l) {
+    limSaved = { ...LIMIT_DEFAULT, ...(l && typeof l === 'object' ? l : {}) };
+    limForm.max.value = limSaved.maxBotsPerUser;
+    limForm.free.value = limSaved.maxFreeBotsPerUser;
+    setText('limSavedInfo', `Tersimpan: maks. ${fmt(limSaved.maxBotsPerUser)} bot · ${fmt(limSaved.maxFreeBotsPerUser)} Free`);
+    updateLimitsPreview();
+  }
+
+  function readLimitsForm() {
+    const n = (el) => (el.value.trim() === '' ? NaN : Number(el.value));
+    return { maxBotsPerUser: n(limForm.max), maxFreeBotsPerUser: n(limForm.free) };
+  }
+  const maxOk = (v) => Number.isInteger(v) && v >= 1 && v <= 50;
+  const freeOk = (v) => Number.isInteger(v) && v >= 0 && v <= 10;
+
+  function updateLimitsPreview() {
+    const f = readLimitsForm();
+    const box = $('limPreview');
+    if (!maxOk(f.maxBotsPerUser) || !freeOk(f.maxFreeBotsPerUser)) {
+      box.className = 'preview-box span-all is-same';
+      setText('limPreviewVal', 'angka tidak valid');
+      setText('limPreviewNote', 'Maksimal bot per akun 1–50, maksimal bot Free 0–10 (angka bulat).');
+      return;
+    }
+    // Bot Free tetap terhitung di batas total, jadi yang efektif = yang terkecil.
+    const free = Math.min(f.maxFreeBotsPerUser, f.maxBotsPerUser);
+    const same = f.maxBotsPerUser === limSaved.maxBotsPerUser && f.maxFreeBotsPerUser === limSaved.maxFreeBotsPerUser;
+    box.className = 'preview-box span-all' + (same ? ' is-same' : '');
+    setText('limPreviewVal', `${fmt(f.maxBotsPerUser)} bot per akun · ${free ? `${fmt(free)} boleh Free` : 'semua wajib berbayar'}`);
+    setText('limPreviewNote', [
+      free
+        ? `Bot Free ke-${free + 1} ditolak — user diminta upgrade bot Free-nya dulu.`
+        : 'User baru bisa menambah bot kalau punya paket tertunda (sudah bayar).',
+      f.maxFreeBotsPerUser > f.maxBotsPerUser ? `Batas Free lebih besar dari batas total, jadi yang berlaku ${fmt(free)}.` : '',
+      'Bot yang sudah ada tidak dihapus kalau batas diturunkan.',
+    ].filter(Boolean).join(' '));
+  }
+
+  [limForm.max, limForm.free].forEach((el) => {
+    el.addEventListener('input', updateLimitsPreview);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('btnSaveLimits').click(); } });
+  });
+  updateLimitsPreview();
+
+  $('btnSaveLimits').addEventListener('click', (e) => {
+    const btn = e.currentTarget;
+    if (btn.disabled) return;
+    const f = readLimitsForm();
+    if (!maxOk(f.maxBotsPerUser)) { toast('Maksimal bot per akun harus 1–50.', 'err'); limForm.max.focus(); return; }
+    if (!freeOk(f.maxFreeBotsPerUser)) { toast('Maksimal bot Free per akun harus 0–10.', 'err'); limForm.free.focus(); return; }
+    busy(btn, 'Menyimpan…', async () => {
+      try {
+        const result = await api('/api/admin/site-settings', { method: 'POST', body: { limits: f } });
+        const saved = result.settings?.limits || f;
+        if (site.saved) site.saved.limits = clone(saved);
+        if (site.draft) site.draft.limits = clone(saved);
+        fillLimitsForm(saved);
+        toast('Batas bot per akun disimpan dan langsung berlaku.');
+      } catch (err) { if (!err.auth) toast(err.message, 'err'); }
+    });
+  });
+
   /* ==================================================================
      BANNER & TAMPILAN SITUS
      ================================================================== */
@@ -1425,6 +1725,7 @@
     site.draft = clone(settings);
     fillSiteForm();
     fillCapForm(settings.capacity);
+    fillLimitsForm(settings.limits);
     updateDirty();
   }
 

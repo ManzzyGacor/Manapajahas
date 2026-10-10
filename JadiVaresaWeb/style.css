@@ -864,7 +864,7 @@ code {
 .pricing-card.is-current::after {
   /* Di garis atas kartu (sejajar label "Paling populer"), bukan di baris
      judul — di sana bertabrakan dengan badge tier saat kartu sempit. */
-  content: "Paket kamu"; position: absolute; top: -11px; right: 20px;
+  content: "Paket bot ini"; position: absolute; top: -11px; right: 20px;
   height: 22px; padding: 0 9px; display: inline-flex; align-items: center; border-radius: 99px;
   font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
   color: var(--text); background: var(--surface-3); border: 1px solid var(--line-2);
@@ -1259,49 +1259,257 @@ code {
 .cap-big .v-num { font-size: clamp(32px, 4vw, 44px); line-height: 1; }
 .cap-big span { color: var(--text-3); font-family: var(--font-mono); font-size: 13px; }
 
+/* Halaman invoice punya gaya sendiri di invoice.css (tidak memuat file ini). */
+
 /* ==========================================================================
-   INVOICE
+   BOT SAYA — paket per bot (daftar bot, tambah bot, bar konteks)
    ========================================================================== */
-.inv-shell { width: 100%; max-width: 620px; margin: 0 auto; padding: 28px var(--gutter) 48px; display: grid; gap: 16px; }
-.inv-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: var(--top-h); padding: 0 var(--gutter); border-bottom: 1px solid var(--line); background: rgba(8, 9, 10, .78); backdrop-filter: blur(14px); position: sticky; top: 0; z-index: 30; }
-.invoice-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.inv-id { margin: 6px 0 0; font-family: var(--font-mono); font-size: clamp(16px, 3vw, 20px); font-weight: 700; letter-spacing: .02em; word-break: break-all; }
-.inv-status {
-  display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 99px;
-  font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-  border: 1px solid; white-space: nowrap;
+/* Ringkasan akun di top bar: "3 bot · tertinggi Zenith" */
+.acct-sum {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-3); letter-spacing: .01em;
 }
-.inv-status.pending { color: var(--warn); border-color: rgba(245, 181, 68, .35); background: var(--warn-soft); }
-.inv-status.completed { color: var(--ok); border-color: rgba(74, 222, 128, .35); background: var(--ok-soft); }
-.inv-status.failed { color: #ff8a8e; border-color: rgba(242, 85, 90, .35); background: var(--danger-soft); }
-.qris-card { padding: 22px; display: grid; gap: 16px; justify-items: center; text-align: center; }
-.countdown-box {
-  display: inline-flex; align-items: center; gap: 10px; height: 38px; padding: 0 14px; border-radius: 10px;
-  border: 1px solid var(--line-2); background: var(--bg-soft); font-size: 13.5px; color: var(--text-2);
+.acct-sum b { color: var(--text); font-weight: 700; }
+.acct-sum__sep { font-style: normal; opacity: .6; }
+.acct-sum__top { display: none; }
+.tier-txt { font-style: normal; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 10.5px; }
+.tier-txt--free { color: var(--text-2); }
+.tier-txt--basic { color: var(--tier-core); }
+.tier-txt--plus { color: #ffd77a; }
+.tier-txt--booster {
+  background: linear-gradient(90deg, #a78bfa, #f0abfc); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.countdown-box strong { font-family: var(--font-mono); font-size: 16px; color: var(--text); letter-spacing: .04em; }
-.countdown-box.is-urgent strong { color: var(--danger); }
-.qr-wrap {
-  padding: 14px; border-radius: 18px; background: #fff;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 24px 60px -24px rgba(92, 240, 180, .35);
+@media (min-width: 640px) { .acct-sum__top { display: inline; } }
+.drop-sum .acct-sum { font-size: 11.5px; }
+.drop-sum .acct-sum__top { display: inline; }
+
+.fleet { padding: clamp(16px, 2.2vw, 22px); display: grid; gap: 14px; }
+.fleet__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; }
+.fleet__intro { min-width: 0; flex: 1 1 260px; }
+.fleet__title {
+  display: flex; align-items: center; gap: 10px; margin: 0 0 4px;
+  font-family: var(--font-display); font-size: 18px; font-weight: 600; letter-spacing: -.02em;
 }
-.qr-wrap #qrcode { width: 240px; height: 240px; display: grid; place-items: center; }
-.qr-wrap img, .qr-wrap canvas { width: 240px !important; height: 240px !important; display: block; }
-@media (max-width: 380px) {
-  .qr-wrap #qrcode, .qr-wrap img, .qr-wrap canvas { width: 210px !important; height: 210px !important; }
+.fleet__count:not(:empty) {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 99px;
+  font-size: 11px; font-weight: 600; color: var(--text-2); background: var(--surface-3); border: 1px solid var(--line);
 }
-.qr-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
-.qr-actions .v-btn { flex: 1 1 160px; }
-.checking-live { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 12px; color: var(--text-3); }
-.result-card { padding: 30px 22px; display: grid; gap: 10px; justify-items: center; text-align: center; }
-.result-icon { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; font-size: 26px; margin-bottom: 6px; }
-.result-icon.ok { background: var(--ok-soft); color: var(--ok); border: 1px solid rgba(74, 222, 128, .35); box-shadow: 0 0 40px -10px rgba(74, 222, 128, .5); }
-.result-icon.fail { background: var(--danger-soft); color: #ff8a8e; border: 1px solid rgba(242, 85, 90, .35); }
-.result-card h3 { margin: 0; font-family: var(--font-display); font-size: 22px; letter-spacing: -.02em; }
-.result-card p { color: var(--text-2); font-size: 14px; margin-bottom: 8px; }
-.promo-tag { margin-left: 6px; padding: 1px 6px; border-radius: 6px; font-family: var(--font-mono); font-size: 10.5px; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line); }
-.inv-foot { text-align: center; font-size: 12px; color: var(--text-3); }
-.inv-foot a { color: var(--text-2); }
+.fleet__intro .card-sub { margin: 0; }
+.fleet__grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+
+.botcard {
+  position: relative; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+  padding: 16px; border-radius: 16px; text-align: left;
+  background: var(--bg-soft); border: 1px solid var(--line); color: var(--text);
+  cursor: pointer; transition: border-color .2s, background .2s, box-shadow .2s;
+}
+.botcard:hover { border-color: var(--line-2); }
+/* Garis tipis di atas kartu = warna paket bot itu */
+.botcard::before {
+  content: ""; position: absolute; left: 16px; right: 16px; top: -1px; height: 2px; border-radius: 0 0 4px 4px;
+  background: transparent;
+}
+.botcard.tier-basic::before { background: var(--tier-core); }
+.botcard.tier-plus::before { background: var(--tier-prime); }
+.botcard.tier-booster::before { background: linear-gradient(90deg, var(--tier-zenith-a), var(--tier-zenith-b)); }
+.botcard.is-active {
+  border-color: var(--accent-line); cursor: default;
+  background: linear-gradient(180deg, rgba(92, 240, 180, .07), transparent 55%), var(--bg-soft);
+  box-shadow: 0 0 0 1px rgba(92, 240, 180, .12), 0 18px 50px -30px rgba(92, 240, 180, .55);
+}
+.botcard__sel {
+  position: absolute; top: -10px; right: 14px; z-index: 1;
+  display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 8px; border-radius: 99px;
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text-inv); background: var(--accent);
+}
+.botcard__sel i { font-size: 8px; }
+.botcard__top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.botcard__name { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+.botcard__label {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-display); font-size: 15px; font-weight: 600; letter-spacing: -.01em;
+}
+.botcard__label.is-empty { color: var(--text-2); font-weight: 500; }
+.botcard__rename {
+  flex: none; width: 26px; height: 26px; display: grid; place-items: center;
+  border: 0; border-radius: 7px; background: none; color: var(--text-3); cursor: pointer; font-size: 11px;
+}
+.botcard__rename:hover, .botcard__rename:focus-visible { background: var(--surface-3); color: var(--text); }
+.botcard__rename-form { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.botcard__rename-form .v-input { min-height: 34px; height: 34px; padding: 6px 10px; font-size: 13.5px; }
+.botcard__rename-form .icon-btn { width: 34px; height: 34px; }
+.botcard__rename-form button[type="submit"] { color: var(--accent); border-color: var(--accent-line); }
+.botcard__top .tier-badge { flex: none; }
+.botcard__num { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 13px; color: var(--text-2); }
+.botcard__state { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.botcard__state::before { content: "· "; }
+.botcard__plan { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-3); }
+.botcard__plan i { width: 14px; text-align: center; }
+.botcard__plan b { color: var(--text-2); font-weight: 600; }
+.botcard__plan.is-warn, .botcard__plan.is-warn b { color: var(--warn); }
+.botcard__stats {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line);
+  font-size: 11px; color: var(--text-3);
+}
+.botcard__stats span { padding: 8px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.botcard__stats span + span { padding-left: 10px; border-left: 1px dashed var(--line); }
+.botcard__stats b { display: block; font-size: 15px; color: var(--text); font-weight: 700; letter-spacing: -.02em; }
+.botcard__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+.botcard__actions .v-btn { height: 32px; padding: 0 11px; font-size: 12.5px; gap: 6px; }
+.botcard__actions .v-btn i { font-size: 11.5px; }
+.botcard__del { margin-left: auto; width: 32px; padding: 0 !important; }
+
+/* Kartu "Tambah bot" & kosong. Mendatar supaya tidak terlihat kosong
+   saat sendirian di satu baris; di baris berisi kartu ia ikut setinggi kartu. */
+.botcard--add {
+  flex-direction: row; align-items: center; justify-content: center; gap: 12px; min-height: 76px;
+  border-style: dashed; border-color: var(--line-2); background: transparent; font: inherit; color: var(--text-2);
+}
+.botcard__addtext { display: grid; gap: 2px; text-align: left; }
+/* Form tambah bot sedang terbuka: kartu "Tambah bot" tidak perlu tampil. */
+.fleet.is-adding .botcard--add { display: none; }
+.botcard--add:hover:not(:disabled) { border-color: var(--accent-line); color: var(--text); background: rgba(92, 240, 180, .03); }
+.botcard--add:disabled { cursor: not-allowed; opacity: .6; }
+.botcard--add strong { font-family: var(--font-display); font-size: 14.5px; font-weight: 600; color: var(--text); }
+.botcard--add .v-mono { font-size: 11px; color: var(--text-3); }
+@media (max-width: 640px) {
+  /* Di HP kartu bot ditumpuk; angka ringkas cukup untuk bot yang dipilih. */
+  .botcard { padding: 14px; }
+  .botcard:not(.is-active) .botcard__stats { display: none; }
+  .botcard__actions { gap: 5px; }
+  .botcard__actions .v-btn { padding: 0 9px; }
+}
+.botcard__plus {
+  width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; flex: none;
+  background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line); font-size: 16px;
+}
+.botcard--empty {
+  grid-column: 1 / -1; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 14px 16px;
+  cursor: default; border-style: dashed; border-color: var(--line-2);
+}
+.botcard--empty > div { flex: 1 1 240px; min-width: 0; }
+.botcard--empty strong { font-family: var(--font-display); font-size: 15px; }
+.botcard--empty p { margin-top: 3px; font-size: 13px; color: var(--text-3); }
+.botcard--skel { cursor: default; min-height: 150px; }
+.botcard--skel .v-skel { height: 14px; }
+.botcard--skel .v-skel:nth-child(1) { width: 55%; height: 18px; }
+.botcard--skel .v-skel:nth-child(2) { width: 75%; }
+.botcard--skel .v-skel:nth-child(3) { width: 40%; }
+
+.link-btn {
+  border: 0; padding: 0; background: none; cursor: pointer; font: inherit; font-weight: 600;
+  color: var(--accent); text-decoration: underline; text-underline-offset: 3px;
+}
+.notice--ok { border-color: var(--accent-line); background: var(--accent-soft); color: var(--text-2); }
+.notice--ok > i { color: var(--accent); }
+.notice > span { min-width: 0; }
+.notice__acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+/* Form tambah bot */
+.addbot {
+  display: grid; gap: 14px; padding: 16px; border-radius: 16px;
+  border: 1px solid var(--line-2); background: var(--surface-2);
+  animation: v-rise .3s var(--ease);
+}
+.addbot__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.addbot__title { margin: 0 0 3px; font-family: var(--font-display); font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.limits { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.limit { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--bg-soft); border: 1px solid var(--line); min-width: 0; }
+.limit__label { font-size: 11.5px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.limit__value { font-size: 16px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.addbot__rule { display: flex; gap: 8px; font-size: 12.5px; color: var(--text-3); line-height: 1.55; }
+.addbot__rule i { margin-top: 3px; color: var(--info); }
+.addbot__rule b { color: var(--text-2); }
+.addbot__form { display: grid; gap: 12px; align-items: end; }
+@media (min-width: 820px) {
+  .addbot__form { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto; }
+}
+@media (max-width: 480px) {
+  .limits { gap: 6px; }
+  .limit { padding: 9px 10px; }
+  .limit__value { font-size: 14px; }
+  .addbot { padding: 14px; }
+}
+
+/* Identitas bot terpilih di kartu Kontrol Bot */
+.ctl-bot {
+  flex: 1 1 220px; min-width: 0; display: flex; align-items: center; gap: 10px;
+  min-height: 42px; padding: 6px 10px 6px 8px; border-radius: var(--r-sm);
+  background: var(--bg-soft); border: 1px solid var(--line-2);
+}
+.ctl-bot__icon {
+  flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px;
+  background: rgba(37, 211, 102, .1); color: #25d366; font-size: 15px;
+}
+.ctl-bot__id { display: grid; min-width: 0; flex: 1; line-height: 1.25; }
+.ctl-bot__id strong { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctl-bot__id .v-mono { font-size: 11.5px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctl-bot .tier-badge { flex: none; }
+.ctl-bot.is-empty .ctl-bot__icon { background: var(--surface-3); color: var(--text-3); }
+
+/* Bar "Bot yang diatur" di halaman per bot */
+.botctx {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px;
+  padding: 10px 12px 10px 14px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line-2);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.botctx__main { display: grid; gap: 2px; min-width: 0; flex: 0 1 300px; }
+.botctx__label { font-size: 9.5px; }
+.botctx__pick { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.botctx__select {
+  min-height: 32px; height: 32px; padding: 4px 30px 4px 0; border: 0; background-color: transparent;
+  font-weight: 600; font-size: 14px; color: var(--text); min-width: 0; text-overflow: ellipsis;
+  background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%;
+}
+.botctx__select:focus { box-shadow: none; }
+.botctx__select:disabled { opacity: 1; cursor: default; background-image: none; padding-right: 0; }
+.botctx__select option { background: var(--surface); color: var(--text); }
+.botctx__plan { display: flex; align-items: center; gap: 8px; }
+.botctx__exp { font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
+.botctx__exp.is-warn { color: var(--warn); }
+.botctx__note { flex: 1 1 200px; min-width: 0; font-size: 12.5px; color: var(--text-3); }
+.botctx__btn { flex: none; }
+@media (max-width: 640px) {
+  .botctx { gap: 8px 12px; }
+  .botctx__main { flex: 1 1 100%; }
+  .botctx__note { flex-basis: 100%; order: 3; }
+  .botctx__btn { margin-left: auto; }
+}
+
+/* Modal order & hapus: identitas bot */
+.order-bot {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  padding: 10px 12px; border-radius: 12px; background: var(--bg-soft); border: 1px solid var(--line);
+}
+.order-bot__icon {
+  flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px;
+  background: rgba(37, 211, 102, .1); color: #25d366; font-size: 16px;
+}
+.order-bot__id { display: grid; flex: 1; min-width: 0; line-height: 1.3; }
+.order-bot__id strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.order-bot__id .v-mono { font-size: 12px; color: var(--text-3); }
+.order-bot__id .v-label { font-size: 11px; color: var(--text-3); font-weight: 500; }
+.order-bot-help { display: flex; gap: 7px; line-height: 1.5; }
+.order-bot-help i { margin-top: 3px; color: var(--accent); }
+.order-bot-help b { color: var(--text-2); font-weight: 600; }
+.order-bot-field { margin-bottom: 14px; }
+#orderNoBot { margin-bottom: 14px; }
+.inv-row--until { border-top: 1px dashed var(--line); }
+.inv-row--until em { font-style: normal; font-size: 12px; }
+.inv-row--until strong { color: var(--accent); }
+.delbot__list { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 10px; }
+.delbot__list li { display: flex; gap: 10px; font-size: 13.5px; color: var(--text-2); line-height: 1.5; }
+.delbot__list li i { width: 16px; margin-top: 3px; text-align: center; color: var(--text-3); }
+#delBotPkg { margin-bottom: 16px; }
+.order-for i { color: #25d366; margin-right: 2px; }
+
+body.light-mode .botcard.is-active { background: linear-gradient(180deg, rgba(16, 180, 125, .07), transparent 55%), var(--bg-soft); }
+body.light-mode .tier-txt--plus { color: #9a6a00; }
+body.light-mode .tier-txt--basic { color: #2f5fc4; }
+body.light-mode .notice--ok { color: var(--text-2); }
 
 /* ==========================================================================
    TEMA TERANG (opsional, tombol matahari/bulan di dashboard)

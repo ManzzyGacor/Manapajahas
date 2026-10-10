@@ -16,7 +16,7 @@
     <!-- Versi di query string wajib dinaikkan tiap rilis: sw.js menyimpan
          aset per-URL, jadi tanpa ini admin bisa tertahan di JS/CSS lama. -->
     <link rel="stylesheet" href="/assets/varesa.css?v=31">
-    <link rel="stylesheet" href="/admin.css?v=3">
+    <link rel="stylesheet" href="/admin.css?v=4">
     <!-- Penjaga awal: halaman disembunyikan sampai admin.js memastikan yang
          membuka memang admin, supaya kerangka panel tidak sempat terlihat
          (dan tidak berkedip) sebelum dialihkan ke /login atau /dashboard. -->
@@ -175,7 +175,7 @@
 
                 <div class="stack">
                     <div class="v-card">
-                        <div class="card-head"><div><h3><i class="fa-regular fa-gem"></i> Sebaran paket</h3><p>Dari 200 akun terbaru.</p></div></div>
+                        <div class="card-head"><div><h3><i class="fa-regular fa-gem"></i> Sebaran paket bot</h3><p id="ovDistNote">Paket dihitung per bot.</p></div></div>
                         <div class="card-body dist" id="ovDist">
                             <p class="v-help">Memuat…</p>
                         </div>
@@ -186,7 +186,7 @@
                             <button type="button" class="shortcut" data-view="site"><i class="fa-regular fa-images"></i> Ganti banner</button>
                             <button type="button" class="shortcut" data-view="capacity"><i class="fa-solid fa-server"></i> Atur kapasitas</button>
                             <button type="button" class="shortcut" data-view="pricing"><i class="fa-solid fa-tags"></i> Ubah harga</button>
-                            <button type="button" class="shortcut" data-view="users"><i class="fa-solid fa-user-pen"></i> Ubah tier user</button>
+                            <button type="button" class="shortcut" data-view="bots"><i class="fa-regular fa-gem"></i> Ubah paket bot</button>
                         </div>
                     </div>
                 </div>
@@ -298,16 +298,25 @@
                 <div>
                     <p class="v-eyebrow">Manajemen user</p>
                     <h2>Database pengguna &amp; bot.</h2>
-                    <p class="v-muted">Tier yang diubah admin berlaku permanen (tanpa tanggal kedaluwarsa) sampai diubah lagi.</p>
+                    <p class="v-muted">Satu akun bisa punya beberapa bot. Kolom paket di sini cuma ringkasan — paket tertinggi yang aktif di antara bot-botnya.</p>
                 </div>
+            </div>
+
+            <div class="perbot-note" id="perbotNote">
+                <span class="perbot-note__icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
+                <div class="perbot-note__txt">
+                    <strong>Paket sekarang per bot, bukan per akun.</strong>
+                    <p>Tiap bot punya paket &amp; masa aktif sendiri — atur satu per satu lewat <b>Bot &amp; Node → Ubah paket</b>. Pilihan <b>“Terapkan ke semua bot”</b> di tabel ini memasang paket yang sama ke SEMUA bot milik user, permanen (tanpa tanggal habis). User yang belum punya bot mendapat paket tertunda untuk bot pertamanya.</p>
+                </div>
+                <button type="button" class="v-btn v-btn--outline v-btn--sm perbot-note__btn" data-view="bots"><i class="fa-solid fa-robot"></i> Atur paket per bot</button>
             </div>
 
             <div class="v-card tiles">
                 <div class="v-statgrid">
                     <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-users"></i> Total pengguna</span><span class="v-stat__value" id="admTotalUser">0</span><span class="v-stat__sub">200 akun terbaru dimuat</span></div>
                     <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-robot"></i> Bot aktif (node)</span><span class="v-stat__value" id="admActiveBot">0</span><span class="v-stat__sub">sesi hidup di server</span></div>
-                    <div class="v-stat"><span class="v-stat__label"><i class="fa-regular fa-gem"></i> Akun berbayar</span><span class="v-stat__value" id="admPaidUser">0</span><span class="v-stat__sub" id="admPaidSub">Core · Prime · Zenith</span></div>
-                    <div class="v-stat"><span class="v-stat__label"><i class="fa-regular fa-hourglass-half"></i> Habis ≤ 3 hari</span><span class="v-stat__value" id="admExpiring">0</span><span class="v-stat__sub">perlu diingatkan</span></div>
+                    <div class="v-stat"><span class="v-stat__label" title="Akun yang punya minimal satu bot berbayar"><i class="fa-regular fa-gem"></i> Akun berbayar</span><span class="v-stat__value" id="admPaidUser">0</span><span class="v-stat__sub" id="admPaidSub">Core · Prime · Zenith</span></div>
+                    <div class="v-stat"><span class="v-stat__label" title="Paket bot yang habis dalam 3 hari"><i class="fa-regular fa-hourglass-half"></i> Bot habis ≤ 3 hari</span><span class="v-stat__value" id="admExpiring">0</span><span class="v-stat__sub" id="admExpiringSub">perlu diingatkan</span></div>
                 </div>
             </div>
 
@@ -317,7 +326,7 @@
                     <div class="seg" id="userTierSeg" role="tablist" aria-label="Saring paket">
                         <button type="button" class="seg__btn is-active" data-tier="">Semua</button>
                         <button type="button" class="seg__btn" data-tier="free">Free</button>
-                        <button type="button" class="seg__btn" data-tier="paid">Berbayar</button>
+                        <button type="button" class="seg__btn" data-tier="paid" title="Punya minimal satu bot berbayar">Berbayar</button>
                         <button type="button" class="seg__btn" data-tier="admin">Admin</button>
                     </div>
                     <span class="toolbar__count" id="userCount">–</span>
@@ -325,10 +334,10 @@
                 <div class="table-wrap">
                     <table class="atable is-stack">
                         <thead>
-                            <tr><th>Username / Email</th><th>Role</th><th>Paket</th><th>Kedaluwarsa</th><th>Bot</th><th>Ubah tier</th><th class="right">Sesi WA</th></tr>
+                            <tr><th>Username / Email</th><th>Role</th><th>Bot</th><th>Paket tertinggi</th><th>Terapkan ke semua bot</th><th class="right">Aksi</th></tr>
                         </thead>
                         <tbody id="adminTableBody">
-                            <tr><td colspan="7" class="td-empty">Memuat data server…</td></tr>
+                            <tr><td colspan="6" class="td-empty">Memuat data server…</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -342,30 +351,31 @@
             <div class="page-head">
                 <div>
                     <p class="v-eyebrow">Monitoring node</p>
-                    <h2>Semua bot yang pernah dibuat.</h2>
-                    <p class="v-muted">Status ter-update otomatis tiap 10 detik. “Owner” adalah nomor WA yang di-set di Config bot, bukan akun login user.</p>
+                    <h2>Semua bot &amp; paketnya. <span class="v-fade-text">Tiap bot bisa beda paket.</span></h2>
+                    <p class="v-muted">Status ter-update otomatis tiap 10 detik. “Akun” = pemilik bot di Varesa; “Owner WA” = nomor owner yang di-set di Config bot.</p>
                 </div>
             </div>
 
             <div class="v-card tiles">
                 <div class="v-statgrid">
-                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-signal"></i> Bot online sekarang</span><span class="v-stat__value" id="botOnlineCount">0</span><span class="v-stat__sub">tersambung ke WhatsApp</span></div>
-                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-robot"></i> Total bot terdaftar</span><span class="v-stat__value" id="botTotalCount">0</span><span class="v-stat__sub">semua status</span></div>
-                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-power-off"></i> Offline</span><span class="v-stat__value" id="botOfflineCount">0</span><span class="v-stat__sub">tidak tersambung</span></div>
-                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-seedling"></i> Bot user Free</span><span class="v-stat__value" id="botFreeCount">0</span><span class="v-stat__sub">kandidat dibersihkan</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-signal"></i> Bot online sekarang</span><span class="v-stat__value" id="botOnlineCount">0</span><span class="v-stat__sub" id="botOnlineSub">tersambung ke WhatsApp</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-robot"></i> Total bot terdaftar</span><span class="v-stat__value" id="botTotalCount">0</span><span class="v-stat__sub" id="botOwnerSub">semua status</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-regular fa-gem"></i> Bot berbayar</span><span class="v-stat__value" id="botPaidCount">0</span><span class="v-stat__sub" id="botPaidSub">Core · Prime · Zenith</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-seedling"></i> Bot paket Free</span><span class="v-stat__value" id="botFreeCount">0</span><span class="v-stat__sub">kandidat dibersihkan</span></div>
                 </div>
             </div>
 
             <div class="v-card">
                 <div class="toolbar">
-                    <label class="search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="v-input" id="botSearch" placeholder="Cari nomor bot atau owner" autocomplete="off" inputmode="search"></label>
+                    <label class="search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="v-input" id="botSearch" placeholder="Cari nomor, label, akun, atau paket" autocomplete="off" inputmode="search"></label>
+                    <button type="button" class="owner-chip" id="botOwnerChip" hidden title="Hapus filter akun"><i class="fa-regular fa-user"></i><span id="botOwnerName">akun</span><i class="fa-solid fa-xmark"></i></button>
                     <div class="seg" id="botStateSeg" aria-label="Saring status">
                         <button type="button" class="seg__btn is-active" data-state="">Semua</button>
                         <button type="button" class="seg__btn" data-state="on">Online</button>
                         <button type="button" class="seg__btn" data-state="off">Offline</button>
                     </div>
                     <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnBotsRefresh"><i class="fa-solid fa-rotate"></i> Refresh</button>
-                    <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnSyncTiers"><i class="fa-solid fa-arrows-rotate"></i> Sinkronkan tier</button>
+                    <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnSyncTiers" title="Samakan paket di config bot dengan database"><i class="fa-solid fa-arrows-rotate"></i> Sinkronkan paket</button>
                 </div>
                 <div id="botBoard" class="bot-board">
                     <p class="board-empty">Memuat data node…</p>
@@ -376,7 +386,7 @@
                     <button type="button" class="v-btn v-btn--outline v-btn--sm" id="botNext" aria-label="Halaman berikutnya">Selanjutnya <i class="fa-solid fa-chevron-right"></i></button>
                 </div>
                 <div class="danger-row">
-                    <p><strong style="color:var(--text-2)">Zona berbahaya.</strong> Hapus paksa sesi nomor tertentu (juga yang tidak muncul di daftar), atau hapus PERMANEN semua bot milik user Free beserta sesi WhatsApp-nya. Tidak bisa dibatalkan.</p>
+                    <p><strong style="color:var(--text-2)">Zona berbahaya.</strong> Hapus paksa sesi nomor tertentu (juga yang tidak muncul di daftar), atau hapus PERMANEN semua bot berpaket Free beserta sesi WhatsApp-nya (bot berbayar tidak ikut). Tidak bisa dibatalkan.</p>
                     <div class="danger-row__btns">
                         <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnForceDelete"><i class="fa-solid fa-power-off"></i> Hapus paksa nomor…</button>
                         <button type="button" class="v-btn v-btn--danger v-btn--sm" id="btnDeleteFree"><i class="fa-solid fa-trash"></i> Hapus semua bot Free</button>
@@ -408,7 +418,7 @@
 
             <div class="v-card">
                 <div class="toolbar">
-                    <label class="search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="v-input" id="orderSearch" placeholder="Cari order ID, username, email" autocomplete="off"></label>
+                    <label class="search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="v-input" id="orderSearch" placeholder="Cari order ID, username, email, nomor bot" autocomplete="off"></label>
                     <div class="seg" id="orderStatusSeg" aria-label="Saring status">
                         <button type="button" class="seg__btn is-active" data-status="">Semua</button>
                         <button type="button" class="seg__btn" data-status="completed">Lunas</button>
@@ -642,11 +652,12 @@
                 <div>
                     <p class="v-eyebrow">Penjaga kapasitas</p>
                     <h2>Berapa bot yang muat di server ini. <span class="v-fade-text">Dihitung dari RAM &amp; CPU asli.</span></h2>
-                    <p class="v-muted">Saat slot habis, user tidak bisa menyalakan bot BARU (restart bot yang masih hidup tetap boleh, admin selalu boleh). Ini mencegah RAM jebol sampai semua bot ikut mati.</p>
+                    <p class="v-muted">Saat slot habis, user tidak bisa menyalakan bot BARU (restart bot yang masih hidup tetap boleh, admin selalu boleh). Ini mencegah RAM jebol sampai semua bot ikut mati. Di bawahnya ada batas jumlah bot per akun.</p>
                 </div>
             </div>
 
             <div class="cap-grid">
+                <div class="stack">
                 <div class="v-card">
                     <div class="card-head"><div><h3><i class="fa-solid fa-sliders"></i> Batas kapasitas</h3><p>Disimpan di server, langsung berlaku.</p></div></div>
                     <div class="card-body form-grid">
@@ -677,6 +688,34 @@
                         <span class="v-help" id="capSavedInfo">–</span>
                         <button type="button" class="v-btn v-btn--primary" id="btnSaveCap"><i class="fa-solid fa-floppy-disk"></i> Simpan kapasitas</button>
                     </div>
+                </div>
+
+                <!-- Paket per bot: satu akun boleh punya beberapa bot. Batas ini
+                     menjaga server tidak dipenuhi bot gratis milik satu orang. -->
+                <div class="v-card" id="limitsCard">
+                    <div class="card-head"><div><h3><i class="fa-solid fa-user-gear"></i> Batas bot per akun</h3><p>Berlaku saat user menambah bot baru. Admin selalu lolos.</p></div></div>
+                    <div class="card-body form-grid form-grid--2">
+                        <div class="v-field">
+                            <label class="v-label" for="limMaxBots">Maksimal bot per akun <small>1–50</small></label>
+                            <span class="affix affix--suffix"><input type="number" id="limMaxBots" class="v-input" min="1" max="50" step="1" inputmode="numeric" value="5"><em>bot</em></span>
+                            <span class="v-help">Semua bot, Free maupun berbayar. Bawaan 5.</span>
+                        </div>
+                        <div class="v-field">
+                            <label class="v-label" for="limMaxFree">Maksimal bot Free per akun <small>0–10</small></label>
+                            <span class="affix affix--suffix"><input type="number" id="limMaxFree" class="v-input" min="0" max="10" step="1" inputmode="numeric" value="1"><em>bot</em></span>
+                            <span class="v-help">0 = bot baru wajib langsung berbayar. Bawaan 1.</span>
+                        </div>
+                        <div class="preview-box is-same span-all" id="limPreview">
+                            <span>Aturan yang dilihat user</span>
+                            <b id="limPreviewVal">–</b>
+                            <span id="limPreviewNote">Bot yang sudah ada tidak dihapus kalau batas diturunkan — user cuma tidak bisa menambah bot baru.</span>
+                        </div>
+                    </div>
+                    <div class="card-foot">
+                        <span class="v-help" id="limSavedInfo">–</span>
+                        <button type="button" class="v-btn v-btn--primary" id="btnSaveLimits"><i class="fa-solid fa-floppy-disk"></i> Simpan batas</button>
+                    </div>
+                </div>
                 </div>
 
                 <div class="stack">
@@ -821,6 +860,62 @@
         </div>
     </div>
 
+    <!-- ============ UBAH PAKET SATU BOT ============ -->
+    <div class="modal" id="botTierModal" role="dialog" aria-modal="true" aria-labelledby="btTitle" hidden>
+        <div class="modal__box modal__box--tier">
+            <div class="modal__head">
+                <h3 id="btTitle">Ubah paket bot</h3>
+                <button type="button" class="icon-btn icon-btn--sm" data-close aria-label="Tutup"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal__body">
+                <div class="bt-bot">
+                    <span class="bt-bot__icon" aria-hidden="true"><i class="fa-solid fa-robot"></i></span>
+                    <div class="bt-bot__id">
+                        <b id="btNumber">–</b>
+                        <small id="btWho">–</small>
+                    </div>
+                    <span class="tier" id="btNowBadge">Free</span>
+                </div>
+                <p class="bt-now" id="btNowText">–</p>
+
+                <fieldset class="bt-field">
+                    <legend class="v-label">Paket baru</legend>
+                    <div class="bt-tiers" id="btTiers">
+                        <label class="bt-tier" data-t="free"><input type="radio" name="btTier" value="free"><span class="bt-tier__name">Free</span><small data-price="free">gratis</small></label>
+                        <label class="bt-tier" data-t="basic"><input type="radio" name="btTier" value="basic"><span class="bt-tier__name">Core</span><small data-price="basic">–</small></label>
+                        <label class="bt-tier" data-t="plus"><input type="radio" name="btTier" value="plus"><span class="bt-tier__name">Prime</span><small data-price="plus">–</small></label>
+                        <label class="bt-tier" data-t="booster"><input type="radio" name="btTier" value="booster"><span class="bt-tier__name">Zenith</span><small data-price="booster">–</small></label>
+                    </div>
+                </fieldset>
+
+                <div class="v-field" id="btDaysField">
+                    <label class="v-label" for="btDays">Masa aktif <small>1–3650 hari, dihitung dari sekarang</small></label>
+                    <div class="bt-days">
+                        <span class="affix affix--suffix"><input type="number" id="btDays" class="v-input" min="1" max="3650" step="1" inputmode="numeric" value="30"><em>hari</em></span>
+                        <div class="bt-presets" id="btPresets">
+                            <button type="button" class="bt-chip" data-days="7">7</button>
+                            <button type="button" class="bt-chip" data-days="30">30</button>
+                            <button type="button" class="bt-chip" data-days="90">90</button>
+                            <button type="button" class="bt-chip" data-days="365">365</button>
+                            <button type="button" class="bt-chip bt-chip--extend" id="btExtend" hidden>Sisa + 30</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="preview-box" id="btPreview">
+                    <span>Setelah disimpan</span>
+                    <b id="btPreviewVal">–</b>
+                    <span id="btPreviewNote">–</span>
+                </div>
+                <p class="v-help bt-err" id="btErr" role="alert"></p>
+            </div>
+            <div class="modal__foot">
+                <button type="button" class="v-btn v-btn--ghost" data-close>Batal</button>
+                <button type="button" class="v-btn v-btn--primary" id="btSave"><i class="fa-solid fa-check"></i> <span>Simpan paket</span></button>
+            </div>
+        </div>
+    </div>
+
     <!-- ============ DIALOG KONFIRMASI ============ -->
     <div class="modal" id="askModal" role="alertdialog" aria-modal="true" aria-labelledby="askTitle" hidden>
         <div class="modal__box">
@@ -845,6 +940,6 @@
 
     <div class="v-toast-wrap" id="toastWrap" aria-live="polite"></div>
 
-    <script src="/admin.js?v=3" defer></script>
+    <script src="/admin.js?v=4" defer></script>
 </body>
 </html>

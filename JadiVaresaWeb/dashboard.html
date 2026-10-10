@@ -19,7 +19,7 @@
     <!-- Versi di query string wajib dinaikkan tiap rilis: sw.js menyimpan
          aset statis per-URL, jadi tanpa ini user bisa tertahan di CSS lama. -->
     <link rel="stylesheet" href="/assets/varesa.css?v=31">
-    <link rel="stylesheet" href="/style.css?v=32">
+    <link rel="stylesheet" href="/style.css?v=33">
 </head>
 <body class="app has-tabbar">
 
@@ -103,6 +103,7 @@
                         <div class="profile-dropdown-header">
                             <strong id="dropName">—</strong>
                             <span id="dropEmail"></span>
+                            <span class="drop-sum" id="dropSum"></span>
                         </div>
                         <ul class="profile-dropdown-list">
                             <li class="nav-btn" data-target="setting"><i class="fa-solid fa-gear"></i> Pengaturan profil</li>
@@ -116,13 +117,32 @@
 
         <main class="main" id="main">
 
+        <!-- Bar konteks bot: SATU elemen yang dipindah ke bawah judul halaman
+             per bot (config, menu, API, …) supaya user selalu tahu bot mana
+             yang sedang diatur, dan bisa ganti bot tanpa kembali ke Dashboard. -->
+        <div class="botctx v-hide" id="botCtx">
+            <div class="botctx__main">
+                <label class="botctx__label v-eyebrow" for="botCtxSelect">Bot yang diatur</label>
+                <div class="botctx__pick">
+                    <span class="v-dot v-dot--off" id="botCtxDot"></span>
+                    <select id="botCtxSelect" class="v-select botctx__select"></select>
+                </div>
+            </div>
+            <div class="botctx__plan">
+                <span id="botCtxTier"></span>
+                <span class="botctx__exp v-mono" id="botCtxExp"></span>
+            </div>
+            <p class="botctx__note" id="botCtxNote">Setelan di halaman ini berlaku untuk bot ini saja.</p>
+            <button type="button" class="v-btn v-btn--sm v-btn--outline botctx__btn" id="botCtxUpgrade"><i class="fa-regular fa-gem"></i> <span>Upgrade bot ini</span></button>
+        </div>
+
         <!-- =========================================================
              1. DASHBOARD
              ========================================================= -->
         <section id="view-dashboard" class="view-section active" data-title="Dashboard" data-group="Ringkasan">
             <div class="alert-banner" id="freeAlert">
                 <i class="fa-solid fa-circle-exclamation"></i>
-                <p>Kamu lagi pakai paket <strong>Free</strong>. Upgrade untuk ganti nama bot, nomor owner, dan bebas watermark.</p>
+                <p><span id="freeAlertWho">Bot ini</span> masih pakai paket <strong>Free</strong>. Upgrade bot ini untuk ganti nama bot, nomor owner, dan bebas watermark.</p>
                 <button type="button" class="v-btn v-btn--sm v-btn--outline nav-btn" data-target="upgrade">Lihat paket <i class="fa-solid fa-arrow-right"></i></button>
             </div>
 
@@ -133,7 +153,75 @@
                 </div>
             </div>
 
-            <!-- Strip statistik utama -->
+            <!-- Bot saya: satu akun boleh punya beberapa bot, tiap bot punya
+                 paket & masa aktif sendiri. Bot yang dipilih di sini dipakai
+                 oleh SEMUA halaman bot (config, menu, API, terminal, dst). -->
+            <section class="v-card fleet" id="fleet" aria-labelledby="fleetTitle">
+                <header class="fleet__head">
+                    <div class="fleet__intro">
+                        <h3 class="fleet__title" id="fleetTitle">Bot saya <span class="fleet__count v-mono" id="fleetCount"></span></h3>
+                        <p class="card-sub" id="fleetSub">Tiap bot punya paket sendiri. Pilih bot untuk mengatur config, menu, API, dan lainnya.</p>
+                    </div>
+                    <button type="button" class="v-btn v-btn--primary v-btn--sm" id="btnAddBotToggle" aria-expanded="false" aria-controls="addBotPanel"><i class="fa-solid fa-plus"></i> Tambah bot</button>
+                </header>
+
+                <!-- Paket tersimpan dari bot yang dihapus, menunggu bot baru -->
+                <div class="notice notice--ok fleet__pending v-hide" id="pendingNotice" role="status"></div>
+
+                <div class="fleet__grid" id="botList" aria-live="polite">
+                    <div class="botcard botcard--skel"><span class="v-skel"></span><span class="v-skel"></span><span class="v-skel"></span></div>
+                </div>
+
+                <!-- Form tambah bot (dibuka dari tombol "Tambah bot") -->
+                <div class="addbot v-hide" id="addBotPanel">
+                    <div class="addbot__head">
+                        <div>
+                            <h4 class="addbot__title">Tambah bot baru</h4>
+                            <p class="v-help">Bot baru mulai dari paket Free. Pairing code muncul di terminal Kontrol bot.</p>
+                        </div>
+                        <button type="button" class="modal-close" id="btnAddBotClose" aria-label="Tutup form tambah bot"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+
+                    <div class="limits" id="addBotLimits">
+                        <div class="limit" id="limBotsBox">
+                            <span class="limit__label">Bot di akun</span>
+                            <span class="limit__value v-mono" id="limBots">–</span>
+                            <div class="v-meter" id="limBotsMeter"><i></i></div>
+                        </div>
+                        <div class="limit" id="limFreeBox">
+                            <span class="limit__label">Slot bot Free</span>
+                            <span class="limit__value v-mono" id="limFree">–</span>
+                            <div class="v-meter" id="limFreeMeter"><i></i></div>
+                        </div>
+                        <div class="limit">
+                            <span class="limit__label">Slot server</span>
+                            <span class="limit__value v-mono" id="limSrv">–</span>
+                            <div class="v-meter" id="limSrvMeter"><i></i></div>
+                        </div>
+                    </div>
+
+                    <p class="addbot__rule" id="addBotRule"><i class="fa-solid fa-circle-info"></i> <span>Tiap akun dapat <b id="ruleFree">1</b> bot Free. Mau bot berikutnya? Upgrade bot Free kamu dulu — slot Free-nya kosong lagi — lalu tambah bot baru di sini.</span></p>
+
+                    <div class="notice v-hide" id="addBotNotice" role="alert"></div>
+
+                    <div class="addbot__form">
+                        <div class="v-field addbot__num">
+                            <label class="v-label" for="inputWaNumber">Nomor WhatsApp bot</label>
+                            <div class="input-prefix">
+                                <i class="fa-brands fa-whatsapp"></i>
+                                <input type="tel" inputmode="numeric" id="inputWaNumber" class="v-input" placeholder="62812xxxxxxx" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="v-field addbot__name">
+                            <label class="v-label" for="addBotLabel">Nama bot <span class="label-hint">(opsional)</span></label>
+                            <input type="text" id="addBotLabel" class="v-input" maxlength="32" placeholder="Cth: Bot Toko" autocomplete="off">
+                        </div>
+                        <button type="button" class="v-btn v-btn--primary addbot__go" id="btnAddBot"><i class="fa-solid fa-plug"></i> Tambah &amp; start</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Strip statistik bot yang dipilih -->
             <div class="v-card statstrip">
                 <div class="v-statgrid">
                     <div class="v-stat">
@@ -142,9 +230,9 @@
                         <span class="v-stat__sub" id="statNumber">belum ada nomor</span>
                     </div>
                     <div class="v-stat">
-                        <span class="v-stat__label"><i class="fa-regular fa-gem"></i> Paket</span>
+                        <span class="v-stat__label"><i class="fa-regular fa-gem"></i> Paket bot ini</span>
                         <span class="v-stat__value statstrip__tier" id="statRole">Free</span>
-                        <span class="v-stat__sub">langganan aktif</span>
+                        <span class="v-stat__sub" id="statRoleSub">berlaku per bot</span>
                     </div>
                     <div class="v-stat">
                         <span class="v-stat__label"><i class="fa-regular fa-calendar"></i> Kedaluwarsa</span>
@@ -165,21 +253,25 @@
                     <header class="v-card__head">
                         <div>
                             <h3 class="v-card__title">Kontrol Bot</h3>
-                            <p class="card-sub">Sambungkan nomor WhatsApp yang mau dijadikan bot.</p>
+                            <p class="card-sub">Start, stop, atau hapus bot yang sedang dipilih.</p>
                         </div>
                         <span class="v-badge" id="ctlStateBadge"><span class="v-dot v-dot--off"></span> offline</span>
                     </header>
                     <div class="ctl-card__body">
-                        <label class="v-label" for="inputWaNumber">Nomor WhatsApp bot</label>
                         <div class="ctl-row">
-                            <div class="input-prefix">
-                                <i class="fa-brands fa-whatsapp"></i>
-                                <input type="tel" inputmode="numeric" id="inputWaNumber" class="v-input" placeholder="62812xxxxxxx" autocomplete="off">
+                            <!-- Identitas bot yang dipilih (ganti lewat kartu "Bot saya") -->
+                            <div class="ctl-bot" id="ctlBot">
+                                <span class="ctl-bot__icon"><i class="fa-brands fa-whatsapp"></i></span>
+                                <span class="ctl-bot__id">
+                                    <strong id="ctlBotLabel">Belum ada bot</strong>
+                                    <span class="v-mono" id="ctlBotNum">tambah bot dulu di atas</span>
+                                </span>
+                                <span id="ctlBotTier"></span>
                             </div>
                             <div class="ctl-btns">
                                 <button type="button" class="v-btn v-btn--primary" id="btnStartBot"><i class="fa-solid fa-play"></i> Start</button>
                                 <button type="button" class="v-btn v-btn--outline" id="btnStopBot"><i class="fa-solid fa-stop"></i> Stop</button>
-                                <button type="button" class="v-btn v-btn--danger" id="btnDeleteSession" title="Hapus sesi WhatsApp"><i class="fa-regular fa-trash-can"></i><span class="hide-sm"> Hapus Sesi</span></button>
+                                <button type="button" class="v-btn v-btn--danger" id="btnDeleteSession" title="Hapus bot ini"><i class="fa-regular fa-trash-can"></i><span class="hide-sm"> Hapus</span></button>
                             </div>
                         </div>
 
@@ -309,7 +401,7 @@
                     <div class="faq-item active">
                         <button type="button" class="faq-question"><span>Bagaimana cara mengaktifkan bot WhatsApp?</span><i class="fa-solid fa-chevron-down"></i></button>
                         <div class="faq-answer"><div class="faq-answer-inner">
-                            1. Masukkan nomor WhatsApp yang akan dijadikan bot, lalu tekan <strong>Start</strong>.<br>
+                            1. Tekan <strong>Tambah bot</strong>, masukkan nomor WhatsApp yang akan dijadikan bot, lalu tekan <strong>Tambah &amp; start</strong>.<br>
                             2. Tunggu beberapa saat hingga <strong>Pairing Code</strong> muncul di terminal.<br>
                             3. Buka WhatsApp kamu. Tap menu titik tiga &rarr; <strong>Perangkat Tertaut</strong> &rarr; <strong>Tautkan Perangkat</strong>.<br>
                             4. Pilih <strong>Tautkan dengan nomor telepon saja</strong>, lalu masukkan kode pairing tersebut.
@@ -318,7 +410,7 @@
                     <div class="faq-item">
                         <button type="button" class="faq-question"><span>Bagaimana kalau bot tiba-tiba offline?</span><i class="fa-solid fa-chevron-down"></i></button>
                         <div class="faq-answer"><div class="faq-answer-inner">
-                            Biasanya karena sesi WhatsApp terputus (logout dari HP, ganti perangkat, atau koneksi internet server). Tekan <strong>Start</strong> lagi dengan nomor yang sama untuk memunculkan pairing code baru.
+                            Biasanya karena sesi WhatsApp terputus (logout dari HP, ganti perangkat, atau koneksi internet server). Pilih bot itu di <strong>Bot saya</strong>, lalu tekan <strong>Start</strong> untuk memunculkan pairing code baru.
                         </div></div>
                     </div>
                     <div class="faq-item">
@@ -334,6 +426,12 @@
                         </div></div>
                     </div>
                     <div class="faq-item">
+                        <button type="button" class="faq-question"><span>Bisa punya lebih dari satu bot?</span><i class="fa-solid fa-chevron-down"></i></button>
+                        <div class="faq-answer"><div class="faq-answer-inner">
+                            Bisa. Paket sekarang berlaku <strong>per bot</strong>, jadi tiap bot bisa beda paket — misalnya satu bot Free dan satu bot Zenith. Tiap akun dapat <strong>1 bot Free</strong>; untuk menambah bot berikutnya, upgrade dulu bot Free kamu, lalu tambah bot baru. Kalau bot berbayar dihapus, sisa paketnya disimpan dan otomatis dipasang ke bot berikutnya yang kamu tambahkan.
+                        </div></div>
+                    </div>
+                    <div class="faq-item">
                         <button type="button" class="faq-question"><span>Apa bedanya paket Free dan paket berbayar?</span><i class="fa-solid fa-chevron-down"></i></button>
                         <div class="faq-answer"><div class="faq-answer-inner">
                             Paket <strong>Free</strong> hanya bisa atur mode Publik atau Grup saja, dan bot akan menyisipkan watermark Varesa di grup. Paket berbayar (<strong>Core</strong>, <strong>Prime</strong>, <strong>Zenith</strong>) membuka nomor owner custom, bebas iklan, dan kustomisasi bot sesuai level paketnya.
@@ -342,7 +440,7 @@
                     <div class="faq-item">
                         <button type="button" class="faq-question"><span>Bagaimana cara upgrade paket?</span><i class="fa-solid fa-chevron-down"></i></button>
                         <div class="faq-answer"><div class="faq-answer-inner">
-                            Buka menu <strong>Paket &amp; Harga</strong>, pilih paket yang kamu mau, lalu tekan <strong>Pilih paket</strong>. Pembayaran pakai QRIS dan aktif otomatis.
+                            Tekan <strong>Upgrade</strong> di kartu bot yang mau di-upgrade (atau buka <strong>Paket &amp; Harga</strong>), pilih paket dan durasinya, lalu bayar pakai QRIS. Paket langsung aktif untuk bot itu saja.
                         </div></div>
                     </div>
                 </div>
@@ -359,13 +457,7 @@
                 <p class="page-sub">Atur jangkauan dan identitas bot kamu. Perubahan langsung berlaku tanpa restart.</p>
             </div>
 
-            <div class="v-card v-card--pad tier-strip">
-                <div>
-                    <p class="v-label">Status langganan</p>
-                    <p class="tier-strip__text" id="configTierText">Paket: Free</p>
-                </div>
-                <button type="button" class="v-btn v-btn--outline v-btn--sm nav-btn" data-target="upgrade"><i class="fa-regular fa-gem"></i> Upgrade</button>
-            </div>
+            <!-- Paket bot ini tampil di bar "Bot yang diatur" (#botCtx) di atas. -->
 
             <div class="v-card v-card--pad">
                 <h3 class="card-title">Jangkauan bot</h3>
@@ -387,7 +479,7 @@
                     <div class="lock-card">
                         <span class="lock-circle"><i class="fa-solid fa-lock"></i></span>
                         <strong>Khusus Core ke atas</strong>
-                        <p>Upgrade paket untuk mengganti identitas bot.</p>
+                        <p>Upgrade bot ini ke Core untuk mengganti identitasnya.</p>
                         <button type="button" class="v-btn v-btn--primary v-btn--sm nav-btn" data-target="upgrade">Lihat paket</button>
                     </div>
                 </div>
@@ -403,7 +495,7 @@
                     <div class="v-field">
                         <label class="v-label" for="cfgOwnerNumber">Nomor owner <span class="label-hint">(pisahkan dengan koma)</span></label>
                         <input type="text" id="cfgOwnerNumber" class="v-input" placeholder="628xxx,628xxx">
-                        <p class="v-help" id="ownerLimitHint">Paket kamu: maks 1 nomor owner.</p>
+                        <p class="v-help" id="ownerLimitHint">Paket bot ini: maks 1 nomor owner.</p>
                     </div>
                     <div class="v-field">
                         <label class="v-label" for="cfgWatermark">Watermark stiker <span class="req">*</span></label>
@@ -437,7 +529,7 @@
                     <div class="lock-card">
                         <span class="lock-circle"><i class="fa-solid fa-lock"></i></span>
                         <strong>Khusus paket berbayar</strong>
-                        <p>Menu kustom terbuka mulai paket Core.</p>
+                        <p>Menu kustom terbuka kalau bot ini minimal paket Core.</p>
                         <button type="button" class="v-btn v-btn--primary v-btn--sm nav-btn" data-target="upgrade">Lihat paket</button>
                     </div>
                 </div>
@@ -526,7 +618,7 @@
             <div class="setting-grid">
                 <div class="v-card v-card--pad">
                     <h3 class="card-title">Profil</h3>
-                    <p class="card-sub">Banner menyesuaikan paket kamu secara otomatis.</p>
+                    <p class="card-sub">Banner mengikuti paket tertinggi di antara bot kamu.</p>
 
                     <div class="profile-banner" id="profileBanner">
                         <span class="banner-tier" id="bannerTier">Free</span>
@@ -564,7 +656,7 @@
 
                     <div class="v-card v-card--pad">
                         <h3 class="card-title">Cadangkan setelan</h3>
-                        <p class="card-sub">Simpan setelan bot ke file, atau pulihkan dari file lama. Tidak berisi data sesi WhatsApp, jadi aman disimpan.</p>
+                        <p class="card-sub">Simpan setelan bot <b class="v-mono" id="backupBotRef">–</b> ke file, atau pulihkan dari file lama. Tidak berisi data sesi WhatsApp, jadi aman disimpan.</p>
                         <div class="btn-row">
                             <button type="button" class="v-btn v-btn--outline" id="btnBackup"><i class="fa-solid fa-download"></i> Unduh cadangan</button>
                             <button type="button" class="v-btn v-btn--outline" id="btnRestore"><i class="fa-solid fa-upload"></i> Pulihkan</button>
@@ -596,7 +688,7 @@
                     <div class="lock-card">
                         <span class="lock-circle"><i class="fa-solid fa-lock"></i></span>
                         <strong>Khusus Core ke atas</strong>
-                        <p>Upgrade paket untuk menyalakan sambutan anggota.</p>
+                        <p>Upgrade bot ini ke Core untuk menyalakan sambutan anggota.</p>
                         <button type="button" class="v-btn v-btn--primary v-btn--sm nav-btn" data-target="upgrade">Lihat paket</button>
                     </div>
                 </div>
@@ -665,7 +757,7 @@
                     <div class="lock-card">
                         <span class="lock-circle"><i class="fa-solid fa-lock"></i></span>
                         <strong>Khusus Core ke atas</strong>
-                        <p>Upgrade paket untuk mengirim siaran ke semua grup.</p>
+                        <p>Upgrade bot ini ke Core untuk mengirim siaran ke semua grup.</p>
                         <button type="button" class="v-btn v-btn--primary v-btn--sm nav-btn" data-target="upgrade">Lihat paket</button>
                     </div>
                 </div>
@@ -695,13 +787,13 @@
                         <div class="lock-card">
                             <span class="lock-circle"><i class="fa-solid fa-lock"></i></span>
                             <strong>Khusus Core ke atas</strong>
-                            <p>Upgrade paket untuk membuat balasan otomatis.</p>
+                            <p>Upgrade bot ini ke Core untuk membuat balasan otomatis.</p>
                             <button type="button" class="v-btn v-btn--primary v-btn--sm nav-btn" data-target="upgrade">Lihat paket</button>
                         </div>
                     </div>
 
                     <h3 class="card-title">Tambah balasan <span class="badge-tier-only">Core ke atas</span></h3>
-                    <p class="card-sub">Maksimal <span id="messQuotaText" class="v-mono">10</span> aturan sesuai paket kamu.</p>
+                    <p class="card-sub">Maksimal <span id="messQuotaText" class="v-mono">10</span> aturan sesuai paket bot ini.</p>
 
                     <div class="v-field">
                         <label class="v-label" for="arKeyword">Kata kunci</label>
@@ -755,13 +847,13 @@
                         <div class="lock-card">
                             <span class="lock-circle"><i class="fa-solid fa-lock"></i></span>
                             <strong>Khusus Prime ke atas</strong>
-                            <p>Perintah kustom terbuka mulai paket Prime.</p>
+                            <p>Perintah kustom terbuka kalau bot ini minimal paket Prime.</p>
                             <button type="button" class="v-btn v-btn--primary v-btn--sm nav-btn" data-target="upgrade">Lihat paket</button>
                         </div>
                     </div>
 
                     <h3 class="card-title">Tambah perintah <span class="badge-tier-only">Prime ke atas</span></h3>
-                    <p class="card-sub">Kuota paket kamu: <span id="cmdQuotaText" class="v-mono">0</span> perintah.</p>
+                    <p class="card-sub">Kuota paket bot ini: <span id="cmdQuotaText" class="v-mono">0</span> perintah.</p>
 
                     <div class="v-field">
                         <label class="v-label" for="cmdName">Nama perintah</label>
@@ -816,10 +908,10 @@
             <div class="api-empty v-card v-card--pad v-hide" id="apiEmpty">
                 <span class="lock-circle"><i class="fa-solid fa-plug"></i></span>
                 <div>
-                    <strong>Belum ada bot aktif</strong>
-                    <p class="v-help">Jalankan bot dari Dashboard dulu. Token API dibuat per nomor bot.</p>
+                    <strong>Belum ada bot</strong>
+                    <p class="v-help">Tambah bot dari Dashboard dulu. Token API dibuat per nomor bot.</p>
                 </div>
-                <button type="button" class="v-btn v-btn--primary v-btn--sm nav-btn" data-target="dashboard">Ke kontrol bot</button>
+                <button type="button" class="v-btn v-btn--primary v-btn--sm nav-btn" data-target="dashboard">Ke Bot saya</button>
             </div>
 
             <div class="api-grid" id="apiMain">
@@ -958,7 +1050,7 @@
             <div class="page-head">
                 <p class="v-eyebrow">Akun · Add-ons</p>
                 <h2 class="page-title">Add-ons</h2>
-                <p class="page-sub">Tambahan yang bisa dibeli terpisah, tanpa mengubah paket langganan kamu.</p>
+                <p class="page-sub">Tambahan per bot yang bisa dibeli terpisah, tanpa mengubah paket bot itu.</p>
             </div>
 
             <div id="activeAddons"></div>
@@ -968,7 +1060,7 @@
                     <div class="addon-icon"><i class="fa-solid fa-infinity"></i></div>
                     <div>
                         <h3 class="addon-title">Unlimited Access</h3>
-                        <p class="addon-desc">Bot kamu bebas dari semua batasan selama masa aktif. Berlaku untuk seluruh anggota grup bot ini.</p>
+                        <p class="addon-desc">Bot yang dipilih bebas dari semua batasan selama masa aktif. Berlaku untuk seluruh anggota grup bot itu.</p>
                     </div>
                 </div>
 
@@ -980,7 +1072,7 @@
 
                 <div class="notice">
                     <i class="fa-solid fa-circle-info"></i>
-                    <span>Perintah MLBB sendiri tetap butuh paket <strong>Zenith</strong>. Add-on ini menghapus batasannya, bukan membuka fiturnya.</span>
+                    <span>Perintah MLBB sendiri tetap butuh bot berpaket <strong>Zenith</strong>. Add-on ini menghapus batasannya, bukan membuka fiturnya.</span>
                 </div>
 
                 <div class="addon-options" id="addonOptions">
@@ -1013,7 +1105,7 @@
             <div class="page-head">
                 <p class="v-eyebrow">Akun · Paket</p>
                 <h2 class="page-title">Harga &amp; paket<span class="v-fade-text">. Mulai gratis, upgrade kapan pun.</span></h2>
-                <p class="page-sub">Semua paket berlaku 30 hari per bulan yang dibeli. Bayar pakai QRIS, aktif otomatis.</p>
+                <p class="page-sub">Paket berlaku <strong>per bot</strong>, 30 hari per bulan yang dibeli — tiap bot bisa beda paket. Bayar pakai QRIS, aktif otomatis.</p>
             </div>
 
             <div class="pricing-grid">
@@ -1154,6 +1246,10 @@
                 <button type="button" class="modal-close" id="btnCloseAddon" aria-label="Tutup"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
+            <div class="order-bot order-bot--static" id="addonBotBox">
+                <span class="order-bot__icon"><i class="fa-brands fa-whatsapp"></i></span>
+                <span class="order-bot__id"><span class="v-label">Untuk bot</span><strong id="addonBotName">–</strong></span>
+            </div>
             <div class="v-field">
                 <label class="v-label" for="addonName">Add-on</label>
                 <input type="text" id="addonName" class="v-input" readonly>
@@ -1197,6 +1293,17 @@
                 <button type="button" class="modal-close" id="btnCloseOrder" aria-label="Tutup"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
+            <!-- Paket sekarang dibeli UNTUK SATU BOT (bukan akun) -->
+            <div class="v-field order-bot-field">
+                <label class="v-label" for="orderBot">Bot yang di-upgrade <span class="req">*</span></label>
+                <select id="orderBot" class="v-select"></select>
+                <p class="v-help order-bot-help" id="orderBotHelp"><i class="fa-solid fa-circle-info"></i> <span>Paket berlaku untuk bot ini.</span></p>
+            </div>
+            <div class="notice notice--warn v-hide" id="orderNoBot" role="alert">
+                <i class="fa-solid fa-robot"></i>
+                <span><strong>Belum ada bot.</strong> Paket dipasang ke bot tertentu, jadi tambah bot dulu di Dashboard.</span>
+            </div>
+
             <div class="form-grid form-grid--2">
                 <div class="v-field">
                     <label class="v-label" for="orderPaket">Paket <span class="req">*</span></label>
@@ -1237,11 +1344,32 @@
                 <div class="inv-row" id="sumDiscountRow" style="display: none;"><span>Diskon</span><strong id="sumDiscount" class="is-ok">Rp 0</strong></div>
                 <div class="inv-row"><span>Biaya admin <i class="fa-regular fa-circle-question" title="Biaya tetap per transaksi"></i></span><strong id="sumFee">Rp 0</strong></div>
                 <div class="inv-row total"><span>Total</span><strong id="sumTotal">Rp 0</strong></div>
+                <div class="inv-row inv-row--until" id="sumUntilRow"><span>Aktif sampai <em class="v-dim">(perkiraan)</em></span><strong id="sumUntil">–</strong></div>
             </div>
 
             <div class="order-actions">
                 <button type="button" class="v-btn v-btn--ghost" id="btnCancelOrder">Batal</button>
                 <button type="button" class="v-btn v-btn--primary" id="btnCreateOrder">Buat pesanan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: HAPUS BOT ================= -->
+    <div class="modal-overlay" id="deleteBotModal">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="delBotTitle">
+            <div class="modal-header">
+                <h3 id="delBotTitle">Hapus bot ini?</h3>
+                <button type="button" class="modal-close" data-close-modal aria-label="Tutup"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="order-bot order-bot--static delbot__who" id="delBotWho"></div>
+            <ul class="delbot__list">
+                <li><i class="fa-solid fa-link-slash"></i><span>Sesi WhatsApp diputus dan dihapus permanen dari server.</span></li>
+                <li><i class="fa-solid fa-sliders"></i><span>Setelan bot ini (config, menu, balasan otomatis, perintah kustom, token API) ikut terhapus. Unduh cadangan dulu di <b>Pengaturan</b> kalau mau dipakai lagi.</span></li>
+            </ul>
+            <div class="notice" id="delBotPkg"></div>
+            <div class="order-actions">
+                <button type="button" class="v-btn v-btn--ghost" data-close-modal>Batal</button>
+                <button type="button" class="v-btn v-btn--danger" id="btnConfirmDeleteBot"><i class="fa-regular fa-trash-can"></i> Hapus bot</button>
             </div>
         </div>
     </div>
@@ -1260,7 +1388,7 @@
 
     <div class="v-toast-wrap" id="toastWrap" aria-live="polite"></div>
 
-    <script src="/live.js?v=32"></script>
-    <script src="/app.js?v=32"></script>
+    <script src="/live.js?v=33"></script>
+    <script src="/app.js?v=33"></script>
 </body>
 </html>

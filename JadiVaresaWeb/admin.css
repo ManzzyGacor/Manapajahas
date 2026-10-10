@@ -746,3 +746,144 @@ body.no-scroll .v-toast-wrap { top: 16px; bottom: auto; }
 /* Editor banner di HP: pratinjau & pesan error di atas formulir supaya
    langsung terlihat (di bawah, error unggah tidak kelihatan tanpa scroll). */
 @media (max-width: 819px) { .editor-side { order: -1; } }
+
+/* ==========================================================================
+   Paket PER BOT (bukan per akun)
+   Satu akun bisa punya beberapa bot dengan paket berbeda, jadi paket &
+   masa aktif ditampilkan di kartu bot; tabel user hanya meringkas.
+   ========================================================================== */
+.perbot-note {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 14px 16px; border-radius: 14px;
+  border: 1px solid var(--accent-line); background: linear-gradient(90deg, var(--accent-soft), rgba(92, 240, 180, .03));
+}
+.perbot-note__icon {
+  flex: none; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
+  color: var(--accent); background: rgba(92, 240, 180, .12); border: 1px solid var(--accent-line);
+}
+.perbot-note__txt { flex: 1 1 320px; min-width: 0; }
+.perbot-note__txt strong { font-family: var(--font-display); font-weight: 600; font-size: 14.5px; letter-spacing: -.01em; }
+.perbot-note__txt p { margin-top: 3px; font-size: 13px; line-height: 1.55; color: var(--text-2); }
+.perbot-note__txt b { color: var(--text); font-weight: 600; }
+.perbot-note__btn { flex: none; }
+@media (max-width: 560px) { .perbot-note__btn { width: 100%; } }
+
+/* Sel tabel user */
+.cell-pkg, .cell-bots { display: inline-grid; gap: 3px; justify-items: start; min-width: 0; }
+.cell-pkg small, .cell-bots small { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
+.cell-pkg small.is-err { color: #ff8a8e; }
+.cell-bots b { font-weight: 600; font-size: 13.5px; }
+.cell-pending { display: inline-flex; align-items: center; gap: 5px; color: var(--warn) !important; }
+/* `.is-sm` menimpa padding kanan .v-select — kembalikan ruang untuk panah
+   supaya teks pilihan tidak menabrak ikon panah. */
+.v-select.is-sm { padding-right: 30px; }
+.tier-select { min-width: 168px; }
+@media (max-width: 760px) {
+  .cell-pkg, .cell-bots { justify-items: end; text-align: right; }
+  .tier-select { min-width: 148px; max-width: 210px; }
+}
+
+/* Invoice: paket dibayar untuk bot tertentu */
+.cell-order { display: inline-grid; gap: 2px; justify-items: start; }
+.cell-order small { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); }
+@media (max-width: 760px) { .cell-order { justify-items: end; } }
+
+/* Filter akun di toolbar Bot & Node */
+.owner-chip {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; max-width: 240px;
+  border-radius: 99px; border: 1px solid var(--accent-line); background: var(--accent-soft); color: var(--accent);
+  font: 600 12.5px var(--font-sans); cursor: pointer; transition: background .15s;
+}
+.owner-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.owner-chip .fa-xmark { opacity: .7; font-size: 12px; }
+.owner-chip:hover { background: rgba(92, 240, 180, .2); }
+.owner-chip:hover .fa-xmark { opacity: 1; }
+.owner-chip[hidden] { display: none; }
+
+/* Kartu bot: identitas + kotak paket */
+.bot-board { grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); }
+/* Flex kolom supaya tombol aksi selalu rata bawah walau isi kartu beda
+   (baris "Pesan · cmd" hanya ada untuk bot yang punya statistik live). */
+.bot-card { display: flex; flex-direction: column; }
+.bot-card__actions { margin-top: auto; }
+.bot-label.is-empty { color: var(--text-3); opacity: .6; }
+/* Rincian Core/Prime/Zenith boleh turun baris di HP daripada terpotong. */
+@media (max-width: 760px) { #botPaidSub, #admPaidSub { white-space: normal; } }
+.bot-id { display: grid; gap: 2px; min-width: 0; }
+.bot-label { font-size: 12.5px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-pkg {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 10px 10px 12px; border-radius: 11px; border: 1px solid var(--line); background: var(--surface);
+}
+.bot-pkg__txt { display: grid; gap: 1px; min-width: 0; }
+.bot-pkg__txt span { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
+.bot-pkg__txt b { font-family: var(--font-mono); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.bot-pkg__txt small { font-size: 11.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bot-pkg .v-btn { flex: none; height: 32px; padding: 0 10px; font-size: 12.5px; }
+.bot-pkg.is-free .bot-pkg__txt b { color: var(--text-2); font-family: var(--font-sans); font-weight: 500; }
+.bot-pkg.is-soon { border-color: rgba(242, 85, 90, .35); background: rgba(242, 85, 90, .05); }
+.bot-pkg.is-soon .bot-pkg__txt small { color: #ff8a8e; }
+.link-btn {
+  padding: 0; border: 0; background: none; cursor: pointer; color: var(--text); font: inherit;
+  border-bottom: 1px dashed var(--line-3); max-width: 100%; overflow-wrap: anywhere; text-align: right;
+}
+.link-btn:hover { color: var(--accent); border-bottom-color: var(--accent-line); }
+.bot-meta dd .link-btn { font-family: var(--font-sans); font-weight: 600; }
+.bot-card.is-flash { animation: botFlash 2.4s var(--ease); }
+@keyframes botFlash {
+  0%, 35% { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-line), 0 10px 30px -12px rgba(92, 240, 180, .45); }
+  100% { border-color: var(--line); box-shadow: none; }
+}
+
+/* Dialog ubah paket */
+.modal__box--tier { width: min(520px, 100%); }
+.bt-bot {
+  display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--bg-soft);
+}
+.bt-bot__icon { flex: none; width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; color: var(--text-2); background: var(--surface-3); border: 1px solid var(--line-2); }
+.bt-bot__id { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.bt-bot__id b { font-family: var(--font-mono); font-size: 15px; font-weight: 700; letter-spacing: .02em; overflow-wrap: anywhere; }
+.bt-bot__id small { font-size: 12.5px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modal__body p.bt-now { margin-top: 10px; font-size: 13px; color: var(--text-3); }
+.bt-field { border: 0; padding: 0; margin: 16px 0 0; min-width: 0; }
+.bt-field legend { padding: 0; margin-bottom: 8px; }
+.bt-tiers { display: grid; gap: 8px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 420px) { .bt-tiers { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.bt-tier {
+  position: relative; display: grid; gap: 3px; padding: 11px 10px; border-radius: 11px; cursor: pointer;
+  border: 1px solid var(--line-2); background: var(--bg-soft); transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.bt-tier input { position: absolute; opacity: 0; pointer-events: none; }
+.bt-tier__name { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
+.bt-tier small { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-tier:hover { border-color: var(--line-3); }
+.bt-tier:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bt-tier.is-on { border-color: var(--line-3); background: var(--surface-3); box-shadow: var(--shadow-1); }
+.bt-tier.is-on[data-t="free"] .bt-tier__name { color: var(--text); }
+.bt-tier.is-on[data-t="basic"] { border-color: rgba(143, 180, 255, .55); background: rgba(143, 180, 255, .08); }
+.bt-tier.is-on[data-t="basic"] .bt-tier__name { color: var(--tier-core); }
+.bt-tier.is-on[data-t="plus"] { border-color: rgba(245, 196, 81, .55); background: rgba(245, 196, 81, .08); }
+.bt-tier.is-on[data-t="plus"] .bt-tier__name { color: var(--tier-prime); }
+.bt-tier.is-on[data-t="booster"] { border-color: rgba(216, 166, 255, .6); background: linear-gradient(135deg, rgba(124, 58, 237, .16), rgba(192, 38, 211, .1)); }
+.bt-tier.is-on[data-t="booster"] .bt-tier__name { color: var(--tier-zenith); }
+.bt-tier.is-on::after {
+  content: ""; position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; color: var(--accent);
+}
+.bt-days { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bt-days .affix { width: 132px; flex: none; }
+.bt-presets { display: flex; gap: 6px; flex-wrap: wrap; }
+.bt-chip {
+  height: 32px; padding: 0 11px; border-radius: 99px; cursor: pointer;
+  border: 1px solid var(--line-2); background: var(--bg-soft); color: var(--text-2);
+  font: 600 12px var(--font-mono); transition: color .15s, border-color .15s, background .15s;
+}
+.bt-chip:hover { color: var(--text); border-color: var(--line-3); }
+.bt-chip.is-on { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+.bt-chip[hidden] { display: none; }
+.modal__body #btPreview { margin-top: 16px; }
+.preview-box.is-warn { border-color: rgba(245, 181, 68, .35); background: var(--warn-soft); }
+.preview-box.is-warn b { color: var(--warn); }
+.modal__body .bt-err { margin-top: 10px; color: #ff8a8e; font-size: 13px; }
+.modal__body .bt-err:empty { display: none; }

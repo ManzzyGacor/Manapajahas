@@ -11,6 +11,10 @@
 //   1. Panel -> Startup / Variables:  CF_TUNNEL_TOKEN=token_kamu
 //   2. File .env:                     CF_TUNNEL_TOKEN=token_kamu
 //   3. File cf-token.txt (isi tokennya saja, satu baris).
+//
+// Tunnel OPSIONAL. Tanpa token atau tanpa binary ./cloudflared, hanya
+// aplikasi utama yang dijalankan (dengan satu baris pemberitahuan) —
+// cocok untuk panel yang sudah punya domain/port publik sendiri.
 
 const fs = require("fs");
 const path = require("path");
@@ -24,20 +28,23 @@ function readTunnelToken() {
   if (fromEnv) return fromEnv;
 
   const tokenFile = path.join(__dirname, "cf-token.txt");
-  if (fs.existsSync(tokenFile)) {
-    const fromFile = fs.readFileSync(tokenFile, "utf8").trim();
-    if (fromFile) return fromFile;
+  try {
+    if (fs.existsSync(tokenFile)) {
+      const fromFile = fs.readFileSync(tokenFile, "utf8").trim();
+      if (fromFile) return fromFile;
+    }
+  } catch {
+    // File tidak terbaca = anggap tidak ada token.
   }
 
-  throw new Error(
-    "\n\n⛔ TOKEN CLOUDFLARE TUNNEL BELUM DIISI.\n" +
-    "   Panel -> Startup / Variables:  CF_TUNNEL_TOKEN=token_kamu\n" +
-    "   atau isi CF_TUNNEL_TOKEN di file .env,\n" +
-    "   atau buat file cf-token.txt di folder ini.\n"
-  );
+  // DULU di sini melempar error. Akibatnya di panel yang TIDAK memakai
+  // tunnel, pm2/pm2-runtime gagal membaca file ini dan aplikasi utama ikut
+  // tidak pernah jalan. Sekarang cukup mengembalikan "" — tunnel dilewati.
+  return "";
 }
 
 const CF_TOKEN = readTunnelToken();
+const HAS_CLOUDFLARED = fs.existsSync(path.join(__dirname, "cloudflared"));
 const PORT = String(process.env.SERVER_PORT || process.env.PORT || 4526);
 
 // Batas RAM proses utama sebelum PM2 me-restart-nya. Nilai yang SAMA
@@ -163,7 +170,16 @@ module.exports = {
     },
 
     // Dua replica tunnel -> tidak ada jeda 502 saat salah satu restart.
-    tunnelApp("CF-Tunnel-1"),
-    tunnelApp("CF-Tunnel-2"),
+    // Hanya kalau token & binary tersedia (lihat tunnelApps di bawah).
+    ...tunnelApps(),
   ],
 };
+
+function tunnelApps() {
+  if (CF_TOKEN && HAS_CLOUDFLARED) return [tunnelApp("CF-Tunnel-1"), tunnelApp("CF-Tunnel-2")];
+  const alasan = !CF_TOKEN
+    ? "token CF_TUNNEL_TOKEN belum diisi (env, .env, atau cf-token.txt)"
+    : "binary ./cloudflared tidak ditemukan";
+  console.log(`[ecosystem] Cloudflare Tunnel dilewati: ${alasan} — hanya JadiVaresa-Core yang dijalankan.`);
+  return [];
+}

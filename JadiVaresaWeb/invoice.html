@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="/assets/varesa.css?v=31">
-  <link rel="stylesheet" href="/invoice.css?v=1">
+  <link rel="stylesheet" href="/invoice.css?v=2">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body class="inv">
@@ -41,6 +41,13 @@
         <div class="invoice-head__id">
           <p class="v-eyebrow">Invoice · QRIS</p>
           <h1 id="invOrderId" class="inv-id">-</h1>
+          <!-- Paket sekarang dibeli untuk SATU bot: tunjukkan bot yang mana -->
+          <p class="inv-for" id="invFor" style="display: none;">
+            <i class="fa-brands fa-whatsapp"></i>
+            <span id="invForLead">Paket untuk bot</span>
+            <b id="invForName"></b>
+            <span class="v-mono" id="invForNum"></span>
+          </p>
         </div>
         <span id="invStatusBadge" class="inv-status pending"><span class="v-dot"></span><span id="invStatusText">Menunggu Pembayaran</span></span>
       </div>
@@ -92,7 +99,7 @@
           <section class="v-card inv-state success-panel" id="successPanel" style="display: none;">
             <div class="state-icon state-icon--ok"><i class="fa-solid fa-check"></i></div>
             <h2>Pembayaran berhasil!</h2>
-            <p>Paket <strong id="successTier">-</strong> kamu sudah aktif. Bot langsung memakai fitur barunya — tidak perlu restart.</p>
+            <p id="successText">Paket <strong id="successTier">-</strong> kamu sudah aktif. Bot langsung memakai fitur barunya — tidak perlu restart.</p>
             <a href="/dashboard" class="v-btn v-btn--primary v-btn--lg">Buka Dashboard <i class="fa-solid fa-arrow-right"></i></a>
           </section>
 
@@ -112,6 +119,7 @@
             <span class="v-help" id="invCreated"></span>
           </div>
           <div class="inv-rows">
+            <div class="inv-row inv-row--bot" id="rowBot" style="display: none;"><span>Untuk bot</span><strong id="invBot">-</strong></div>
             <div class="inv-row"><span>Paket</span><strong id="invTier">-</strong></div>
             <div class="inv-row"><span>Durasi</span><strong id="invMonths">-</strong></div>
             <div class="inv-row"><span>Metode</span><strong>QRIS</strong></div>
@@ -152,6 +160,75 @@
     let pollTimer = null, countdownTimer = null, qrRendered = false;
 
     const rupiah = n => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+    // HARUS sama dengan maskNumber() di lib/monitor.js & live.js.
+    const maskNumber = n => {
+      const d = String(n || '').replace(/\D/g, '');
+      if (!d) return '';
+      return d.length < 8 ? `${d.slice(0, 2)}xxxx` : `${d.slice(0, 4)}xxxx${d.slice(-3)}`;
+    };
+    const TIER_RANK = { free: 0, basic: 1, plus: 2, booster: 3 };
+
+    // Nama bot (label dari dashboard) kalau diketahui: dari salinan daftar
+    // bot di browser ini dulu, kalau tidak ada tanya server sekali.
+    let botLabel = null;
+    let botLabelAsked = false;
+    function cachedBotLabel(number) {
+      try {
+        const c = JSON.parse(localStorage.getItem('vrs_bots') || 'null');
+        if (!c || !currentUser || c.uid !== currentUser.id || !Array.isArray(c.bots)) return null;
+        const b = c.bots.find(x => String(x.number) === String(number));
+        return b ? (b.label || '') : null;
+      } catch { return null; }
+    }
+    async function fetchBotLabel(number) {
+      if (botLabelAsked || !currentUser?.id) return;
+      botLabelAsked = true;
+      try {
+        const res = await fetch(`/api/bots/mine?userId=${encodeURIComponent(currentUser.id)}`);
+        if (!res.ok) return;
+        const d = await res.json();
+        const b = (d.bots || []).find(x => String(x.number) === String(number));
+        if (b && b.label) { botLabel = b.label; renderBot(number); }
+      } catch { /* label hanya hiasan */ }
+    }
+    let lastOrder = null;
+    let lastBotInfo = null; // { number, label, tier, tierExpiredAt } dari server (kalau ada)
+    function renderBot(number) {
+      const forBox = document.getElementById('invFor');
+      const row = document.getElementById('rowBot');
+      if (!number) { forBox.style.display = 'none'; row.style.display = 'none'; return; }
+      if (botLabel === null) {
+        botLabel = cachedBotLabel(number);
+        if (botLabel === null) fetchBotLabel(number);
+      }
+      const masked = maskNumber(number);
+      const isAddon = lastOrder && lastOrder.kind === 'addon';
+      document.getElementById('invForLead').innerText = isAddon ? 'Add-on untuk bot' : 'Paket untuk bot';
+      document.getElementById('invForName').innerText = botLabel || '';
+      document.getElementById('invForName').style.display = botLabel ? '' : 'none';
+      document.getElementById('invForNum').innerText = masked;
+      forBox.style.display = 'flex';
+      document.getElementById('invBot').innerHTML = botLabel
+        ? `${esc(botLabel)}<span class="v-mono">${esc(masked)}</span>`
+        : esc(masked);
+      row.style.display = 'flex';
+      // Teks sukses ikut menyebut botnya (diisi ulang kalau label baru datang).
+      if (lastOrder && lastOrder.status === 'completed') renderSuccessText(lastOrder);
+    }
+    function renderSuccessText(order) {
+      const what = order.kind === 'addon'
+        ? (order.addonType === 'mlbb_unlimited' ? 'Unlimited Access' : order.addonType)
+        : (TIER_LABEL[order.tier] || order.tier);
+      const el = document.getElementById('successText');
+      if (!order.botNumber) {
+        el.innerHTML = `Paket <strong id="successTier">${esc(what)}</strong> kamu sudah aktif. Bot langsung memakai fitur barunya — tidak perlu restart.`;
+        return;
+      }
+      const who = botLabel
+        ? `<strong>${esc(botLabel)}</strong> <span class="v-mono">(${esc(maskNumber(order.botNumber))})</span>`
+        : `<span class="v-mono">${esc(maskNumber(order.botNumber))}</span>`;
+      el.innerHTML = `${order.kind === 'addon' ? 'Add-on' : 'Paket'} <strong id="successTier">${esc(what)}</strong> untuk bot ${who} sudah aktif. Bot langsung memakai fitur barunya — tidak perlu restart.`;
+    }
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     function toast(message, type) {
@@ -177,6 +254,10 @@
              <a href="/dashboard" class="v-btn v-btn--outline v-btn--sm">Kembali ke Dashboard</a>`;
           return;
         }
+        // Server menyertakan info bot tujuan (label dari dashboard) bila ada.
+        if (result.bot && typeof result.bot.label === 'string' && result.bot.label) botLabel = result.bot.label;
+        lastBotInfo = result.bot || null;
+        if (!result.order.botNumber && result.botNumber) result.order.botNumber = result.botNumber;
         render(result.order);
       } catch (err) {
         console.error('Gagal memuat invoice:', err);
@@ -196,6 +277,8 @@
       document.getElementById('invoiceBox').style.display = 'block';
 
       document.getElementById('invOrderId').innerText = order.orderId;
+      lastOrder = order;
+      renderBot(order.botNumber || '');
       if (order.createdAt) {
         const d = new Date(order.createdAt);
         if (!isNaN(d)) document.getElementById('invCreated').innerText =
@@ -256,15 +339,34 @@
           }).catch(() => {});
         }
 
-        document.getElementById('successTier').innerText = order.kind === 'addon'
-          ? (order.addonType === 'mlbb_unlimited' ? 'Unlimited Access' : order.addonType)
-          : (TIER_LABEL[order.tier] || order.tier);
+        renderSuccessText(order);
         stopTimers();
 
-        // Sinkronkan tier di localStorage supaya dashboard langsung update.
+        // Sinkronkan localStorage supaya dashboard langsung update. Paket
+        // sekarang per bot: user.tier hanya ringkasan (paket TERTINGGI), jadi
+        // cuma dinaikkan — dan tidak disentuh untuk add-on (tier-nya kosong).
         if (currentUser && currentUser.id === order.userId) {
-          currentUser.tier = order.tier;
-          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          if (order.kind !== 'addon' && TIER_RANK[order.tier] > (TIER_RANK[currentUser.tier] || 0)) {
+            currentUser.tier = order.tier;
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          }
+          // Dashboard dibuka langsung di bot yang baru di-upgrade, dan salinan
+          // daftar bot di browser ikut diperbarui supaya paketnya tidak tampil
+          // basi sebelum dashboard sempat bertanya ke server.
+          if (order.botNumber) {
+            try {
+              localStorage.setItem('active_bot_num', String(order.botNumber));
+              const c = JSON.parse(localStorage.getItem('vrs_bots') || 'null');
+              const b = c && Array.isArray(c.bots) ? c.bots.find(x => String(x.number) === String(order.botNumber)) : null;
+              if (b && order.kind !== 'addon') {
+                if (lastBotInfo && lastBotInfo.tier) {
+                  b.tier = lastBotInfo.tier;
+                  b.tierExpiredAt = lastBotInfo.tierExpiredAt || '';
+                  localStorage.setItem('vrs_bots', JSON.stringify(c));
+                } else localStorage.removeItem('vrs_bots');
+              }
+            } catch { /* abaikan */ }
+          }
         }
         return;
       }

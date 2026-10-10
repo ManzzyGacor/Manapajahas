@@ -331,12 +331,15 @@
     let pending = 0;
     let loaded = false;
     let errorText = '';
+    // getMine boleh mengembalikan satu nomor tersensor atau daftar (satu
+    // akun bisa punya beberapa bot — "Bot saya" mencakup semuanya).
+    const mineList = () => [].concat(getMine?.() || []).filter(Boolean);
 
     function emptyHTML() {
       if (errorText && !rows.length) return `<p class="cmdlog__empty"><i class="fa-solid fa-plug-circle-xmark"></i>${esc(errorText)}</p>`;
       if (!loaded) return `<p class="cmdlog__empty"><i class="fa-solid fa-circle-notch fa-spin"></i>Menyambung ke log server…</p>`;
-      if (scope === 'mine' && !getMine?.()) {
-        return `<p class="cmdlog__empty"><i class="fa-solid fa-robot"></i>Jalankan bot kamu dulu untuk melihat log bot sendiri.</p>`;
+      if (scope === 'mine' && !mineList().length) {
+        return `<p class="cmdlog__empty"><i class="fa-solid fa-robot"></i>Tambah &amp; jalankan bot kamu dulu untuk melihat log bot sendiri.</p>`;
       }
       if (scope === 'mine') {
         return `<p class="cmdlog__empty"><i class="fa-regular fa-hourglass"></i>Belum ada command di bot kamu. Coba ketik <b>.menu</b> ke bot.</p>`;
@@ -346,11 +349,11 @@
 
     function render(newIds) {
       if (!list) return;
-      const mine = getMine?.() || '';
-      const view = scope === 'mine' ? (mine ? rows.filter((r) => r.bot === mine) : []) : rows;
+      const mine = new Set(mineList());
+      const view = scope === 'mine' ? rows.filter((r) => mine.has(r.bot)) : rows;
       if (!view.length) { list.innerHTML = emptyHTML(); return; }
       list.innerHTML = view.map((l) => logRowHTML(l, {
-        full, mine: !!mine && l.bot === mine && scope !== 'mine', isNew: !!newIds && newIds.has(l.id),
+        full, mine: mine.has(l.bot) && scope !== 'mine', isNew: !!newIds && newIds.has(l.id),
       })).join('');
     }
 
@@ -392,7 +395,8 @@
     const $ = (id) => document.getElementById(id);
     if (!$('liveServerCard') && !$('cmdLogPanel') && !$('sideSrv')) return null;
 
-    const myMask = () => maskNumber(typeof getMyBot === 'function' ? getMyBot() : '');
+    // getMyBot boleh satu nomor atau daftar nomor bot milik akun.
+    const myMask = () => [].concat(typeof getMyBot === 'function' ? (getMyBot() || []) : []).map(maskNumber).filter(Boolean);
     let history = [];
     let polls = 0;
     let lastData = null;

@@ -23,6 +23,127 @@ let customCommands = [];
 
 const TIER_NAME = { free: 'Free', basic: 'Core', plus: 'Prime', booster: 'Zenith' };
 const tierName = (t) => TIER_NAME[t] || 'Free';
+const TIER_RANK = { free: 0, basic: 1, plus: 2, booster: 3 };
+const NO_BOT_MSG = 'Belum ada bot dipilih. Tambah & jalankan bot dulu di Dashboard.';
+const DEFAULT_MENU = `{ucapanWaktu}\n\n*User:* {pushname}\n*Status:* {statusUser}\n*Date:* {date}\n\n*MAIN*\n- {prefix}jadibot\n- {prefix}statistik\n- {prefix}ping\n`;
+
+// ==========================================
+// PAKET PER BOT
+// ==========================================
+// Paket (Free/Core/Prime/Zenith) sekarang melekat ke BOT, bukan ke akun.
+// Satu akun boleh punya beberapa bot dengan paket berbeda, jadi semua
+// penguncian fitur di halaman bot memakai paket BOT YANG DIPILIH.
+// Sumber datanya GET /api/bots/mine (lihat loadMyBots di bawah).
+let myBots = [];          // [{ number, label, tier, tierExpiredAt, daysLeft, status, groups, messages, commands }]
+let botLimits = null;     // { maxBots, maxFree, used, freeUsed } — null di backend lama
+let pendingPkg = null;    // paket tersimpan yang menunggu bot berikutnya, atau null
+let botsLoaded = false;   // daftar bot sudah pernah didapat (dari server/cache)
+let botsLegacy = false;   // backend lama tanpa /api/bots/mine: paket masih per akun
+
+// Paket yang masa aktifnya sudah lewat dianggap Free walau server belum
+// sempat menurunkannya (penegak kedaluwarsa berjalan berkala).
+function effectiveTier(b) {
+    const t = b?.tier || 'free';
+    if (t === 'free' || !b.tierExpiredAt) return TIER_NAME[t] ? t : 'free';
+    const exp = new Date(b.tierExpiredAt);
+    return !isNaN(exp) && exp <= new Date() ? 'free' : (TIER_NAME[t] ? t : 'free');
+}
+const activeBot = () => myBots.find(b => b.number === activeBotNumber) || null;
+
+// Paket yang dipakai untuk penguncian fitur & kuota di halaman bot.
+// Belum tahu botnya (data belum dimuat) -> pakai paket akun dari server
+// (yang sekarang = paket tertinggi) hanya di backend lama; selain itu Free,
+// supaya tombol berbayar tidak sempat terbuka untuk bot Free.
+function botTier() {
+    const b = activeBot();
+    if (b) return effectiveTier(b);
+    return botsLegacy || !botsLoaded ? (currentUser.tier || 'free') : 'free';
+}
+
+// Paket tertinggi di antara semua bot akun — hanya untuk hiasan akun
+// (cincin avatar, banner profil, ringkasan di top bar).
+function accountTopTier() {
+    if (!myBots.length) return botsLoaded ? 'free' : (currentUser.tier || 'free');
+    return myBots.reduce((top, b) => {
+        const t = effectiveTier(b);
+        return TIER_RANK[t] > TIER_RANK[top] ? t : top;
+    }, 'free');
+}
+
+// 6285126440026 -> "+62 851-2644-0026" supaya nomor panjang mudah dibaca.
+function fmtBotNumber(n) {
+    const d = String(n || '').replace(/\D/g, '');
+    if (!d) return '';
+    if (!d.startsWith('62') || d.length < 10) return '+' + d;
+    const r = d.slice(2);
+    return `+62 ${r.slice(0, 3)}-${r.slice(3, 7)}-${r.slice(7)}`;
+}
+const botName = (b) => (b && b.label) ? b.label : 'Bot tanpa nama';
+// Nama pendek untuk kalimat: label kalau ada, kalau tidak nomornya.
+const botRef = (b) => (b && b.label) ? b.label : (b ? fmtBotNumber(b.number) : 'bot ini');
+
+function daysLeftOf(b) {
+    if (!b || effectiveTier(b) === 'free' || !b.tierExpiredAt) return null;
+    const exp = new Date(b.tierExpiredAt);
+    if (isNaN(exp)) return null;
+    return Math.max(0, Math.ceil((exp - new Date()) / 86400000));
+}
+// "Zenith · sisa 34 hari" / "Free · tanpa masa aktif"
+function planText(b) {
+    const t = effectiveTier(b);
+    if (t === 'free') return 'Free · tanpa masa aktif';
+    const d = daysLeftOf(b);
+    return d == null ? `${tierName(t)} · tanpa batas waktu` : `${tierName(t)} · sisa ${d} hari`;
+}
+
+// Salinan terakhir daftar bot di browser ini, supaya saat halaman dibuka
+// paket bot terpilih langsung benar (tanpa kedip "terkunci" -> terbuka)
+// sebelum server menjawab. Hanya kenyamanan; server tetap sumber kebenaran.
+const BOTS_CACHE_KEY = 'vrs_bots';
+function restoreBotsCache() {
+    try {
+        const c = JSON.parse(localStorage.getItem(BOTS_CACHE_KEY) || 'null');
+        if (!c || !currentUser?.id || c.uid !== currentUser.id || !Array.isArray(c.bots)) return false;
+        myBots = c.bots;
+        botLimits = c.limits || null;
+        pendingPkg = c.pending || null;
+        botsLoaded = true;
+        return true;
+    } catch { return false; }
+}
+function saveBotsCache() {
+    try {
+        localStorage.setItem(BOTS_CACHE_KEY, JSON.stringify({ uid: currentUser?.id, at: Date.now(), bots: myBots, limits: botLimits, pending: pendingPkg }));
+    } catch { /* storage penuh/diblokir: abaikan */ }
+}
+
+// Backend lama (belum ada /api/bots/mine) atau server gagal sebelum daftar
+// bot pernah didapat: susun daftar dari botNumbers akun dengan paket akun —
+// persis perilaku lama (1 akun = 1 paket).
+function useLegacyBots() {
+    if (botsLoaded && !botsLegacy) return; // data per bot yang sudah ada jangan ditimpa
+    const nums = (Array.isArray(currentUser.botNumbers) ? currentUser.botNumbers : []).map(String);
+    // Nomor yang sedang dipakai di browser ini ikut dihitung: botNumbers di
+    // localStorage bisa belum memuat bot yang baru saja di-start.
+    if (activeBotNumber && !nums.includes(activeBotNumber)) nums.push(activeBotNumber);
+    myBots = nums.map(number => ({
+        number, label: '', tier: currentUser.tier || 'free',
+        tierExpiredAt: currentUser.tierExpiredAt || '', status: '', legacy: true
+    }));
+    botLimits = null;
+    pendingPkg = null;
+    botsLegacy = true;
+    botsLoaded = true;
+}
+
+// "3 bot · tertinggi Zenith" untuk top bar & menu profil.
+function accountSummaryHTML() {
+    const n = myBots.length;
+    if (!n) return `<span class="acct-sum">${botsLoaded ? 'belum ada bot' : 'memuat…'}</span>`;
+    const top = accountTopTier();
+    // Spasi di teks sengaja ada (untuk pembaca layar); jarak visual dari CSS gap.
+    return `<span class="acct-sum" title="${n} bot · paket tertinggi ${tierName(top)}"><b>${n}</b> bot <i class="acct-sum__sep">·</i> <span class="acct-sum__top">tertinggi </span><em class="tier-txt tier-txt--${top}">${tierName(top)}</em></span>`;
+}
 
 function nitroBadgeHTML(tier) {
     if (tier === 'basic') return `<span class="tier-badge core"><i class="fa-solid fa-bolt"></i> Core</span>`;
@@ -67,7 +188,8 @@ function busy(btn, label) {
 function applyProfileToUI() {
     const name = currentUser.username || 'Guest';
     const initial = name.charAt(0).toUpperCase();
-    const tier = currentUser.tier || 'free';
+    // Paket ada di tiap bot; untuk hiasan akun dipakai paket tertingginya.
+    const tier = accountTopTier();
     const email = currentUser.email || '';
 
     // Foto dari akun Google (field `avatar`) dipakai kalau user belum
@@ -80,7 +202,9 @@ function applyProfileToUI() {
     document.querySelectorAll('.avatar-circle').forEach(el => { el.innerHTML = avatarHTML; });
 
     const dropName = $id('dropName');
-    if (dropName) dropName.innerHTML = `${escapeHtml(name)} ${nitroBadgeHTML(tier)}`;
+    if (dropName) dropName.textContent = name;
+    const dropSum = $id('dropSum');
+    if (dropSum) dropSum.innerHTML = accountSummaryHTML();
     // Tampilkan email asli dari akun Google; jangan pakai alamat contoh.
     const dropEmail = $id('dropEmail');
     if (dropEmail) {
@@ -90,8 +214,9 @@ function applyProfileToUI() {
 
     const chipName = $id('chipName');
     if (chipName) chipName.textContent = name;
+    // Bukan lagi satu badge paket akun, tapi ringkasan semua bot.
     const chipTier = $id('chipTier');
-    if (chipTier) chipTier.innerHTML = nitroBadgeHTML(tier);
+    if (chipTier) chipTier.innerHTML = accountSummaryHTML();
     const helloName = $id('helloName');
     if (helloName) helloName.textContent = name;
 
@@ -123,27 +248,20 @@ async function refreshUserFromServer() {
         const result = await res.json();
         if (!result.success) return;
 
-        const before = currentUser.tier;
         currentUser = { ...currentUser, ...result.user };
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
 
         applyProfileToUI();
-        applyTierGating();
-        renderExpiry();
-        initNotifButton();
         syncAdminLinks();
-
-        // Buka dashboard dari perangkat baru: localStorage belum tahu nomor
-        // bot-nya, padahal akun ini sudah punya. Pakai nomor dari server
-        // supaya terminal, statistik & token API langsung tersambung.
-        const owned = Array.isArray(currentUser.botNumbers) ? currentUser.botNumbers : [];
-        if (!activeBotNumber && owned.length) {
-            window.setActiveBotNumber?.(owned[0]);
-        }
-
-        if (before !== currentUser.tier) {
-            const statRole = $id('statRole');
-            if (statRole) statRole.innerHTML = nitroBadgeHTML(currentUser.tier);
+        initNotifButton();
+        // Daftar bot (beserta paket tiap bot) dimuat terpisah oleh
+        // loadMyBots(). Di backend lama paketnya masih per akun, jadi
+        // tampilan disegarkan dari data akun ini.
+        // (Perangkat baru tanpa nomor bot di localStorage juga tertangani:
+        // daftar bot memilih bot pertama secara otomatis.)
+        if (botsLegacy) {
+            useLegacyBots();
+            window.refreshBotsUI?.();
         }
     } catch (err) { /* offline: pakai data localStorage */ }
 }
@@ -179,15 +297,18 @@ function syncAdminLinks() {
     }
 }
 
-// Kunci / buka fitur sesuai paket aktif.
+// Kunci / buka fitur sesuai paket BOT YANG DIPILIH (bukan paket akun).
 function applyTierGating() {
-    const tier = currentUser.tier || 'free';
+    const tier = botTier();
     const caps = TIER_CAPS[tier] || TIER_CAPS.free;
 
     // Tandai paket di <body> supaya CSS bisa memberi hiasan khusus
-    // (cincin avatar, banner profil, dsb) tanpa perlu JS tambahan.
+    // (cincin avatar, banner profil, dsb) tanpa perlu JS tambahan. Hiasan
+    // akun mengikuti paket tertinggi; data-bot-tier = paket bot terpilih.
+    const top = accountTopTier();
     document.body.classList.remove('t-free', 't-basic', 't-plus', 't-booster');
-    document.body.classList.add(`t-${tier}`);
+    document.body.classList.add(`t-${top}`);
+    document.body.dataset.botTier = tier;
 
     const identityLock = $id('identityLockOverlay');
     if (identityLock) identityLock.style.display = caps.customize ? 'none' : 'flex';
@@ -241,18 +362,25 @@ function applyTierGating() {
         if (el) el.disabled = !caps.customize;
     });
 
+    // Banner Free hanya kalau memang ada bot yang dipilih dan bot itu Free.
+    const bot = activeBot();
     const freeAlert = $id('freeAlert');
-    if (freeAlert) freeAlert.style.display = tier === 'free' ? 'flex' : 'none';
+    if (freeAlert) freeAlert.style.display = tier === 'free' && (bot || (botsLegacy && activeBotNumber)) ? 'flex' : 'none';
+    const freeWho = $id('freeAlertWho');
+    if (freeWho) freeWho.textContent = bot?.label ? `Bot ${bot.label}` : 'Bot ini';
 
     const configTierText = $id('configTierText');
-    if (configTierText) configTierText.innerHTML = `Paket aktif ${nitroBadgeHTML(tier)}`;
+    if (configTierText) {
+        const until = bot ? daysLeftOf(bot) : null;
+        configTierText.innerHTML = `${nitroBadgeHTML(tier)} <span class="v-dim">${until != null ? `sisa ${until} hari` : tier === 'free' ? 'tanpa masa aktif' : ''}</span>`;
+    }
 
     const ownerLimitHint = $id('ownerLimitHint');
     if (ownerLimitHint) {
         const maxOwners = OWNER_LIMIT_BY_TIER[tier] ?? 0;
         ownerLimitHint.innerText = maxOwners > 0
-            ? `Paket ${tierName(tier)} kamu: maks ${maxOwners} nomor owner.`
-            : `Upgrade paket untuk bisa atur nomor owner sendiri.`;
+            ? `Paket ${tierName(tier)} bot ini: maks ${maxOwners} nomor owner.`
+            : `Upgrade bot ini untuk bisa atur nomor owner sendiri.`;
     }
 
     // Kuota API harian: tandai baris paket yang sedang aktif.
@@ -260,10 +388,10 @@ function applyTierGating() {
         li.classList.toggle('is-current', li.dataset.tier === tier);
     });
 
-    // Kartu harga: user langsung tahu paket mana yang sedang dipakai, dan
-    // tombolnya jadi "Perpanjang" (bukan "Pilih") untuk paket yang sama.
+    // Kartu harga: user langsung tahu paket mana yang sedang dipakai BOT
+    // INI, dan tombolnya jadi "Perpanjang" (bukan "Pilih") untuk paket sama.
     document.querySelectorAll('.pricing-card[data-plan]').forEach(card => {
-        const isCurrent = card.dataset.plan === tier;
+        const isCurrent = card.dataset.plan === tier && !!(bot || activeBotNumber);
         card.classList.toggle('is-current', isCurrent);
         const btn = card.querySelector('.btn-order');
         if (btn) {
@@ -273,18 +401,31 @@ function applyTierGating() {
     });
 }
 
-// Tampilkan tanggal berakhirnya paket berbayar di kartu "Kedaluwarsa".
+// Kartu "Paket bot ini" & "Kedaluwarsa": milik bot yang dipilih.
 function renderExpiry() {
     const el = $id('statExpire');
     const sub = $id('statExpireSub');
+    const bot = activeBot();
+    const tier = botTier();
+    const statRole = $id('statRole');
+    if (statRole) statRole.innerHTML = (bot || activeBotNumber) ? nitroBadgeHTML(tier) : '<span class="v-dim">–</span>';
+    const roleSub = $id('statRoleSub');
+    if (roleSub) roleSub.innerText = bot ? botName(bot) : (activeBotNumber ? 'berlaku per bot' : 'belum ada bot');
     if (!el) return;
-    if (currentUser.tier === 'free' || !currentUser.tierExpiredAt) {
+    const expAt = bot ? bot.tierExpiredAt : (botsLegacy ? currentUser.tierExpiredAt : '');
+    if (!bot && !activeBotNumber) {
         el.innerText = '-';
         el.style.color = '';
-        if (sub) sub.innerText = currentUser.tier === 'free' ? 'paket gratis' : 'tanpa batas';
+        if (sub) sub.innerText = 'belum ada bot';
         return;
     }
-    const exp = new Date(currentUser.tierExpiredAt);
+    if (tier === 'free' || !expAt) {
+        el.innerText = '-';
+        el.style.color = '';
+        if (sub) sub.innerText = tier === 'free' ? 'paket gratis' : 'tanpa batas';
+        return;
+    }
+    const exp = new Date(expAt);
     if (isNaN(exp)) { el.innerText = '-'; return; }
 
     const daysLeft = Math.ceil((exp - new Date()) / 86400000);
@@ -385,15 +526,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (userStr) {
         try { currentUser = JSON.parse(userStr) || currentUser; } catch { currentUser = { tier: 'free', username: 'Guest', role: 'user' }; }
         if (!currentUser.tier) currentUser.tier = 'free';
+        // Daftar bot terakhir dari browser ini (kalau ada) dulu, server menyusul.
+        restoreBotsCache();
 
         applyProfileToUI();
 
         // Ambil data terbaru dari server: tier bisa saja sudah naik setelah
         // pembayaran (webhook), sementara localStorage masih data lama.
         refreshUserFromServer();
-
-        const statRole = $id('statRole');
-        if (statRole) statRole.innerHTML = nitroBadgeHTML(currentUser.tier);
 
         applyTierGating();
         renderExpiry();
@@ -417,6 +557,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Diisi di akhir (setelah semua fungsi siap). Dideklarasikan di sini
     // supaya pemanggilan lebih awal tidak kena ReferenceError (TDZ).
     let liveWidgets = null;
+    let currentView = 'dashboard';
 
     const nowClock = () => new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/\./g, ':');
 
@@ -445,7 +586,9 @@ document.addEventListener("DOMContentLoaded", () => {
         pairing:    { label: 'Pairing',    cls: 'is-connecting', dot: 'v-dot v-dot--warn', term: 'menunggu pairing' },
         offline:    { label: 'Offline',    cls: 'is-offline',    dot: 'v-dot v-dot--danger', term: 'disconnected' }
     };
-    function setBotState(state) {
+    // sync=false: hanya tampilan (dipakai saat ganti bot) — status bot di
+    // daftar "Bot saya" tidak ikut diubah.
+    function setBotState(state, { sync = true } = {}) {
         const s = BOT_STATES[state] || BOT_STATES.offline;
         botState = state;
         const statStatus = $id('statStatus');
@@ -460,30 +603,61 @@ document.addEventListener("DOMContentLoaded", () => {
             badge.className = `v-badge ${state === 'online' ? 'v-badge--ok' : state === 'offline' ? '' : 'v-badge--warn'}`;
             badge.innerHTML = `<span class="${s.dot}"></span> ${s.label.toLowerCase()}`;
         }
+        // Kartu bot yang dipilih ikut berubah (titik status & tombol Start/Stop).
+        const b = sync ? activeBot() : null;
+        if (b) {
+            const next = state === 'online' ? 'online'
+                : (state === 'connecting' || state === 'pairing') ? 'connecting'
+                : (b.status === 'online' || b.status === 'connecting') ? 'offline' : b.status;
+            if (next !== b.status) { b.status = next; window.refreshBotsUI?.({ light: true }); }
+        }
     }
 
     function syncBotNumberUI() {
+        const b = activeBot();
         const statNumber = $id('statNumber');
-        if (statNumber) statNumber.innerText = activeBotNumber ? `+${activeBotNumber}` : 'belum ada nomor';
+        if (statNumber) statNumber.innerText = activeBotNumber
+            ? (b?.label ? `${b.label} · ${fmtBotNumber(activeBotNumber)}` : fmtBotNumber(activeBotNumber))
+            : 'belum ada nomor';
         const termTitle = $id('termTitle');
         if (termTitle) termTitle.innerText = activeBotNumber ? `bot@varesa:~/${activeBotNumber}` : 'bot@varesa:~';
-        const inputWa = $id('inputWaNumber');
-        if (inputWa && activeBotNumber && !inputWa.value) inputWa.value = activeBotNumber;
     }
 
-    // Dipakai juga oleh refreshUserFromServer() saat nomor diambil dari akun.
-    window.setActiveBotNumber = (num) => {
+    // Satu-satunya pintu untuk mengganti bot yang dipilih. SEMUA panel per
+    // bot (config, menu, balasan otomatis, perintah kustom, sambutan,
+    // siaran, token API, terminal, statistik, add-on) membaca activeBotNumber,
+    // jadi cukup di sini semuanya dimuat ulang untuk bot yang baru.
+    // load=false: dipakai saat bot baru sedang didaftarkan (belum milik akun,
+    // config-nya pasti ditolak server) — cukup pindahkan terminal & SSE.
+    window.setActiveBotNumber = (num, { load = true } = {}) => {
+        const prev = activeBotNumber;
         activeBotNumber = String(num || '');
         if (activeBotNumber) localStorage.setItem('active_bot_num', activeBotNumber);
         else localStorage.removeItem('active_bot_num');
         syncBotNumberUI();
+        if (prev !== activeBotNumber) {
+            // Log & status bot sebelumnya jangan sampai terbaca sebagai bot ini.
+            const b = activeBot();
+            setBotState(b?.status === 'online' ? 'online' : b?.status === 'connecting' ? 'connecting' : 'offline', { sync: false });
+            if (activeBotNumber) termReset(`$ Bot dipilih: ${b?.label ? `${b.label} · ` : ''}${activeBotNumber}. Menunggu log…`, 't-dim');
+            else termReset('$ Belum ada bot. Tambah bot dulu lewat tombol "Tambah bot".', 't-dim');
+            showStartNotice('');
+            // Daftar milik bot sebelumnya dikosongkan dulu; isi bot ini
+            // datang dari loadBotConfig() di bawah.
+            autoReplies = []; customCommands = [];
+            renderAutoReplies(); renderCustomCommands();
+        }
         window.reconnectBotStream?.();
         liveWidgets?.feed?.render();
+        window.refreshBotsUI?.();
+        if (!load) return;
         if (activeBotNumber) loadBotStats();
         loadBotConfig({ quiet: true });
+        if (currentView === 'api') loadApiToken();
+        if (currentView === 'addons') loadAddons();
     };
 
-    setBotState('offline');
+    setBotState('offline', { sync: false });
     syncBotNumberUI();
 
     // --- TEMA ---
@@ -545,6 +719,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function showView(targetView, { scroll = true } = {}) {
         const targetEl = $id('view-' + targetView);
         if (!targetEl) return false;
+        currentView = targetView;
         document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
         targetEl.classList.add('active');
 
@@ -566,6 +741,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 : `${location.pathname}${location.search}#${targetView}`);
         } catch { /* abaikan */ }
 
+        // Bar "bot yang diatur" ikut pindah ke halaman per bot yang dibuka.
+        placeBotCtx(targetView);
         if (scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
         // 'mess' ikut memuat config: tanpa ini daftar balasan otomatis tampil
         // kosong, dan menekan Simpan akan MENIMPA aturan yang ada di server.
@@ -650,6 +827,8 @@ document.addEventListener("DOMContentLoaded", () => {
         liveOk = true;
         lastCapacity = d.capacity || null;
         renderSlotHint(lastCapacity);
+        // Sisa slot server juga tampil di form "Tambah bot" (kalau terbuka).
+        if (!$id('addBotPanel')?.classList.contains('v-hide')) renderAddPanel();
         const statServer = $id('statServer');
         if (statServer && d.server) {
             const V = window.VLive;
@@ -670,121 +849,708 @@ document.addEventListener("DOMContentLoaded", () => {
         box.classList.remove('v-hide');
     }
 
-    // --- BOT CONTROL API ---
-    $id('btnStartBot')?.addEventListener('click', async (e) => {
-        const inputWa = $id('inputWaNumber');
-        if (!inputWa || !inputWa.value.trim()) {
-            inputWa?.focus();
-            return say('Masukkan nomor WA terlebih dahulu.', 'err');
+    // ==========================================
+    // BOT SAYA — daftar bot, tambah, ganti nama, hapus (paket per bot)
+    // ==========================================
+    const BOT_STATUS = {
+        online:     { label: 'online',     dot: 'v-dot v-dot--live' },
+        connecting: { label: 'menyambung', dot: 'v-dot v-dot--warn' },
+        offline:    { label: 'offline',    dot: 'v-dot v-dot--danger' },
+        stop:       { label: 'berhenti',   dot: 'v-dot v-dot--off' }
+    };
+    const statusOf = (b) => BOT_STATUS[b?.status] || { label: 'status belum dicek', dot: 'v-dot v-dot--off' };
+    const fmtCount = (n) => (n == null || n === '') ? '–' : window.VLive.fmtCompact(Number(n) || 0);
+    const fmtDate = (iso) => {
+        const d = new Date(iso);
+        return isNaN(d) ? '' : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+    // Nomor dari form: 0812… -> 62812…, buang spasi/strip.
+    const cleanNumber = (v) => String(v || '').trim().replace(/^0/, '62').replace(/\D/g, '');
+
+    let addingNumber = '';    // bot baru yang sedang didaftarkan (jangan direset oleh refresh daftar)
+    let renamingNumber = '';  // kartu yang sedang diganti namanya (jangan dirender ulang)
+    let addNoticeSticky = false; // notice dari jawaban server bertahan sampai user mengubah input
+    let botsCapacity = null;     // kapasitas dari /api/bots/mine (cadangan data live)
+
+    function normalizeBot(b) {
+        return {
+            ...b,
+            number: String(b.number || ''),
+            label: String(b.label || '').slice(0, 32),
+            tier: TIER_NAME[b.tier] ? b.tier : 'free',
+            tierExpiredAt: b.tierExpiredAt || ''
+        };
+    }
+
+    // Satu permintaan sekaligus: tombol, interval, dan fokus tab bisa
+    // memanggil ini bersamaan.
+    let botsReq = null;
+    function loadMyBots() {
+        if (!currentUser?.id) return Promise.resolve();
+        if (botsReq) return botsReq;
+        botsReq = (async () => {
+            try {
+                const res = await fetch(`/api/bots/mine?userId=${encodeURIComponent(currentUser.id)}`);
+                let d = {};
+                try { d = await res.json(); } catch { d = {}; }
+                if (res.ok && d.success && Array.isArray(d.bots)) {
+                    myBots = d.bots.map(normalizeBot);
+                    botLimits = d.limits || null;
+                    pendingPkg = d.pending && d.pending.tier ? d.pending : null;
+                    // Sisa slot server ikut dikirim: cadangan kalau polling live belum jalan.
+                    botsCapacity = d.capacity && d.capacity.max != null ? d.capacity : null;
+                    botsLegacy = false;
+                    botsLoaded = true;
+                    saveBotsCache();
+                } else if (res.status === 404 || !botsLoaded) {
+                    // 404 = backend lama tanpa paket per bot. Gagal lain
+                    // sebelum pernah dapat data: pakai data akun dulu supaya
+                    // dashboard tetap bisa dipakai.
+                    useLegacyBots();
+                }
+            } catch (err) {
+                if (!botsLoaded) useLegacyBots();
+            } finally {
+                botsReq = null;
+            }
+            onBotsChanged();
+        })();
+        return botsReq;
+    }
+
+    // Pastikan bot yang dipilih memang ada di akun; kalau tidak (dihapus,
+    // perangkat baru, pindah akun) pindah ke bot pertama atau kosong.
+    function ensureSelection() {
+        if (addingNumber) return false;
+        if (activeBotNumber && myBots.some(b => b.number === activeBotNumber)) return false;
+        const next = myBots[0]?.number || '';
+        if (next === activeBotNumber) return false;
+        window.setActiveBotNumber(next);
+        return true;
+    }
+
+    // light: cukup kartu & bar konteks (dipanggil sering, mis. dari SSE).
+    function onBotsChanged({ light = false } = {}) {
+        if (!light && ensureSelection()) return; // setActiveBotNumber memanggil ini lagi
+        renderFleet();
+        renderBotCtx();
+        renderCtlBot();
+        if (light) return;
+        syncBotNumberUI();
+        applyProfileToUI();
+        applyTierGating();
+        renderExpiry();
+        renderAddPanel();
+        // Status di daftar = status dari server; samakan tampilan bot
+        // terpilih kalau SSE belum memberi kabar.
+        const b = activeBot();
+        if (b && b.status === 'online' && botState === 'offline') setBotState('online', { sync: false });
+        if (b && (b.status === 'stop' || b.status === 'offline') && botState === 'online') setBotState('offline', { sync: false });
+    }
+    window.refreshBotsUI = onBotsChanged;
+
+    // --- Kartu bot ---
+    function botCardHTML(b) {
+        const t = effectiveTier(b);
+        const st = statusOf(b);
+        const sel = b.number === activeBotNumber;
+        const d = daysLeftOf(b);
+        const running = b.status === 'online' || b.status === 'connecting';
+        const num = escapeHtml(b.number);
+        const name = renamingNumber === b.number
+            ? `<form class="botcard__rename-form" data-number="${num}">
+                   <input class="v-input" name="label" maxlength="32" value="${escapeHtml(b.label)}" placeholder="Cth: Bot Toko" aria-label="Nama bot" autocomplete="off">
+                   <button type="submit" class="icon-btn" aria-label="Simpan nama"><i class="fa-solid fa-check"></i></button>
+                   <button type="button" class="icon-btn" data-act="rename-cancel" aria-label="Batal ganti nama"><i class="fa-solid fa-xmark"></i></button>
+               </form>`
+            : `<strong class="botcard__label${b.label ? '' : ' is-empty'}">${escapeHtml(botName(b))}</strong>
+               <button type="button" class="botcard__rename" data-act="rename" aria-label="Ganti nama bot" title="Ganti nama"><i class="fa-solid fa-pen"></i></button>`;
+        let plan;
+        if (t === 'free') plan = `<i class="fa-regular fa-calendar"></i> Paket gratis · tanpa masa aktif`;
+        else if (d == null) plan = `<i class="fa-regular fa-calendar-check"></i> ${tierName(t)} · tanpa batas waktu`;
+        else plan = `<i class="fa-regular fa-calendar-check"></i> Aktif s/d ${fmtDate(b.tierExpiredAt)} · <b>sisa ${d} hari</b>`;
+        const legacy = b.legacy && b.groups == null;
+        return `
+        <article class="botcard${sel ? ' is-active' : ''} tier-${t}" data-number="${num}">
+            ${sel ? '<span class="botcard__sel"><i class="fa-solid fa-check"></i> Sedang diatur</span>' : ''}
+            <div class="botcard__top">
+                <span class="${st.dot}" title="${st.label}"></span>
+                <div class="botcard__name">${name}</div>
+                ${nitroBadgeHTML(t)}
+            </div>
+            <p class="botcard__num"><span class="v-mono">${fmtBotNumber(b.number)}</span><span class="botcard__state">${st.label}</span></p>
+            <p class="botcard__plan${d != null && d <= 3 ? ' is-warn' : ''}">${plan}</p>
+            ${legacy ? '' : `<div class="botcard__stats v-mono">
+                <span><b>${fmtCount(b.groups)}</b> grup</span>
+                <span><b>${fmtCount(b.messages)}</b> pesan</span>
+                <span><b>${fmtCount(b.commands)}</b> command</span>
+            </div>`}
+            <div class="botcard__actions">
+                <button type="button" class="v-btn v-btn--sm v-btn--outline" data-act="manage"><i class="fa-solid fa-sliders"></i> Kelola</button>
+                <button type="button" class="v-btn v-btn--sm ${t === 'free' ? 'v-btn--primary' : 'v-btn--ghost'}" data-act="upgrade"><i class="fa-regular fa-gem"></i> ${t === 'free' ? 'Upgrade' : 'Perpanjang'}</button>
+                <button type="button" class="v-btn v-btn--sm v-btn--ghost" data-act="${running ? 'stop' : 'start'}">${running ? '<i class="fa-solid fa-stop"></i> Stop' : '<i class="fa-solid fa-play"></i> Start'}</button>
+                <button type="button" class="v-btn v-btn--sm v-btn--danger botcard__del" data-act="delete" aria-label="Hapus bot ${escapeHtml(botRef(b))}" title="Hapus bot"><i class="fa-regular fa-trash-can"></i></button>
+            </div>
+        </article>`;
+    }
+
+    function addBlock() {
+        // Admin tidak dibatasi. Tanpa data batas (backend lama) server yang memutuskan.
+        if (currentUser?.role === 'admin' || botLimits?.bypass || !botLimits) return null;
+        const used = botLimits.used ?? myBots.length;
+        const freeUsed = botLimits.freeUsed ?? myBots.filter(b => effectiveTier(b) === 'free').length;
+        if (botLimits.maxBots && used >= botLimits.maxBots) return 'BOT_LIMIT';
+        if (!pendingPkg && botLimits.maxFree != null && freeUsed >= botLimits.maxFree) return 'BOT_LIMIT_FREE';
+        return null;
+    }
+
+    function renderFleet() {
+        const list = $id('botList');
+        if (!list) return;
+        const count = $id('fleetCount');
+        if (count) count.textContent = botLimits?.maxBots ? `${myBots.length}/${botLimits.maxBots}` : (myBots.length ? String(myBots.length) : '');
+
+        // Paket tersimpan dari bot yang dihapus.
+        const pend = $id('pendingNotice');
+        if (pend) {
+            if (pendingPkg) {
+                const nm = pendingPkg.tierName || tierName(pendingPkg.tier);
+                const left = pendingPkg.daysLeft != null ? ` (sisa ${Number(pendingPkg.daysLeft) || 0} hari)` : '';
+                pend.innerHTML = `<i class="fa-solid fa-box-archive"></i><span><strong>Paket ${escapeHtml(nm)}${left} tersimpan.</strong> Otomatis dipasang ke bot berikutnya yang kamu tambahkan. <button type="button" class="link-btn" data-act="add">Tambah bot sekarang</button></span>`;
+                pend.classList.remove('v-hide');
+            } else pend.classList.add('v-hide');
         }
 
-        const cleanNumber = inputWa.value.trim().replace(/^0/, '62').replace(/\D/g, '');
-        if (cleanNumber.length < 9) return say('Nomor WA terlalu pendek. Pakai format 62812xxxx.', 'err');
-        const previousNumber = activeBotNumber;
-        activeBotNumber = cleanNumber;
-        localStorage.setItem('active_bot_num', cleanNumber);
-        syncBotNumberUI();
+        if (renamingNumber && list.querySelector('.botcard__rename-form')) {
+            // Sedang mengetik nama: jangan hancurkan input-nya. Cukup tandai
+            // kartu terpilih supaya tetap sinkron.
+            list.querySelectorAll('.botcard[data-number]').forEach(c => c.classList.toggle('is-active', c.dataset.number === activeBotNumber));
+            return;
+        }
+
+        if (!botsLoaded) return; // biarkan skeleton
+        const block = addBlock();
+        const addCard = myBots.length
+            ? `<button type="button" class="botcard botcard--add" data-act="add"${block === 'BOT_LIMIT' ? ' disabled' : ''}>
+                   <span class="botcard__plus"><i class="fa-solid ${block === 'BOT_LIMIT' ? 'fa-lock' : 'fa-plus'}"></i></span>
+                   <span class="botcard__addtext">
+                       <strong>${block === 'BOT_LIMIT' ? 'Batas bot tercapai' : 'Tambah bot'}</strong>
+                       <span class="v-mono">${botLimits?.maxBots ? `${myBots.length}/${botLimits.maxBots} terpakai · ` : ''}tiap bot beda paket</span>
+                   </span>
+               </button>`
+            : `<div class="botcard botcard--empty">
+                   <span class="botcard__plus"><i class="fa-brands fa-whatsapp"></i></span>
+                   <div>
+                       <strong>Belum ada bot</strong>
+                       <p>Tambah nomor WhatsApp pertama kamu — gratis. Satu akun dapat 1 bot Free, bot berikutnya bisa pakai paket lain.</p>
+                   </div>
+                   <button type="button" class="v-btn v-btn--primary v-btn--sm" data-act="add"><i class="fa-solid fa-plus"></i> Tambah bot pertama</button>
+               </div>`;
+        list.innerHTML = myBots.map(botCardHTML).join('') + addCard;
+    }
+
+    // --- Kartu Kontrol Bot (bot yang dipilih) ---
+    function renderCtlBot() {
+        const b = activeBot();
+        const label = $id('ctlBotLabel');
+        if (label) label.textContent = b ? botName(b) : (activeBotNumber ? 'Bot ini' : 'Belum ada bot');
+        const num = $id('ctlBotNum');
+        if (num) num.textContent = activeBotNumber ? fmtBotNumber(activeBotNumber) : 'tambah bot dulu';
+        const tier = $id('ctlBotTier');
+        if (tier) tier.innerHTML = activeBotNumber ? nitroBadgeHTML(botTier()) : '';
+        $id('ctlBot')?.classList.toggle('is-empty', !activeBotNumber);
+        // Start tetap bisa ditekan tanpa bot: membuka form "Tambah bot".
+        ['btnStopBot', 'btnDeleteSession'].forEach(id => {
+            const el = $id(id);
+            if (el && !el.querySelector('.fa-spin')) el.disabled = !activeBotNumber;
+        });
+        const ref = $id('backupBotRef');
+        if (ref) ref.textContent = activeBotNumber ? botRef(b || { number: activeBotNumber }) : '(belum ada bot)';
+        const addonBot = $id('addonBotName');
+        if (addonBot) addonBot.textContent = activeBotNumber ? `${b?.label ? b.label + ' · ' : ''}${fmtBotNumber(activeBotNumber)}` : 'Belum ada bot — tambah dulu di Dashboard';
+    }
+
+    // --- Bar konteks "Bot yang diatur" di halaman per bot ---
+    const BOT_VIEWS = ['statistik', 'config', 'mess', 'cmd', 'welcome', 'broadcast', 'menu', 'api', 'upgrade', 'addons'];
+    const CTX_NOTE = {
+        upgrade: 'Paket berlaku untuk bot ini. Bot lain tidak ikut berubah.',
+        addons: 'Add-on dipasang ke bot ini.',
+        statistik: 'Angka di halaman ini milik bot ini.',
+        api: 'Token & kuota API milik bot ini.'
+    };
+    function placeBotCtx(view) {
+        const box = $id('botCtx');
+        if (!box) return;
+        const sec = $id('view-' + view);
+        if (!sec || !BOT_VIEWS.includes(view)) { box.classList.add('v-hide'); return; }
+        const head = sec.querySelector('.page-head');
+        if (head) head.after(box); else sec.prepend(box);
+        box.dataset.view = view;
+        box.classList.remove('v-hide');
+        renderBotCtx();
+    }
+    function renderBotCtx() {
+        const box = $id('botCtx');
+        if (!box) return;
+        const sel = $id('botCtxSelect');
+        const b = activeBot();
+        if (sel) {
+            const opts = myBots.length
+                ? myBots.map(x => `<option value="${escapeHtml(x.number)}"${x.number === activeBotNumber ? ' selected' : ''}>${escapeHtml(botName(x))} · ${fmtBotNumber(x.number)}</option>`).join('')
+                : `<option value="">${activeBotNumber ? fmtBotNumber(activeBotNumber) : 'Belum ada bot'}</option>`;
+            if (sel.innerHTML !== opts) sel.innerHTML = opts;
+            sel.disabled = myBots.length < 2;
+        }
+        const dot = $id('botCtxDot');
+        if (dot) dot.className = statusOf(b).dot;
+        const tierEl = $id('botCtxTier');
+        if (tierEl) tierEl.innerHTML = activeBotNumber ? nitroBadgeHTML(botTier()) : '';
+        const exp = $id('botCtxExp');
+        if (exp) {
+            const d = daysLeftOf(b);
+            exp.textContent = !activeBotNumber ? '' : d != null ? `sisa ${d} hari` : botTier() === 'free' ? 'paket gratis' : '';
+            exp.classList.toggle('is-warn', d != null && d <= 3);
+        }
+        const note = $id('botCtxNote');
+        if (note) note.textContent = activeBotNumber
+            ? (CTX_NOTE[box.dataset.view] || 'Setelan di halaman ini berlaku untuk bot ini saja.')
+            : 'Belum ada bot. Tambah bot dulu di Dashboard.';
+        const btn = $id('botCtxUpgrade');
+        if (btn) {
+            const free = botTier() === 'free';
+            btn.dataset.mode = activeBotNumber ? 'upgrade' : 'add';
+            btn.innerHTML = activeBotNumber
+                ? `<i class="fa-regular fa-gem"></i> <span>${free ? 'Upgrade<span class="hide-sm"> bot ini</span>' : 'Perpanjang<span class="hide-sm"> paket</span>'}</span>`
+                : '<i class="fa-solid fa-plus"></i> <span>Tambah bot</span>';
+        }
+    }
+    $id('botCtxSelect')?.addEventListener('change', (e) => {
+        if (e.target.value && e.target.value !== activeBotNumber) {
+            window.setActiveBotNumber(e.target.value);
+            const b = activeBot();
+            say(`Sekarang mengatur ${botRef(b)}.`, 'ok');
+        }
+    });
+    $id('botCtxUpgrade')?.addEventListener('click', (e) => {
+        if (e.currentTarget.dataset.mode === 'add') { showView('dashboard'); openAddPanel(); return; }
+        const t = botTier();
+        openOrderModal(t === 'free' ? 'basic' : t, activeBotNumber);
+    });
+
+    // --- Form tambah bot ---
+    function openAddPanel() {
+        const panel = $id('addBotPanel');
+        if (!panel) return;
+        panel.classList.remove('v-hide');
+        $id('fleet')?.classList.add('is-adding');
+        $id('btnAddBotToggle')?.setAttribute('aria-expanded', 'true');
+        renderAddPanel();
+        // Data batas bisa basi (mis. baru upgrade di tab lain): segarkan.
+        loadMyBots();
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        setTimeout(() => $id('inputWaNumber')?.focus({ preventScroll: true }), 250);
+    }
+    function closeAddPanel() {
+        $id('addBotPanel')?.classList.add('v-hide');
+        $id('fleet')?.classList.remove('is-adding');
+        $id('btnAddBotToggle')?.setAttribute('aria-expanded', 'false');
+        addNoticeSticky = false;
+    }
+    $id('btnAddBotToggle')?.addEventListener('click', () => {
+        if ($id('addBotPanel')?.classList.contains('v-hide')) openAddPanel(); else closeAddPanel();
+    });
+    $id('btnAddBotClose')?.addEventListener('click', closeAddPanel);
+
+    function setMeterOf(id, pct, tone) { const el = $id(id); if (el) window.VLive.setMeter(el, pct, tone); }
+
+    // Notice di form tambah bot. Kode dari server (BOT_LIMIT, BOT_LIMIT_FREE,
+    // SERVER_FULL) diterjemahkan jadi kalimat yang jelas + langkah lanjutnya.
+    function addNoticeHTML(code, serverText = '', cap = null) {
+        const max = botLimits?.maxBots;
+        if (code === 'BOT_LIMIT') {
+            return { tone: 'danger', html: `<i class="fa-solid fa-layer-group"></i><span><strong>Batas ${max ? `${max} bot` : 'bot'} per akun sudah tercapai.</strong> ${escapeHtml(serverText || 'Hapus salah satu bot dulu untuk menambah yang baru.')}</span>` };
+        }
+        if (code === 'BOT_LIMIT_FREE') {
+            const freeBot = myBots.find(b => effectiveTier(b) === 'free');
+            const act = freeBot
+                ? `<span class="notice__acts"><button type="button" class="v-btn v-btn--sm v-btn--primary" data-act="upgrade" data-number="${escapeHtml(freeBot.number)}"><i class="fa-regular fa-gem"></i> Upgrade ${escapeHtml(botRef(freeBot))}</button></span>`
+                : '';
+            return { tone: 'warn', html: `<i class="fa-solid fa-lock"></i><span><strong>Slot bot Free sudah terpakai.</strong> ${escapeHtml(serverText || `Tiap akun cuma boleh ${botLimits?.maxFree ?? 1} bot Free, dan bot baru selalu mulai dari Free. Upgrade bot Free kamu dulu (atau hapus), lalu tambah bot baru.`)}${act}</span>` };
+        }
+        if (code === 'SERVER_FULL') {
+            const angka = cap && cap.max != null ? ` (${cap.used ?? cap.max}/${cap.max} bot)` : '';
+            return { tone: 'danger', html: `<i class="fa-solid fa-server"></i><span><strong>Server lagi penuh${angka}.</strong> Supaya semua bot tetap lancar, bot baru belum bisa ditambahkan dulu. Coba lagi beberapa saat lagi — sisa slot terlihat di kartu Server.</span>` };
+        }
+        if (code === 'PENDING') {
+            const nm = pendingPkg?.tierName || tierName(pendingPkg?.tier);
+            return { tone: 'ok', html: `<i class="fa-solid fa-gift"></i><span><strong>Bot baru ini langsung dapat paket ${escapeHtml(nm)}</strong>${pendingPkg?.daysLeft != null ? ` (sisa ${Number(pendingPkg.daysLeft) || 0} hari)` : ''} — paket tersimpan dari bot yang kamu hapus.</span>` };
+        }
+        return { tone: 'danger', html: `<i class="fa-solid fa-circle-exclamation"></i><span>${escapeHtml(serverText || 'Bot belum bisa ditambahkan.')}</span>` };
+    }
+    function showAddNotice(code, serverText, cap, { sticky = false } = {}) {
+        const box = $id('addBotNotice');
+        if (!box) return;
+        // Aturan slot Free tidak perlu tampil kalau notice-nya sudah menjelaskan itu.
+        $id('addBotRule')?.classList.toggle('v-hide', !botLimits || code === 'BOT_LIMIT_FREE' || code === 'PENDING');
+        if (!code) { box.classList.add('v-hide'); box.innerHTML = ''; addNoticeSticky = false; return; }
+        const n = addNoticeHTML(code, serverText, cap);
+        box.className = `notice notice--${n.tone}`;
+        box.innerHTML = n.html;
+        addNoticeSticky = sticky;
+    }
+
+    function renderAddPanel() {
+        const panel = $id('addBotPanel');
+        if (!panel) return;
+        const L = botLimits;
+        $id('limBotsBox')?.classList.toggle('v-hide', !L);
+        $id('limFreeBox')?.classList.toggle('v-hide', !L);
+        if (L) {
+            const used = L.used ?? myBots.length;
+            const freeUsed = L.freeUsed ?? myBots.filter(b => effectiveTier(b) === 'free').length;
+            $id('limBots').textContent = `${used}/${L.maxBots}`;
+            setMeterOf('limBotsMeter', L.maxBots ? (used / L.maxBots) * 100 : 0, used >= L.maxBots ? 'danger' : used >= L.maxBots - 1 ? 'warn' : '');
+            $id('limFree').textContent = `${freeUsed}/${L.maxFree}`;
+            setMeterOf('limFreeMeter', L.maxFree ? (freeUsed / L.maxFree) * 100 : 100, freeUsed >= L.maxFree ? 'warn' : '');
+            const rf = $id('ruleFree');
+            if (rf) rf.textContent = L.maxFree;
+        }
+        const cap = lastCapacity || botsCapacity;
+        if (cap && cap.max != null) {
+            const info = window.VLive.capacityInfo(cap);
+            $id('limSrv').textContent = info.remaining === 0 ? 'penuh' : `${info.remaining} kosong`;
+            const pct = cap.percent ?? (cap.max ? ((cap.max - info.remaining) / cap.max) * 100 : 0);
+            setMeterOf('limSrvMeter', pct, info.tone === 'ok' ? '' : info.tone);
+        } else {
+            $id('limSrv').textContent = 'belum dicek';
+            setMeterOf('limSrvMeter', 0, '');
+        }
+
+        const btn = $id('btnAddBot');
+        const block = addBlock();
+        if (btn && !btn.querySelector('.fa-spin')) btn.disabled = !!block;
+        if (addNoticeSticky) return;
+        // Peringatan sebelum user mencoba, supaya tidak menebak-nebak.
+        if (block) showAddNotice(block);
+        else if (cap && cap.max != null && window.VLive.capacityInfo(cap).remaining === 0 && currentUser?.role !== 'admin') showAddNotice('SERVER_FULL', '', cap);
+        else if (pendingPkg) showAddNotice('PENDING');
+        else showAddNotice('');
+    }
+    ['inputWaNumber', 'addBotLabel'].forEach(id => $id(id)?.addEventListener('input', () => {
+        if (addNoticeSticky) { addNoticeSticky = false; renderAddPanel(); }
+    }));
+
+    // --- Start / stop ---
+    // isNew: nomor yang belum ada di "Bot saya" (didaftarkan ke akun oleh
+    // server saat start). Penolakan batas ditampilkan di form tambah bot.
+    async function startBot(number, { isNew = false, label = '', btn = null } = {}) {
+        const clean = cleanNumber(number);
+        if (clean.length < 9) {
+            say('Nomor WA terlalu pendek. Pakai format 62812xxxx.', 'err');
+            return false;
+        }
+        const previous = activeBotNumber;
         showStartNotice('');
-        // Pindahkan langganan SSE ke nomor bot yang baru ini.
-        window.reconnectBotStream?.();
+        if (isNew) { addingNumber = clean; showAddNotice(''); }
+        // Pindah ke bot ini SEBELUM request: SSE harus sudah mendengarkan
+        // nomor ini supaya pairing code tidak terlewat.
+        if (clean !== activeBotNumber) window.setActiveBotNumber(clean, { load: false });
+        else window.reconnectBotStream?.();
         liveWidgets?.feed?.render();
 
         setBotState('connecting');
-        termReset(`$ Menyiapkan sesi untuk ${cleanNumber}…`, 't-info');
-        const done = busy(e.currentTarget, 'Memulai…');
+        termReset(`$ Menyiapkan sesi untuk ${clean}…`, 't-info');
+        const done = busy(btn, isNew ? 'Menambahkan…' : 'Memulai…');
+        const revert = () => {
+            addingNumber = '';
+            if (isNew && previous !== clean) window.setActiveBotNumber(previous);
+        };
 
         try {
             const res = await fetch('/api/bot/start', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number: cleanNumber, userId: currentUser.id })
+                body: JSON.stringify({ number: clean, userId: currentUser.id })
             });
             let result = {};
             try { result = await res.json(); } catch { result = {}; }
 
-            // Server penuh (kapasitas habis). Nomor tetap disimpan supaya
-            // user cukup menekan Start lagi saat slot sudah tersedia.
+            // Server penuh (kapasitas habis).
             if (res.status === 503 && result.code === 'SERVER_FULL') {
                 const cap = result.capacity || lastCapacity;
-                const angka = cap && cap.max != null ? ` (${cap.used ?? cap.max}/${cap.max} bot)` : '';
-                // Pesan asli dari server sudah tampil di terminal; di sini cukup
-                // penjelasan yang ramah supaya tidak ada teks dobel.
-                showStartNotice(`<strong>Server lagi penuh${angka}.</strong> Supaya semua bot tetap lancar, bot baru belum bisa dijalankan dulu. Coba lagi beberapa saat lagi — sisa slot terlihat di kartu Server.`);
-                say('Server penuh — bot baru belum bisa dijalankan sekarang.', 'err');
                 termLine(`$ ${result.message || 'Server penuh. Coba lagi nanti.'}`, 't-warn');
                 setBotState('offline');
-                if (cap) renderSlotHint(cap);
-                return;
+                if (cap) { lastCapacity = { ...(lastCapacity || {}), ...cap }; renderSlotHint(lastCapacity); }
+                if (isNew) {
+                    showAddNotice('SERVER_FULL', '', cap, { sticky: true });
+                    revert();
+                } else {
+                    const angka = cap && cap.max != null ? ` (${cap.used ?? cap.max}/${cap.max} bot)` : '';
+                    showStartNotice(`<strong>Server lagi penuh${angka}.</strong> Supaya semua bot tetap lancar, bot baru belum bisa dijalankan dulu. Coba lagi beberapa saat lagi — sisa slot terlihat di kartu Server.`);
+                }
+                say('Server penuh — bot baru belum bisa dijalankan sekarang.', 'err');
+                return false;
             }
 
             if (!result.success) {
-                // Penolakan (mis. sudah punya nomor lain) harus terlihat,
-                // bukan dibiarkan menggantung di status "Connecting...".
-                say(serverMsg(res, result, 'Gagal memulai bot.'), 'err');
+                // Penolakan harus terlihat, bukan menggantung di "Connecting...".
+                const msg = serverMsg(res, result, 'Gagal memulai bot.');
                 setBotState('offline');
-                termLine(`$ ${serverMsg(res, result, 'Ditolak server.')}`, 't-err');
-                if (result.code === 'BOT_LIMIT' && previousNumber && previousNumber !== cleanNumber) {
-                    // Kembalikan ke nomor lama milik user, bukan dikosongkan.
-                    window.setActiveBotNumber(previousNumber);
-                    inputWa.value = previousNumber;
+                termLine(`$ ${msg}`, 't-err');
+                if (isNew) {
+                    showAddNotice(['BOT_LIMIT', 'BOT_LIMIT_FREE'].includes(result.code) ? result.code : 'OTHER', res.status >= 500 ? msg : result.message, null, { sticky: true });
+                    say(result.code === 'BOT_LIMIT_FREE' ? 'Slot bot Free sudah terpakai.' : result.code === 'BOT_LIMIT' ? 'Batas jumlah bot tercapai.' : msg, 'err');
+                    revert();
+                    // Batas di layar mungkin basi — ambil yang terbaru.
+                    loadMyBots();
                 } else {
-                    localStorage.removeItem('active_bot_num');
-                    activeBotNumber = '';
-                    syncBotNumberUI();
+                    say(msg, 'err');
                 }
-                return;
+                return false;
             }
+
             termLine('$ Koneksi dimulai. Tunggu pairing code muncul di sini…', 't-dim');
+            if (isNew) {
+                closeAddPanel();
+                const inp = $id('inputWaNumber'); if (inp) inp.value = '';
+                const lab = $id('addBotLabel'); if (lab) lab.value = '';
+            }
+            // Daftar dimuat ulang SELAGI addingNumber masih terisi: kalau
+            // tidak, bot baru (belum ada di daftar lama) dianggap "bukan
+            // milik akun" dan pilihan melompat ke bot lain — pairing code-nya
+            // jadi tidak terlihat.
+            // Permintaan yang sudah jalan sebelum start bisa membawa daftar
+            // lama — tunggu selesai, lalu minta yang baru.
+            if (botsReq) await botsReq;
+            await loadMyBots();
+            addingNumber = '';
+            if (isNew) {
+                if (label) await saveLabel(clean, label, { quiet: true });
+                // Paket tersimpan (dari bot yang dihapus) langsung terpasang ke bot ini.
+                const applied = result.pendingApplied;
+                say(applied
+                    ? `Bot ditambahkan dengan paket ${applied.tierName || tierName(applied.tier)}. Tunggu pairing code di terminal, ya.`
+                    : 'Bot ditambahkan. Tunggu pairing code di terminal, ya.', 'ok');
+                // Pairing code muncul di terminal — bawa user ke sana.
+                $id('botTerminal')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            loadBotConfig({ quiet: true });
+            loadBotStats();
+            if (currentView === 'api') loadApiToken();
+            return true;
         } catch (err) {
             // Sebelumnya ditelan, jadi status macet di "Connecting..." selamanya.
             say('Gagal terhubung ke server. Coba lagi.', 'err');
             setBotState('offline');
-        } finally { done(); }
-    });
+            if (isNew) revert();
+            return false;
+        } finally {
+            if (isNew) addingNumber = '';
+            done();
+        }
+    }
 
-    $id('btnStopBot')?.addEventListener('click', async (e) => {
-        if (!activeBotNumber) return say('Sesi bot belum diatur.', 'err');
-        const done = busy(e.currentTarget, 'Menghentikan…');
+    async function stopBot(number, btn) {
+        if (!number) return say('Belum ada bot yang dipilih.', 'err');
+        const done = busy(btn, 'Menghentikan…');
         try {
             const res = await fetch('/api/bot/stop', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id })
+                body: JSON.stringify({ number, userId: currentUser.id })
             });
-            const result = await res.json();
+            let result = {};
+            try { result = await res.json(); } catch { result = {}; }
             if (!result.success) return say(serverMsg(res, result, 'Gagal menghentikan bot.'), 'err');
-            setBotState('offline');
+            if (number === activeBotNumber) setBotState('offline');
+            const b = myBots.find(x => x.number === number);
+            if (b) b.status = 'stop';
+            onBotsChanged({ light: true });
             say(result.message || 'Bot dihentikan.', 'ok');
         } catch (err) {
             say('Gagal terhubung ke server.', 'err');
         } finally { done(); }
+    }
+
+    $id('btnStartBot')?.addEventListener('click', (e) => {
+        if (!activeBotNumber) { openAddPanel(); return say('Tambah bot dulu, lalu start.', 'err'); }
+        startBot(activeBotNumber, { btn: e.currentTarget });
+    });
+    $id('btnStopBot')?.addEventListener('click', (e) => stopBot(activeBotNumber, e.currentTarget));
+    $id('btnDeleteSession')?.addEventListener('click', () => {
+        if (!activeBotNumber) return say('Belum ada bot yang dipilih.', 'err');
+        openDeleteModal(activeBotNumber);
     });
 
-    $id('btnDeleteSession')?.addEventListener('click', async (e) => {
-        if (!activeBotNumber) return say('Sesi bot belum diatur.', 'err');
-        if (!confirm(`Hapus permanen data sesi WA ${activeBotNumber}?`)) return;
+    $id('btnAddBot')?.addEventListener('click', async (e) => {
+        const inp = $id('inputWaNumber');
+        const clean = cleanNumber(inp?.value);
+        if (!clean) { inp?.focus(); return say('Masukkan nomor WA bot dulu.', 'err'); }
+        if (clean.length < 9) { inp?.focus(); return say('Nomor WA terlalu pendek. Pakai format 62812xxxx.', 'err'); }
+        const label = ($id('addBotLabel')?.value || '').trim().slice(0, 32);
+        // Nomor yang sudah ada di akun cukup dipilih & di-start ulang.
+        const existing = myBots.find(b => b.number === clean);
+        if (existing) {
+            closeAddPanel();
+            if (inp) inp.value = '';
+            say(`${botRef(existing)} sudah ada di akun kamu — langsung di-start.`);
+            if (label && label !== existing.label) saveLabel(clean, label, { quiet: true });
+            return startBot(clean, { btn: $id('btnStartBot') });
+        }
+        startBot(clean, { isNew: true, label, btn: e.currentTarget });
+    });
+    $id('inputWaNumber')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') $id('btnAddBot')?.click(); });
 
-        const done = busy(e.currentTarget, '');
+    // --- Ganti nama ---
+    async function saveLabel(number, label, { quiet = false } = {}) {
+        const clean = String(label || '').trim().slice(0, 32);
+        try {
+            const res = await fetch('/api/bots/label', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentUser.id, number, label: clean })
+            });
+            let d = {};
+            try { d = await res.json(); } catch { d = {}; }
+            if (!res.ok || !d.success) {
+                if (!quiet) say(serverMsg(res, d, 'Gagal mengganti nama bot.'), 'err');
+                return false;
+            }
+            const b = myBots.find(x => x.number === number);
+            if (b) b.label = typeof d.label === 'string' ? d.label : clean;
+            renamingNumber = '';
+            saveBotsCache();
+            onBotsChanged();
+            if (!quiet) say(clean ? `Nama bot disimpan: ${clean}.` : 'Nama bot dikosongkan.', 'ok');
+            return true;
+        } catch (err) {
+            if (!quiet) say('Gagal terhubung ke server.', 'err');
+            return false;
+        }
+    }
+
+    // --- Klik di kartu bot (delegasi) ---
+    $id('fleet')?.addEventListener('click', (e) => {
+        const actEl = e.target.closest('[data-act]');
+        const card = e.target.closest('.botcard[data-number]');
+        const number = actEl?.dataset.number || card?.dataset.number || '';
+        if (!actEl) {
+            // Klik di badan kartu = pilih bot itu.
+            if (card && number !== activeBotNumber && !e.target.closest('form')) {
+                window.setActiveBotNumber(number);
+                say(`Sekarang mengatur ${botRef(activeBot())}.`, 'ok');
+            }
+            return;
+        }
+        const act = actEl.dataset.act;
+        if (act === 'add') return openAddPanel();
+        if (act === 'rename') {
+            renamingNumber = number;
+            renderFleet();
+            const input = $id('botList').querySelector(`.botcard__rename-form[data-number="${CSS.escape(number)}"] input`);
+            input?.focus(); input?.select();
+            return;
+        }
+        if (act === 'rename-cancel') { renamingNumber = ''; renderFleet(); return; }
+        if (act === 'manage') {
+            if (number !== activeBotNumber) window.setActiveBotNumber(number);
+            showView('config');
+            return;
+        }
+        if (act === 'upgrade') {
+            const b = myBots.find(x => x.number === number);
+            const t = b ? effectiveTier(b) : 'free';
+            return openOrderModal(t === 'free' ? 'basic' : t, number);
+        }
+        if (act === 'start') {
+            if (number !== activeBotNumber) window.setActiveBotNumber(number);
+            startBot(number, { btn: actEl });
+            return;
+        }
+        if (act === 'stop') return stopBot(number, actEl);
+        if (act === 'delete') return openDeleteModal(number);
+    });
+    $id('fleet')?.addEventListener('submit', (e) => {
+        const form = e.target.closest('.botcard__rename-form');
+        if (!form) return;
+        e.preventDefault();
+        const btn = form.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
+        saveLabel(form.dataset.number, form.querySelector('input')?.value || '').finally(() => { if (btn) btn.disabled = false; });
+    });
+    $id('fleet')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && e.target.closest('.botcard__rename-form')) {
+            e.stopPropagation();
+            renamingNumber = ''; renderFleet();
+        }
+    });
+    // Tombol "Upgrade bot Free" di notice tambah bot ikut ditangani
+    // delegasi #fleet di atas (data-act="upgrade" + data-number).
+
+    // --- Hapus bot ---
+    let deleteTarget = '';
+    function botIdentityHTML(b) {
+        return `<span class="order-bot__icon"><i class="fa-brands fa-whatsapp"></i></span>
+            <span class="order-bot__id"><strong>${escapeHtml(botName(b))}</strong><span class="v-mono">${fmtBotNumber(b.number)}</span></span>
+            ${nitroBadgeHTML(effectiveTier(b))}`;
+    }
+    function openDeleteModal(number) {
+        const b = myBots.find(x => x.number === number) || { number, label: '', tier: botsLegacy ? (currentUser.tier || 'free') : 'free' };
+        deleteTarget = number;
+        $id('delBotWho').innerHTML = botIdentityHTML(b);
+        const t = effectiveTier(b);
+        const d = daysLeftOf(b);
+        const pkg = $id('delBotPkg');
+        if (botsLegacy) {
+            pkg.className = 'notice';
+            pkg.innerHTML = `<i class="fa-solid fa-circle-info"></i><span>Paket akun kamu tidak berubah.</span>`;
+        } else if (t !== 'free') {
+            // Aturan paket tersimpan: paket berbayar tidak hangus saat bot dihapus.
+            let html = `<strong>Paket ${tierName(t)}${d != null ? ` (sisa ${d} hari)` : ''} tidak hangus.</strong> Paketnya disimpan dan otomatis dipasang ke bot berikutnya yang kamu tambahkan.`;
+            if (pendingPkg) {
+                const nm = pendingPkg.tierName || tierName(pendingPkg.tier);
+                html += ` Kamu sudah punya paket ${escapeHtml(nm)}${pendingPkg.daysLeft != null ? ` (sisa ${Number(pendingPkg.daysLeft) || 0} hari)` : ''} yang menunggu — yang disimpan cuma satu, yaitu yang masa aktifnya paling lama.`;
+            }
+            pkg.className = 'notice notice--ok';
+            pkg.innerHTML = `<i class="fa-solid fa-box-archive"></i><span>${html}</span>`;
+        } else {
+            pkg.className = 'notice';
+            pkg.innerHTML = `<i class="fa-solid fa-circle-info"></i><span>Bot ini pakai paket Free, jadi tidak ada paket yang hilang. Slot bot Free kamu kosong lagi setelah bot ini dihapus.</span>`;
+        }
+        $id('delBotTitle').textContent = `Hapus ${botRef(b)}?`;
+        openModal($id('deleteBotModal'));
+    }
+    $id('btnConfirmDeleteBot')?.addEventListener('click', async (e) => {
+        const number = deleteTarget;
+        if (!number) return;
+        const done = busy(e.currentTarget, 'Menghapus…');
         try {
             const res = await fetch('/api/bot/delete', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id })
+                body: JSON.stringify({ number, userId: currentUser.id })
             });
-            const result = await res.json();
-
+            let result = {};
+            try { result = await res.json(); } catch { result = {}; }
             // Data lokal HANYA dibersihkan kalau server benar-benar menghapus.
-            // Sebelumnya dibersihkan apa pun hasilnya — kalau server menolak,
-            // user kehilangan jejak nomornya padahal di server masih
-            // terdaftar, lalu terkunci oleh batas satu nomor per akun.
-            if (!result.success) return say(serverMsg(res, result, 'Gagal menghapus sesi.'), 'err');
+            // Kalau server menolak, nomornya masih terdaftar di akun.
+            if (!result.success) return say(serverMsg(res, result, 'Gagal menghapus bot.'), 'err');
 
-            window.setActiveBotNumber('');
-            $id('inputWaNumber').value = '';
-            setBotState('offline');
-            termReset('$ Sesi dihapus.', 't-dim');
-            say(result.message || 'Sesi dihapus.', 'ok');
+            closeModal($id('deleteBotModal'));
+            deleteTarget = '';
+            myBots = myBots.filter(b => b.number !== number);
+            if (number === activeBotNumber) {
+                window.setActiveBotNumber(myBots[0]?.number || '');
+                termReset('$ Bot dihapus.', 't-dim');
+            }
+            onBotsChanged();
+            say(result.message || 'Bot dihapus.', 'ok');
+            loadMyBots();
         } catch (err) {
             say('Gagal terhubung ke server.', 'err');
         } finally { done(); }
     });
+
+    // Status & batas berubah dari luar halaman ini (bot putus, paket
+    // habis, upgrade di tab lain): segarkan berkala selama tab terlihat.
+    setInterval(() => { if (document.visibilityState === 'visible') loadMyBots(); }, 30000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadMyBots(); });
 
     // Tombol simpan hanya aktif setelah config berhasil dimuat dari server.
     // Mencegah config asli tertimpa form kosong saat pemuatan gagal.
@@ -827,8 +1593,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 if ($id('cfgWatermark')) $id('cfgWatermark').value = cfg.watermark || '';
                 if ($id('cfgFooter')) $id('cfgFooter').value = cfg.footer || '';
 
+                // Selalu ditimpa (bawaan kalau kosong): kalau tidak, menu bot
+                // sebelumnya tertinggal di form saat ganti bot lalu ikut
+                // tersimpan ke bot ini.
                 const customMenuInput = $id('cfgCustomMenu');
-                if (customMenuInput && cfg.customMenu) customMenuInput.value = cfg.customMenu;
+                if (customMenuInput) customMenuInput.value = cfg.customMenu || DEFAULT_MENU;
 
                 const menuImageInput = $id('cfgMenuImage');
                 if (menuImageInput) menuImageInput.value = cfg.menuImage || '';
@@ -862,6 +1631,15 @@ document.addEventListener("DOMContentLoaded", () => {
         // dari log. Saat sedang pairing/menyambung jangan ditimpa "Offline".
         if (s.online === true && botState !== 'online') setBotState('online');
         else if (s.online === false && botState === 'online') setBotState('offline');
+
+        // Angka ringkas di kartu "Bot saya" ikut hidup untuk bot terpilih.
+        const ab = activeBot();
+        if (ab && (ab.groups !== s.groups || ab.messages !== s.messages || ab.commands !== s.commands)) {
+            if (s.groups != null) ab.groups = s.groups;
+            if (s.messages != null) ab.messages = s.messages;
+            if (s.commands != null) ab.commands = s.commands;
+            window.refreshBotsUI?.({ light: true });
+        }
 
         const feed = $id('activityFeed');
         if (!feed) return;
@@ -917,12 +1695,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     const exp = new Date(a.expiredAt);
                     const hoursLeft = Math.max(0, Math.round((exp - new Date()) / 3600000));
                     const left = hoursLeft >= 24 ? `${Math.floor(hoursLeft / 24)} hari ${hoursLeft % 24} jam` : `${hoursLeft} jam`;
+                    // Add-on melekat ke bot tertentu: sebutkan botnya.
+                    const ab = a.botNumber ? myBots.find(b => b.number === String(a.botNumber)) : null;
+                    const forBot = a.botNumber ? ` &middot; bot ${escapeHtml(ab?.label || fmtBotNumber(a.botNumber))}` : '';
                     return `
                     <div class="addon-active">
                         <span class="v-dot v-dot--live"></span>
                         <div style="min-width:0;">
                             <strong>${escapeHtml(a.name)} aktif</strong>
-                            <p>Sisa ${left} &middot; sampai ${exp.toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                            <p>Sisa ${left} &middot; sampai ${exp.toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}${forBot}</p>
                         </div>
                     </div>`;
                 }).join('') : '';
@@ -1018,6 +1799,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     $id('btnCreateAddon')?.addEventListener('click', async (e) => {
         if (!currentUser?.id) return say('Silakan login ulang.', 'err');
+        // Add-on dipasang ke bot tertentu, jadi harus ada bot yang dipilih.
+        if (!activeBotNumber) return say(NO_BOT_MSG, 'err');
         const done = busy(e.currentTarget, 'Memproses…');
         try {
             const res = await fetch('/api/addons/create', {
@@ -1095,28 +1878,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- SIMPAN CONFIG / MENU / PROFIL ---
     $id('btnSaveConfig')?.addEventListener('click', async (e) => {
-        if (!activeBotNumber) return say('Jalankan bot (Start) terlebih dahulu.', 'err');
+        if (!activeBotNumber) return say(NO_BOT_MSG, 'err');
 
         const modePublik = $id('modePublik')?.checked ?? true;
-        const caps = TIER_CAPS[currentUser.tier] || TIER_CAPS.free;
+        const caps = TIER_CAPS[botTier()] || TIER_CAPS.free;
         const botName = caps.customize ? ($id('cfgBotName')?.value.trim() || '') : '';
         const ownerNumber = caps.customize ? ($id('cfgOwnerNumber')?.value || '') : '';
         const watermark = caps.customize ? ($id('cfgWatermark')?.value || '') : '';
         const footer = caps.customize ? ($id('cfgFooter')?.value || '') : '';
 
         const ownerCount = ownerNumber.split(',').map(n => n.trim()).filter(Boolean).length;
-        const maxOwners = OWNER_LIMIT_BY_TIER[currentUser.tier] ?? 0;
+        const maxOwners = OWNER_LIMIT_BY_TIER[botTier()] ?? 0;
         if (ownerCount > maxOwners) {
             return say(maxOwners === 0
-                ? 'Kustomisasi nomor owner khusus paket berbayar. Upgrade dulu, ya.'
-                : `Paket ${tierName(currentUser.tier)} kamu maksimal ${maxOwners} nomor owner. Kurangi jumlah nomor atau upgrade paket.`, 'err');
+                ? 'Kustomisasi nomor owner khusus bot berpaket berbayar. Upgrade bot ini dulu, ya.'
+                : `Paket ${tierName(botTier())} bot ini maksimal ${maxOwners} nomor owner. Kurangi jumlah nomor atau upgrade bot ini.`, 'err');
         }
 
         const done = busy(e.currentTarget, 'Menyimpan…');
         try {
             const res = await fetch('/api/bot/config', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: currentUser.tier, modePublik, botName, ownerNumber, watermark, footer })
+                body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: botTier(), modePublik, botName, ownerNumber, watermark, footer })
             });
             const result = await res.json();
             say(result.success ? (result.message || 'Konfigurasi disimpan!') : serverMsg(res, result, 'Gagal menyimpan konfigurasi.'), result.success ? 'ok' : 'err');
@@ -1126,12 +1909,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     $id('btnSaveMenu')?.addEventListener('click', async (e) => {
-        if (!activeBotNumber) return say('Jalankan bot (Start) terlebih dahulu.', 'err');
-        const caps = TIER_CAPS[currentUser.tier] || TIER_CAPS.free;
+        if (!activeBotNumber) return say(NO_BOT_MSG, 'err');
+        const caps = TIER_CAPS[botTier()] || TIER_CAPS.free;
         if (!caps.customize) return say('Kustomisasi menu khusus paket berbayar (Core/Prime/Zenith).', 'err');
 
         const customMenu = $id('cfgCustomMenu')?.value || '';
-        const payload = { number: activeBotNumber, userId: currentUser.id, tier: currentUser.tier, customMenu };
+        const payload = { number: activeBotNumber, userId: currentUser.id, tier: botTier(), customMenu };
         if (caps.menuImage) payload.menuImage = $id('cfgMenuImage')?.value || '';
 
         const done = busy(e.currentTarget, 'Menyimpan…');
@@ -1149,7 +1932,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     $id('btnResetMenu')?.addEventListener('click', () => {
         const menuBox = $id('cfgCustomMenu');
-        if (menuBox) menuBox.value = `{ucapanWaktu}\n\n*User:* {pushname}\n*Status:* {statusUser}\n*Date:* {date}\n\n*MAIN*\n- {prefix}jadibot\n- {prefix}statistik\n- {prefix}ping\n`;
+        if (menuBox) menuBox.value = DEFAULT_MENU;
         say('Menu dikembalikan ke bawaan. Tekan Simpan untuk menerapkan.');
     });
 
@@ -1190,6 +1973,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let appliedVoucher = null; // { code, percent, discount }
 
     const orderModal = $id('orderModal');
+    const orderBot = $id('orderBot');
     const orderPaket = $id('orderPaket');
     const orderMonths = $id('orderMonths');
     const orderVoucher = $id('orderVoucher');
@@ -1225,7 +2009,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll('[data-price]').forEach(el => {
             const v = pricingData[el.getAttribute('data-price')];
             if (v == null) return;
-            el.innerHTML = `<span class="price-cur">Rp</span>${Number(v).toLocaleString('id-ID')}<span class="price-period">/ bln</span>`;
+            el.innerHTML = `<span class="price-cur">Rp</span>${Number(v).toLocaleString('id-ID')}<span class="price-period">/ bot / bln</span>`;
         });
         // Harga coret ditampilkan sebagai harga normal sebelum diskon 25%.
         document.querySelectorAll('[data-strike]').forEach(el => {
@@ -1262,25 +2046,71 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             dRow.style.display = 'none';
         }
+        renderOrderBot(tier, months);
     }
 
-    async function openOrderModal(tier) {
+    // Bot tujuan paket + perkiraan masa aktif. Rumusnya SAMA dengan
+    // computeNewExpiry() di server: paket sama -> sisa hari ditumpuk;
+    // paket beda -> sisa nilai rupiah dikonversi ke hari paket baru.
+    function renderOrderBot(tier, months) {
+        const b = myBots.find(x => x.number === orderBot?.value);
+        const help = $id('orderBotHelp');
+        const until = $id('sumUntil');
+        if (!b) {
+            if (help) help.innerHTML = '<i class="fa-solid fa-circle-info"></i> <span>Paket berlaku untuk bot ini.</span>';
+            if (until) until.innerText = '–';
+            return;
+        }
+        const cur = effectiveTier(b);
+        const left = (cur !== 'free' && b.tierExpiredAt) ? Math.max(0, (new Date(b.tierExpiredAt) - new Date()) / 86400000) : 0;
+        let bonus = 0;
+        let note = `Sekarang bot ini pakai paket ${tierName(cur)}.`;
+        if (left > 0 && cur === tier) {
+            bonus = left;
+            note = `Sisa ${Math.ceil(left)} hari ${tierName(cur)} sekarang ikut ditambahkan.`;
+        } else if (left > 0 && pricingData?.[cur] && pricingData?.[tier]) {
+            bonus = left * pricingData[cur] / pricingData[tier];
+            note = `Sisa ${Math.ceil(left)} hari ${tierName(cur)} dikonversi otomatis jadi ±${Math.round(bonus)} hari ${tierName(tier)}.`;
+        }
+        if (help) help.innerHTML = `<i class="fa-solid fa-circle-info"></i> <span><b>Paket berlaku untuk bot ini.</b> ${escapeHtml(note)}</span>`;
+        const exp = new Date(Date.now() + ((months * 30) + bonus) * 86400000);
+        if (until) until.innerText = exp.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function fillOrderBots(number) {
+        if (!orderBot) return;
+        const has = myBots.length > 0;
+        orderBot.innerHTML = has
+            ? myBots.map(b => `<option value="${escapeHtml(b.number)}">${escapeHtml(botName(b))} · ${fmtBotNumber(b.number)} — ${escapeHtml(planText(b))}</option>`).join('')
+            : '<option value="">Belum ada bot</option>';
+        const want = number && myBots.some(b => b.number === number) ? number : (myBots.some(b => b.number === activeBotNumber) ? activeBotNumber : myBots[0]?.number || '');
+        orderBot.value = want;
+        orderBot.closest('.order-bot-field')?.classList.toggle('v-hide', !has);
+        $id('orderNoBot')?.classList.toggle('v-hide', has);
+        const create = $id('btnCreateOrder');
+        if (create) create.disabled = !has;
+    }
+
+    // number: bot yang mau di-upgrade (bawaan: bot yang sedang dipilih).
+    async function openOrderModal(tier, number = '') {
         await loadPricing();
         if (!pricingData) return say('Gagal memuat harga. Coba lagi sebentar.', 'err');
 
         appliedVoucher = null;
         orderVoucher.value = '';
         voucherMsg.innerText = '';
-        orderPaket.value = tier;
+        fillOrderBots(number || activeBotNumber);
+        orderPaket.value = TIER_LABEL[tier] && tier !== 'free' ? tier : 'basic';
         orderMonths.value = '1';
         recalcOrderSummary();
         openModal(orderModal);
     }
 
     document.querySelectorAll('.btn-order').forEach(btn => {
-        btn.addEventListener('click', () => openOrderModal(btn.getAttribute('data-tier')));
+        btn.addEventListener('click', () => openOrderModal(btn.getAttribute('data-tier'), activeBotNumber));
     });
 
+    orderBot?.addEventListener('change', recalcOrderSummary);
     orderPaket?.addEventListener('change', recalcOrderSummary);
     orderMonths?.addEventListener('change', recalcOrderSummary);
 
@@ -1317,6 +2147,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     $id('btnCreateOrder')?.addEventListener('click', async (e) => {
         if (!currentUser?.id) return say('Silakan login ulang.', 'err');
+        // Paket dibeli untuk satu bot tertentu — server menolak tanpa botNumber.
+        const botNumber = orderBot?.value || '';
+        if (!botNumber) return say('Pilih bot yang mau di-upgrade.', 'err');
         const done = busy(e.currentTarget, 'Memproses…');
         try {
             const res = await fetch('/api/payment/create', {
@@ -1325,7 +2158,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     userId: currentUser.id,
                     tier: orderPaket.value,
                     months: parseInt(orderMonths.value) || 1,
-                    promoCode: appliedVoucher?.code || ''
+                    promoCode: appliedVoucher?.code || '',
+                    botNumber
                 })
             });
             const result = await res.json();
@@ -1366,11 +2200,16 @@ document.addEventListener("DOMContentLoaded", () => {
             box.innerHTML = result.orders.map(o => {
                 const when = o.createdAt ? new Date(o.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
                 const what = o.kind === 'addon' ? 'Add-On Unlimited' : `${TIER_LABEL[o.tier] || o.tier}${o.months ? ` · ${o.months} bln` : ''}`;
+                // Paket per bot: tunjukkan bot tujuannya (nama kalau dikenal).
+                const ob = o.botNumber ? myBots.find(b => b.number === String(o.botNumber)) : null;
+                const forBot = o.botNumber
+                    ? `<span class="order-for"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(ob?.label || window.VLive.maskNumber(o.botNumber))}</span>`
+                    : '';
                 return `
                 <div class="list-item">
                     <div class="list-item__main">
                         <div class="list-item__title">${escapeHtml(what)} ${statusBadge[o.status] || escapeHtml(o.status)}</div>
-                        <p class="list-item__meta meta-parts"><span>${escapeHtml(o.orderId)}</span><span>${rupiah(o.totalPayment || o.amount)}</span>${when ? `<span>${when}</span>` : ''}</p>
+                        <p class="list-item__meta meta-parts">${forBot ? `<span>${forBot}</span>` : ''}<span>${escapeHtml(o.orderId)}</span><span>${rupiah(o.totalPayment || o.amount)}</span>${when ? `<span>${when}</span>` : ''}</p>
                     </div>
                     <a class="v-btn v-btn--sm v-btn--outline" href="/invoice?order_id=${encodeURIComponent(o.orderId)}">Lihat <i class="fa-solid fa-arrow-right"></i></a>
                 </div>`;
@@ -1389,7 +2228,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const counter = $id('autoReplyCount');
         if (!box) return;
 
-        const quota = AUTOREPLY_QUOTA[currentUser.tier] ?? 0;
+        const quota = AUTOREPLY_QUOTA[botTier()] ?? 0;
         if (counter) counter.innerText = `${autoReplies.length} / ${quota} aturan`;
 
         if (!autoReplies.length) {
@@ -1410,7 +2249,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     $id('btnAddAutoReply')?.addEventListener('click', () => {
-        const caps = TIER_CAPS[currentUser.tier] || TIER_CAPS.free;
+        const caps = TIER_CAPS[botTier()] || TIER_CAPS.free;
         if (!caps.customize) return say('Pesan otomatis khusus paket berbayar. Upgrade dulu, ya.', 'err');
 
         const keyword = $id('arKeyword').value.trim();
@@ -1418,9 +2257,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const match = $id('arMatch').value;
         if (!keyword || !reply) return say('Kata kunci dan balasan wajib diisi.', 'err');
 
-        const quota = AUTOREPLY_QUOTA[currentUser.tier] ?? 0;
+        const quota = AUTOREPLY_QUOTA[botTier()] ?? 0;
         if (autoReplies.length >= quota) {
-            return say(`Paket ${tierName(currentUser.tier)} kamu maksimal ${quota} aturan. Hapus salah satu atau upgrade paket.`, 'err');
+            return say(`Paket ${tierName(botTier())} bot ini maksimal ${quota} aturan. Hapus salah satu atau upgrade bot ini.`, 'err');
         }
         if (autoReplies.some(r => r.keyword.toLowerCase() === keyword.toLowerCase())) {
             return say('Kata kunci itu sudah ada.', 'err');
@@ -1441,15 +2280,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     $id('btnSaveAutoReply')?.addEventListener('click', async (e) => {
-        if (!activeBotNumber) return say('Jalankan bot (Start) terlebih dahulu.', 'err');
-        const caps = TIER_CAPS[currentUser.tier] || TIER_CAPS.free;
+        if (!activeBotNumber) return say(NO_BOT_MSG, 'err');
+        const caps = TIER_CAPS[botTier()] || TIER_CAPS.free;
         if (!caps.customize) return say('Pesan otomatis khusus paket berbayar.', 'err');
 
         const done = busy(e.currentTarget, 'Menyimpan…');
         try {
             const res = await fetch('/api/bot/config', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: currentUser.tier, autoReply: autoReplies })
+                body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: botTier(), autoReply: autoReplies })
             });
             const result = await res.json();
             say(result.success ? (result.message || 'Pesan otomatis disimpan!') : serverMsg(res, result, 'Gagal menyimpan.'), result.success ? 'ok' : 'err');
@@ -1462,15 +2301,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     $id('btnSaveWelcome')?.addEventListener('click', async (e) => {
-        if (!activeBotNumber) return say('Jalankan bot (Start) terlebih dahulu.', 'err');
-        const caps = TIER_CAPS[currentUser.tier] || TIER_CAPS.free;
+        if (!activeBotNumber) return say(NO_BOT_MSG, 'err');
+        const caps = TIER_CAPS[botTier()] || TIER_CAPS.free;
         if (!caps.customize) return say('Sambutan anggota khusus paket berbayar.', 'err');
 
         const mode = $id('welcomeMode').value;
         if (mode === 'custom' && !caps.menuImage) return say('Foto/GIF sendiri khusus paket Zenith.', 'err');
 
         const payload = {
-            number: activeBotNumber, userId: currentUser.id, tier: currentUser.tier,
+            number: activeBotNumber, userId: currentUser.id, tier: botTier(),
             enabled: $id('welcomeEnabled').checked,
             welcomeText: $id('welcomeText').value.trim(),
             leaveText: $id('leaveText').value.trim(),
@@ -1490,8 +2329,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     $id('btnSendBroadcast')?.addEventListener('click', async (e) => {
-        if (!activeBotNumber) return say('Jalankan bot (Start) terlebih dahulu.', 'err');
-        const caps = TIER_CAPS[currentUser.tier] || TIER_CAPS.free;
+        if (!activeBotNumber) return say(NO_BOT_MSG, 'err');
+        const caps = TIER_CAPS[botTier()] || TIER_CAPS.free;
         if (!caps.customize) return say('Siaran pesan khusus paket berbayar.', 'err');
 
         const text = $id('broadcastText').value.trim();
@@ -1502,7 +2341,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const res = await fetch('/api/bot/broadcast', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: currentUser.tier, message: text })
+                body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: botTier(), message: text })
             });
             const result = await res.json();
             say(result.success ? (result.message || 'Pesan terkirim.') : serverMsg(res, result, 'Gagal mengirim.'), result.success ? 'ok' : 'err');
@@ -1519,7 +2358,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const counter = $id('cmdCount');
         if (!box) return;
 
-        const quota = CUSTOMCMD_QUOTA[currentUser.tier] ?? 0;
+        const quota = CUSTOMCMD_QUOTA[botTier()] ?? 0;
         if (counter) counter.innerText = `${customCommands.length} / ${quota} perintah`;
 
         if (!customCommands.length) {
@@ -1541,7 +2380,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     $id('btnAddCmd')?.addEventListener('click', () => {
-        const quota = CUSTOMCMD_QUOTA[currentUser.tier] ?? 0;
+        const quota = CUSTOMCMD_QUOTA[botTier()] ?? 0;
         if (quota === 0) return say('Perintah kustom khusus paket Prime ke atas.', 'err');
 
         const cmd = $id('cmdName').value.trim().replace(/^[./!#]/, '').toLowerCase();
@@ -1552,10 +2391,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const dilindungi = ['menu', 'jadibot', 'owner', 'ping', 'stop', 'start', 'delete'];
         if (dilindungi.includes(cmd)) return say(`Perintah ".${cmd}" dipakai sistem dan tidak bisa ditimpa.`, 'err');
 
-        if (customCommands.length >= quota) return say(`Paket kamu maksimal ${quota} perintah.`, 'err');
+        if (customCommands.length >= quota) return say(`Paket ${tierName(botTier())} bot ini maksimal ${quota} perintah.`, 'err');
         if (customCommands.some(c => c.cmd === cmd)) return say('Perintah itu sudah ada.', 'err');
 
-        const caps = TIER_CAPS[currentUser.tier] || TIER_CAPS.free;
+        const caps = TIER_CAPS[botTier()] || TIER_CAPS.free;
         customCommands.push({
             cmd, response,
             image: caps.menuImage ? ($id('cmdImage')?.value.trim() || '') : '',
@@ -1577,14 +2416,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     $id('btnSaveCmd')?.addEventListener('click', async (e) => {
-        if (!activeBotNumber) return say('Jalankan bot (Start) terlebih dahulu.', 'err');
+        if (!activeBotNumber) return say(NO_BOT_MSG, 'err');
         const done = busy(e.currentTarget, 'Menyimpan…');
         try {
             const res = await fetch('/api/bot/config', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     number: activeBotNumber, userId: currentUser.id,
-                    tier: currentUser.tier, customCommands
+                    tier: botTier(), customCommands
                 })
             });
             const result = await res.json();
@@ -1682,7 +2521,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // BACKUP & RESTORE SETELAN
     // ==========================================
     $id('btnBackup')?.addEventListener('click', async () => {
-        if (!activeBotNumber) return say('Jalankan bot (Start) terlebih dahulu.', 'err');
+        if (!activeBotNumber) return say(NO_BOT_MSG, 'err');
         try {
             const res = await fetch(`/api/bot/backup/${encodeURIComponent(activeBotNumber)}?userId=${encodeURIComponent(currentUser.id)}`);
             const d = await res.json();
@@ -1699,7 +2538,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     $id('btnRestore')?.addEventListener('click', () => {
-        if (!activeBotNumber) return say('Jalankan bot (Start) terlebih dahulu.', 'err');
+        if (!activeBotNumber) return say(NO_BOT_MSG, 'err');
         $id('restoreFile').click();
     });
 
@@ -1712,7 +2551,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const backup = JSON.parse(await file.text());
             const res = await fetch('/api/bot/restore', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: currentUser.tier, backup })
+                body: JSON.stringify({ number: activeBotNumber, userId: currentUser.id, tier: botTier(), backup })
             });
             const d = await res.json();
             say(d.success ? (d.message || 'Berhasil dipulihkan.') : serverMsg(res, d, 'Gagal memulihkan.'), d.success ? 'ok' : 'err');
@@ -1771,7 +2610,8 @@ document.addEventListener("DOMContentLoaded", () => {
     function renderApi() {
         const box = $id('apiTokenValue');
         if (!box) return;
-        $id('apiBotNumber').textContent = activeBotNumber || '–';
+        const ab = activeBot();
+        $id('apiBotNumber').textContent = activeBotNumber ? `${ab?.label ? ab.label + ' · ' : ''}${fmtBotNumber(activeBotNumber)}` : '–';
         if (api.loading) {
             box.textContent = 'memuat…'; box.classList.add('is-empty');
         } else if (api.token) {
@@ -1795,7 +2635,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (revoke) revoke.disabled = !api.token;
 
         const tierBadge = $id('apiTierBadge');
-        if (tierBadge) { tierBadge.className = ''; tierBadge.innerHTML = nitroBadgeHTML(api.tier || currentUser.tier); }
+        if (tierBadge) { tierBadge.className = ''; tierBadge.innerHTML = nitroBadgeHTML(api.tier || botTier()); }
 
         const u = api.usage || {};
         const limit = Number(u.limit) || 0;
@@ -1843,7 +2683,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             api.token = d.token || '';
             api.usage = d.usage || null;
-            api.tier = d.tier || currentUser.tier;
+            api.tier = d.tier || botTier();
         } catch (err) {
             api.loading = false;
             renderApi();
@@ -1869,7 +2709,7 @@ document.addEventListener("DOMContentLoaded", () => {
         else say('Browser menolak akses clipboard. Tampilkan token lalu salin manual.', 'err');
     });
     $id('btnApiRotate')?.addEventListener('click', async (e) => {
-        if (!activeBotNumber) return say('Jalankan bot dulu.', 'err');
+        if (!activeBotNumber) return say(NO_BOT_MSG, 'err');
         if (api.token && !confirm('Buat token baru?\n\nToken lama langsung tidak berlaku — aplikasi yang memakainya harus diperbarui.')) return;
         const done = busy(e.currentTarget, 'Membuat…');
         try {
@@ -2063,10 +2903,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // --- WIDGET LIVE (kartu Server + log command) ---
-    liveWidgets = window.VLive?.mountDashboard({ getMyBot: () => activeBotNumber }) || null;
+    // Filter "Bot saya" di log live mencakup SEMUA bot milik akun ini.
+    liveWidgets = window.VLive?.mountDashboard({
+        getMyBot: () => (myBots.length ? myBots.map(b => b.number) : (activeBotNumber ? [activeBotNumber] : []))
+    }) || null;
 
     connectSSE();
     if (activeBotNumber) loadBotStats();
+    // Daftar bot (paket per bot). Tampilan dari cache dulu kalau ada.
+    if (botsLoaded) onBotsChanged();
+    loadMyBots();
 
     // --- CHIP VARIABEL (menu & sambutan) ---
     // Klik chip = sisipkan placeholder di posisi kursor. Mengetik manual

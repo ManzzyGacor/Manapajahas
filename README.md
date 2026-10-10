@@ -72,6 +72,31 @@ kapasitas   = min( (batas RAM × (1 − cadangan%) − baseline) ÷ per bot,  co
 
 Cadangan (default 15%) dan batas manual bisa diatur di panel admin → **Kapasitas Server**.
 
+## Paket & batas bot
+
+Paket berlaku **per bot**, bukan per akun. Satu akun boleh punya beberapa bot (nomor WhatsApp) dan tiap bot
+bisa beda paket — mis. satu bot Free untuk coba-coba dan satu bot Zenith untuk grup jualan.
+
+| Paket | Kunci | Owner | Auto-reply | Perintah kustom | Lainnya |
+|---|---|---|---|---|---|
+| Free | `free` | 0 | 0 | 0 | kuota grup Free |
+| Core | `basic` | 1 | 10 | 0 | nama bot, menu, watermark |
+| Prime | `plus` | 3 | 30 | 15 | |
+| Zenith | `booster` | 5 | 100 | 50 | gambar menu, add-on MLBB |
+
+- Harga per bot per bulan dari `GET /api/pricing` (`source`: `database` / `cache` / `default`).
+- Pembelian selalu untuk satu bot: `POST /api/payment/create` wajib menyertakan `botNumber` milik akun itu.
+  Prorata dihitung dari paket bot tersebut.
+- **Batas per akun** (panel admin → Pengaturan situs → `limits`): maksimal `maxBotsPerUser` bot (default 5, 1–50)
+  dan `maxFreeBotsPerUser` bot Free (default 1, 0–10). Menambah bot di luar batas ditolak `403 BOT_LIMIT` /
+  `403 BOT_LIMIT_FREE`. Admin tidak terkena batas. Penjaga kapasitas server (`503 SERVER_FULL`) tetap dicek lebih dulu.
+- Menghapus bot yang paketnya masih aktif **tidak menghanguskan paket**: paketnya disimpan sebagai *paket tertunda*
+  dan otomatis dipasang ke bot berikutnya yang ditambahkan (sisa masa aktif tetap berjalan).
+- Paket yang habis masa aktifnya diturunkan ke Free per bot (dicek tiap 10 menit, dan langsung saat bot membaca tier).
+- Daftar bot milik akun: `GET /api/bots/mine?userId=…`; admin mengatur paket satu bot lewat `POST /api/admin/bot-tier`.
+- Data lama (paket per akun) dimigrasi otomatis saat server tersambung ke MongoDB: paket aktif pindah ke bot pertama
+  akun itu, atau jadi paket tertunda kalau akunnya belum punya bot. Migrasi aman diulang di setiap boot.
+
 ## Monitor real-time
 
 - `GET /api/public/live` — performa server, lalu lintas, kapasitas, dan log command (nomor bot disensor, isi pesan tidak pernah dicatat).
@@ -80,7 +105,7 @@ Cadangan (default 15%) dan batas manual bisa diatur di panel admin → **Kapasit
 
 ## API kirim pesan
 
-Token tiap bot dibuat dari dashboard (menu **API**). Kuota harian: Free 50, Core 1.000, Prime 5.000, Zenith 20.000; maksimal 1 pesan/detik.
+Token tiap bot dibuat dari dashboard (menu **API**). Kuota harian mengikuti paket **bot itu**: Free 50, Core 1.000, Prime 5.000, Zenith 20.000; maksimal 1 pesan/detik.
 
 ```bash
 curl -X POST https://varesa.mom/api/v1/text \
