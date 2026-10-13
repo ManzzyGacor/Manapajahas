@@ -32,9 +32,10 @@ import {
   isUserRegistered,
 } from "./lib/users.js";
 
-import { reloadPlugins } from "./lib/plugins.js";
+import { reloadPlugins, getLoadedPlugins } from "./lib/plugins.js";
+import { getPluginCategory, setPluginSourceReader } from "./lib/handler.js";
 import { logCustom } from "./lib/logger.js"; 
-import { getGroupMetadata } from "./lib/cache.js";
+import { getGroupMetadata, sessions } from "./lib/cache.js";
 
 import { cekJawabanAsahOtak } from "./lib/game_asahotak.js";
 import { cekJawabanSiapakahAku } from "./lib/game_siapakahaku.js";
@@ -52,6 +53,12 @@ import { recordMessage } from "./lib/bot-stats.js";
 import { hasActiveAddon } from "./lib/addons.js";
 import { applyTierCaps } from "./lib/tier-guard.js";
 import { logCommand } from "./lib/monitor.js";
+import {
+  isCommandDisabled,
+  recordCommandResult,
+  startHealthMonitor,
+  setNotifier,
+} from "./lib/health.js";
 import {
   hasBotUserData,
   hasBotPremiumEntries,
@@ -157,6 +164,23 @@ function namaPlugin(plugin, command) {
   return command || "";
 }
 
+// Isi berkas plugin (dibaca sekali, lalu di-cache). Dipakai pengawas
+// kesehatan fitur untuk mengenali API pihak ketiga yang dipakai sebuah plugin
+// (lib/health-providers.js) tanpa perlu mengubah file plugin satu per satu.
+const pluginSourceCache = new Map();
+function readPluginSource(relPath) {
+  try {
+    const key = String(relPath);
+    if (pluginSourceCache.has(key)) return pluginSourceCache.get(key);
+    const full = path.join(process.cwd(), key);
+    const txt = fs.readFileSync(full, "utf8");
+    pluginSourceCache.set(key, txt);
+    return txt;
+  } catch {
+    return "";
+  }
+}
+
 // Jeda pesan otomatis (auto-reply) dari dashboard: aturan yang sama di chat
 // yang sama paling cepat sekali per JEDA_AUTOREPLY_MS. Tanpa jeda ini, dua
 // bot Varesa di satu grup yang balasannya saling memuat kata kunci bot lain
@@ -192,6 +216,15 @@ reloadPlugins()
   .then((loadedPlugins) => {
     plugins = loadedPlugins;
     console.log(`[✔] Load All Plugins done...`);
+    // Pengawas kesehatan fitur: baca deklarasi `health` tiap plugin, lalu
+    // tes endpoint API-nya berkala (lib/health.js). Dijalankan setelah plugin
+    // termuat supaya daftar command sudah lengkap.
+    try {
+      setPluginSourceReader(readPluginSource);
+      startHealthMonitor({ plugins: () => getLoadedPlugins() });
+    } catch (err) {
+      console.error("⚠️ Pengawas kesehatan fitur gagal dinyalakan:", err.message);
+    }
   })
   .catch((error) => {
     console.error("❌ ERROR: Gagal memuat plugins:", error);
@@ -223,6 +256,18 @@ if (mode === "development") {
 } else {
   logWithTime("System", "Hot reload disabled in production mode.");
 }
+
+// −− Laporan pengawas kesehatan fitur ke owner utama −−
+// Dikirim dari sesi BOT UTAMA kalau sedang online (paling andal, karena
+// owner utama memang memegang nomor itu). Kalau bot utama belum tersambung,
+// laporan tetap tercatat di dashboard admin (halaman Error Plugin).
+setNotifier(async (teks) => {
+  const sock = sessions.get("session") || sessions.get("session-utama");
+  if (!sock?.user) return;
+  const tujuan = (config.owner_number || [])[0];
+  if (!tujuan) return;
+  await sock.sendMessage(`${tujuan}@s.whatsapp.net`, { text: teks });
+});
 
 // Fungsi utama untuk memproses pesan
 async function processMessage(sock, messageInfo) {
@@ -278,6 +323,14 @@ async function processMessage(sock, messageInfo) {
   messageInfo.isFreeTier = isFreeTier;
   messageInfo.botNumber = botNumber;
   messageInfo.isJadibot = isJadibotSession;
+  // Prefix bot ini, supaya plugin (mis. menu, game) menampilkan contoh
+  // perintah dengan simbol yang benar-benar dipakai bot tersebut.
+  messageInfo.prefixBot = Array.isArray(sessionConfig.prefix) && sessionConfig.prefix.length
+    ? sessionConfig.prefix
+    : config.prefix;
+  // Dipublikasikan sebagai global karena beberapa plugin game memakainya di
+  // level modul (fungsi di luar handle()) yang tidak menerima messageInfo.
+  global.botPrefixAktif = messageInfo.prefixBot;
 
   const senderNumber = String(sender || "").split("@")[0].split(":")[0];
   const angkaJid = (jid) => String(jid || "").split("@")[0].split(":")[0].replace(/\D/g, "");
@@ -607,6 +660,54 @@ async function processMessage(sock, messageInfo) {
     // dipanggil, lalu dicatat SEKALI di blok finally (sukses maupun error).
     let eksekusi = null;
 
+    // −− Cek penonaktifan otomatis (pengawas kesehatan fitur) −−
+    // Kalau API luar yang dipakai command ini sedang rusak, command
+    // dinonaktifkan sementara dan user langsung diberi tahu. Dicek SEBELUM
+    // pemotongan limit supaya user tidak kehilangan limit untuk fitur yang
+    // memang sedang mati. Hanya perintah yang benar-benar ada yang diperiksa.
+    if (command && prefix) {
+      const dikenal =
+        plugins.some((p) => p.Commands.includes(command)) ||
+        sessionConfig.customCommands.some(
+          (c) => String(c.cmd || "").toLowerCase() === String(command).toLowerCase()
+        );
+      const kondisi = dikenal ? isCommandDisabled(command) : null;
+      if (kondisi) {
+        logTracking(`Handler - Fitur nonaktif (${command}): ${kondisi.reason}`);
+        await sock.sendMessage(
+          remoteJid,
+          { text: mess.general.maintenance },
+          { quoted: message }
+        );
+        catatCommand({
+          bot: botNumber,
+          command: String(command).toLowerCase(),
+          isGroup,
+          ok: false,
+          ms: 0,
+          plugin: "nonaktif",
+        });
+        return;
+      }
+    }
+
+    // Bungkus sock.sendMessage selama eksekusi plugin untuk menangkap teks
+    // balasan terakhir. API luar yang mati biasanya TIDAK melempar error:
+    // plugin mengirim "Maaf, terjadi kesalahan" lalu selesai dengan normal.
+    // Pengawas kesehatan fitur butuh teks itu untuk menilai command gagal.
+    // Bungkusan dilepas lagi di blok finally agar tidak menumpuk per pesan
+    // (dan tidak mengganggu pembungkus iklan bot Free).
+    const kirimAsli = sock.sendMessage;
+    const kirimTerbungkus = async (jid, content, options) => {
+      try {
+        if (content && typeof content.text === "string" && !content.edit && eksekusi) {
+          eksekusi.pesan = content.text.slice(0, 500);
+        }
+      } catch { /* jangan pernah mengganggu pengiriman */ }
+      return kirimAsli.call(sock, jid, content, options);
+    };
+    sock.sendMessage = kirimTerbungkus;
+
     try {
       // Iterasi melalui semua plugin untuk menemukan perintah yang sesuai
       for (const plugin of plugins) {
@@ -715,6 +816,7 @@ async function processMessage(sock, messageInfo) {
         } catch (error) {
           eksekusi.ok = false;
           eksekusi.plugin = namaPlugin(plugin, command);
+          eksekusi.err = error;
           throw error;
         }
 
@@ -733,6 +835,8 @@ async function processMessage(sock, messageInfo) {
         }
       }
     } finally {
+      // Lepas bungkusan pengintai balasan (hanya kalau masih bungkusan kita).
+      if (sock.sendMessage === kirimTerbungkus) sock.sendMessage = kirimAsli;
       if (eksekusi) {
         catatCommand({
           bot: botNumber,
@@ -741,6 +845,22 @@ async function processMessage(sock, messageInfo) {
           ok: eksekusi.ok,
           ms: Date.now() - eksekusi.mulai,
           plugin: eksekusi.plugin,
+        });
+        // Pengawas kesehatan fitur: dua jenis kegagalan yang tidak melempar
+        // error (justru mayoritas kasus API luar mati) tetap ikut terhitung —
+        // plugin yang mengembalikan false dan plugin yang mengirim pesan
+        // "error kesalahan". Tanpa ini, command yang rusak tidak pernah
+        // dinonaktifkan otomatis karena handle()-nya "sukses".
+        const gagalPesan =
+          eksekusi.ok &&
+          !eksekusi.err &&
+          eksekusi.pesan &&
+          /(kesalahan|gagal|error|tidak dapat|tidak bisa|maaf)/i.test(eksekusi.pesan);
+        recordCommandResult({
+          command: String(command).toLowerCase(),
+          ok: eksekusi.ok && !gagalPesan,
+          ms: Date.now() - eksekusi.mulai,
+          error: eksekusi.err?.message || (gagalPesan ? eksekusi.pesan : ""),
         });
       }
     }
