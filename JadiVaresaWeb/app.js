@@ -1735,6 +1735,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 if ($id('cfgOwnerNumber')) $id('cfgOwnerNumber').value = cfg.ownerNumber || '';
                 if ($id('cfgWatermark')) $id('cfgWatermark').value = cfg.watermark || '';
                 if ($id('cfgFooter')) $id('cfgFooter').value = cfg.footer || '';
+                // Prefix bot ini (kosong = pakai bawaan ".").
+                if ($id('cfgPrefix')) $id('cfgPrefix').value = Array.isArray(cfg.prefix) ? (cfg.prefix[0] || '') : (cfg.prefix || '');
                 // Selalu ditimpa (kosong = teks otomatis) supaya teks bot
                 // sebelumnya tidak tertinggal di form saat ganti bot.
                 if ($id('cfgSewaText')) $id('cfgSewaText').value = typeof cfg.sewaText === 'string' ? cfg.sewaText : '';
@@ -2044,6 +2046,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const payload = { number: activeBotNumber, userId: currentUser.id, tier: botTier(), modePublik, botName, ownerNumber, watermark, footer };
+        // Prefix bot ini: hanya simbol pendek non-huruf yang diterima server.
+        const prefixInput = ($id('cfgPrefix')?.value || '').trim();
+        payload.prefix = caps.customize ? (prefixInput && !/^[A-Za-z0-9]/.test(prefixInput) ? [prefixInput] : []) : [];
         // Teks sewa & premium ikut tersimpan di sini (satu tombol untuk
         // seluruh halaman Config). Bot Free tidak mengirimnya sama sekali:
         // server memang mengabaikannya untuk Free.

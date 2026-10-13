@@ -114,3 +114,21 @@ export default {
   OnlyOwner: false,
   limitDeduction: 1,
 };
+
+// Deklarasi untuk pengawas kesehatan fitur (lib/health.js).
+// .tiktok punya dua jalur: sumber utama TikWM (dipakai lewat lib/scrape/tiktok.js)
+// dan API cadangan Botcahx. Karena logika TikWM ada di modul terpisah, jalur itu
+// dideklarasikan di sini supaya ikut dites; jalur cadangan terdeteksi sendiri
+// dari pemakaian api.botcahx.eu.org di atas. Fitur dianggap rusak hanya kalau
+// SEMUA jalur gagal.
+export const health = {
+  label: "TikTok Downloader",
+  probe: {
+    url: "https://tikwm.com/api/",
+    method: "POST",
+    body: "url=https%3A%2F%2Fwww.tiktok.com%2F%40tiktok%2Fvideo%2F7106594312292453675&hd=1",
+    expect: [200],
+    bodyPattern: '"code":0',
+    headers: { "content-type": "application/x-www-form-urlencoded; charset=UTF-8" },
+  },
+};

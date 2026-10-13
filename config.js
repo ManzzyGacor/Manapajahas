@@ -120,3 +120,22 @@ const config = {
 };
 
 export default config;
+
+// ── Website & identitas: dipublikasikan sebagai variabel global ──────
+// Alamat website sudah ditentukan di atas (WEB_URL dari .env, default
+// https://varesa.mom) dan dipakai dashboard, balasan bot, serta kartu
+// pratinjau. Supaya modul & plugin bisa memakainya tanpa mengimpor
+// config.js, nilainya juga dipasang di global.
+//
+// PENTING: nama `global.web` dan `global.apikey` SENGAJA tidak dipakai.
+// Di plugins/DOWNLOAD/play.js kedua nama itu sudah terlanjur berarti lain —
+// `global.web` = basis API jerexd, `global.apikey.jereapi` = kuncinya.
+// Menimpa keduanya dengan alamat website akan mematahkan fitur .play.
+global.web_url = WEB_URL;   // https://varesa.mom (tanpa garis miring akhir)
+global.website = WEBSITE;   // varesa.mom (tanpa skema)
+global.web_host = WEBSITE;
+// Prefix bawaan. Dipublikasikan supaya lib/bot-prefix.js bisa membacanya
+// tanpa mengimpor config.js — modul itu dipakai di jalur pesan (setiap
+// pesan masuk) dan harus bebas dari dependensi npm agar bisa diuji
+// sendirian (lihat tools/prefix-check.js).
+global.configPrefix = config.prefix;

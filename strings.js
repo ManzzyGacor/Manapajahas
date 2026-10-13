@@ -27,6 +27,10 @@ const mess = {
     isBlocked: "⛔ _Akses kamu ke bot ini sedang diblokir._",
     isBaned: "🚫 _Kamu dibatasi dari penggunaan bot di grup ini._",
     fiturBlocked: "⛔ _Fitur ini sedang dinonaktifkan di grup ini._",
+    // Dipakai saat pengecekan kesehatan fitur otomatis menonaktifkan sebuah
+    // command karena API luarnya rusak (lihat lib/health.js).
+    maintenance:
+      "🔧 _Fitur sedang perbaikan._\n\n_Layanan sumber fitur ini sedang tidak merespons. Kami sudah menerima laporan dan akan segera memperbaikinya. Coba lagi nanti, ya._",
   },
 
   action: {

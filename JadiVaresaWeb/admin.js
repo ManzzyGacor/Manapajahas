@@ -318,6 +318,7 @@
 
   function onEnterView(name) {
     if (name === 'audit') loadAuditLog();
+    if (name === 'errors') loadPluginErrors();
     if (name === 'site' || name === 'capacity') ensureSiteSettings();
     if (name === 'monitor' && live.data) renderMonitor(live.data, { charts: true });
     if (name === 'capacity' && live.data) renderCapacity(live.data);
@@ -1062,6 +1063,10 @@
     'sinkron-tier': 'Sinkron paket',
     'ubah-pengaturan-situs': 'Ubah tampilan situs',
     'unggah-media-situs': 'Unggah media',
+    'nonaktifkan-fitur': 'Nonaktifkan fitur',
+    'aktifkan-fitur': 'Aktifkan fitur',
+    'reset-statistik-fitur': 'Reset statistik fitur',
+    'jalankan-cek-fitur': 'Jalankan cek fitur',
   };
   async function loadAuditLog() {
     const tbody = $('auditTableBody');
@@ -1086,6 +1091,112 @@
     }
   }
   $('btnAuditRefresh').addEventListener('click', (e) => busy(e.currentTarget, 'Memuat…', loadAuditLog));
+
+  /* ==================================================================
+     ERROR PLUGIN (/api/admin/plugin-errors)
+     ==================================================================
+     Data dari lib/health.js: kegagalan per command (dari eksekusi nyata
+     maupun pengecekan berkala), plus status nonaktif otomatis. */
+  const errState = { items: [], providers: [], konfigurasi: null, onlyDown: false };
+
+  // Nama ramah untuk id provider dari lib/health-providers.js.
+  function providerLabels(item) {
+    const map = new Map((errState.providers || []).map((p) => [p.id, p.label || p.id]));
+    const ids = Array.isArray(item.providers) ? item.providers : [];
+    if (!ids.length) return item.hasProbe ? 'Khusus' : '–';
+    return ids.map((id) => map.get(id) || id).join(', ');
+  }
+
+  function renderPluginErrors() {
+    const totalGagal = errState.items.reduce((a, b) => a + num(b.failsToday), 0);
+    setText('errStatDown', fmt(errState.disabledCount || 0));
+    setText('errStatWatched', fmt(errState.watchedCount || 0));
+    setText('errStatTotal', fmt(errState.items.length));
+    setText('errStatFails', fmt(totalGagal));
+
+    const rows = errState.onlyDown ? errState.items.filter((x) => x.disabled) : errState.items;
+    const tbody = $('errTableBody');
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="td-empty"><i class="fa-solid fa-circle-check"></i>${errState.onlyDown ? 'Tidak ada fitur yang dinonaktifkan.' : 'Belum ada kegagalan tercatat.'}</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.slice(0, 200).map((it) => {
+      const status = it.disabled
+        ? `<span class="v-badge v-badge--danger" title="${esc(it.disabledReason || '')}">Nonaktif</span>`
+        : it.hasProbe ? '<span class="v-badge">Dipantau</span>' : '<span class="v-badge">Statistik</span>';
+      const alasan = it.disabled
+        ? `<br><small class="v-muted">${esc(it.disabledBy === 'admin' ? 'manual' : (it.disabledReason || 'perbaikan'))}</small>`
+        : it.lastError ? `<br><small class="v-muted">${esc(it.lastError)}</small>` : '';
+      const aksi = it.disabled
+        ? `<button type="button" class="v-btn v-btn--outline v-btn--sm" data-err-action="enable" data-err-cmd="${esc(it.command)}"><i class="fa-solid fa-play"></i> Aktifkan</button>`
+        : `<button type="button" class="v-btn v-btn--outline v-btn--sm" data-err-action="disable" data-err-cmd="${esc(it.command)}"><i class="fa-solid fa-ban"></i> Nonaktifkan</button>`;
+      const cek = it.hasProbe
+        ? `<button type="button" class="v-btn v-btn--outline v-btn--sm" data-err-action="check" data-err-cmd="${esc(it.command)}" title="Tes API sekarang"><i class="fa-solid fa-plug-circle-check"></i></button>`
+        : '';
+      return `
+        <tr>
+          <td class="td-main nowrap cell-mono">.${esc(it.command)} ${status}${alasan}</td>
+          <td data-label="API">${esc(providerLabels(it))}</td>
+          <td data-label="Gagal hari ini" class="cell-mono">${fmt(it.failsToday)}${it.okToday ? ` <small class="v-muted">(${fmt(it.okToday)} sukses)</small>` : ''}</td>
+          <td data-label="Total" class="cell-mono">${fmt(it.failTotal)}</td>
+          <td data-label="Terakhir"><small class="v-muted">${it.lastErrorAt ? esc(timeAgo(it.lastErrorAt)) : '–'}${it.lastProbeAt ? `<br>cek: ${esc(timeAgo(it.lastProbeAt))}` : ''}</small></td>
+          <td data-label="Aksi" class="nowrap">${aksi} ${cek}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  async function loadPluginErrors({ refresh = false } = {}) {
+    const tbody = $('errTableBody');
+    try {
+      const result = await api(`/api/admin/plugin-errors${refresh ? '?refresh=1' : ''}`);
+      errState.items = Array.isArray(result.items) ? result.items : [];
+      errState.providers = Array.isArray(result.providers) ? result.providers : [];
+      errState.konfigurasi = result.konfigurasi || null;
+      errState.disabledCount = num(result.disabled);
+      errState.watchedCount = num(result.dipantau);
+      setText('errStatFailsSub', errState.konfigurasi
+        ? `dicek tiap ${fmt(errState.konfigurasi.intervalMenit)} menit`
+        : 'semua command');
+      renderPluginErrors();
+    } catch (err) {
+      if (err.auth) return;
+      tbody.innerHTML = `<tr><td colspan="6" class="td-empty is-err"><i class="fa-solid fa-triangle-exclamation"></i>Gagal memuat data fitur.<br><small>${esc(err.message)}</small></td></tr>`;
+    }
+  }
+
+  // Aksi per baris: nonaktifkan/aktifkan/tes ulang.
+  $('errTableBody').addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-err-action]');
+    if (!btn) return;
+    const command = btn.dataset.errCmd;
+    const action = btn.dataset.errAction;
+    await busy(btn, 'Proses...', async () => {
+      try {
+        const result = await api('/api/admin/plugin-errors', { method: 'POST', body: { command, action } });
+        toast(result.message || 'Selesai.', result.success === false ? 'err' : result.sehat === false ? 'err' : 'ok');
+        await loadPluginErrors();
+      } catch (err) {
+        if (!err.auth) toast(err.message, 'err');
+      }
+    });
+  });
+
+  $('btnErrRefresh').addEventListener('click', (e) => busy(e.currentTarget, 'Memuat...', () => loadPluginErrors({ refresh: true })));
+  $('btnErrRunProbe').addEventListener('click', (e) => busy(e.currentTarget, 'Mengecek...', async () => {
+    try {
+      const result = await api('/api/admin/plugin-errors', { method: 'POST', body: { command: 'semua', action: 'run' } });
+      toast(result.message || 'Pengecekan selesai.', result.hasil && result.hasil.rusak ? 'err' : 'ok');
+      await loadPluginErrors();
+    } catch (err) {
+      if (!err.auth) toast(err.message, 'err');
+    }
+  }));
+  $('btnErrOnlyDown').addEventListener('click', () => {
+    errState.onlyDown = !errState.onlyDown;
+    setText('errOnlyDownLabel', errState.onlyDown ? 'Tampilkan semua' : 'Hanya nonaktif');
+    renderPluginErrors();
+  });
 
   /* ==================================================================
      MONITOR LIVE (/api/admin/live)
