@@ -1,5 +1,6 @@
 import { loadMenuOnce } from "../database/menu.js";
 import config from "../config.js";
+import { prefixTampilan } from "../lib/bot-prefix.js";
 import { readFileAsBuffer } from "../lib/fileHelper.js";
 import { style, getCurrentDate, readMore } from "../lib/utils.js";
 import { readGroup } from "../lib/group.js";
@@ -102,7 +103,8 @@ function getGreetingInfo() {
 }
 
 const formatMenuCategory = (title, items) => {
-    const prefix = Array.isArray(config.prefix) ? config.prefix[0] : config.prefix || ".";
+    // Prefix bot ini (bisa diubah owner lewat .prefix), bukan selalu ".".
+    const prefix = prefixTampilan(messagePrefixAktif());
     const formattedItems = items.map((item) => {
         if (typeof item === "string") return `┣⌬ ${prefix}${item}`;
         if (typeof item === "object" && item.command)
@@ -114,7 +116,7 @@ const formatMenuCategory = (title, items) => {
 };
 
 function formatAllCommands(title, commands) {
-    const prefix = Array.isArray(config.prefix) ? config.prefix[0] : config.prefix || ".";
+    const prefix = prefixTampilan(messagePrefixAktif());
     return `*» ${title}*\n${commands.map(cmd => {
         if (typeof cmd === 'string') return `  ${prefix}${cmd}`;
         if (typeof cmd === 'object' && cmd.command) return `  ${prefix}${cmd.command}${cmd.description ? ` - ${cmd.description}` : ''}`;
@@ -137,6 +139,15 @@ async function getAudioBuffer(fileName) {
     return null;
 }
 
+// Prefix yang berlaku untuk menu yang sedang dirender. Diisi di awal
+// handle() (dari config bot ini), lalu dibaca fungsi format di atas yang
+// tidak menerima messageInfo. Aman: render menu berjalan sinkron dalam satu
+// pemanggilan handle(), tidak ada penungguan di antaranya.
+let prefixAktifMenu = null;
+function messagePrefixAktif() {
+  return prefixAktifMenu;
+}
+
 // --- MAIN HANDLE ---
 async function handle(sock, messageInfo) {
     let {
@@ -149,7 +160,11 @@ async function handle(sock, messageInfo) {
         prefix,
         sessionConfig = {},
         isJadibot,
-    } = messageInfo; 
+    } = messageInfo;
+
+    // Prefix bot ini: menu & contoh perintah harus memakai prefix yang
+    // benar-benar dipakai bot tersebut (mis. "!" bukan ".").
+    prefixAktifMenu = sessionConfig?.prefix || config.prefix;
 
     // Nama bot diambil dari config per-sesi (diatur di dashboard web) dan
     // hanya jatuh ke config global kalau belum diisi. Sebelumnya menu selalu
@@ -174,7 +189,7 @@ async function handle(sock, messageInfo) {
         ? sessionConfig.customCommands.filter(c => c && c.cmd && c.showInMenu !== false)
         : [];
 
-    const prefixMenu = Array.isArray(config.prefix) ? config.prefix[0] : (config.prefix || '.');
+    const prefixMenu = prefixTampilan(sessionConfig?.prefix || config.prefix);
     const daftarPerintahKustom = perintahKustom.length
         ? `\n\n┏━『 *PERINTAH KHUSUS* 』\n┃\n` +
           perintahKustom.map(c => `┣⌬ ${prefixMenu}${c.cmd}`).join('\n') +

@@ -8,7 +8,13 @@ const APIKEY_BOTCAHX = config.APIBOTCAHX || "Varesa";
 const BOTCAHX_API_URL = `https://api.botcahx.eu.org/api/game/tebakpop?apikey=${APIKEY_BOTCAHX}`;
 
 const WAKTU_GAMES = 60; // 60 detik
-const PREFIXES = config.prefix || [".", "!", "#"]; 
+// Daftar prefix: pilihan bot ini (bisa diubah owner lewat .prefix) digabung
+// dengan bawaan config, supaya command tetap terbaca di bot apa pun.
+const PREFIXES_DASAR = config.prefix || [".", "!", "#"];
+function daftarPrefixGame() {
+  const dariBot = Array.isArray(global.botPrefixAktif) ? global.botPrefixAktif : [];
+  return [...new Set([...dariBot, ...PREFIXES_DASAR])];
+} 
 const COMMANDS = ["tebakpop", "guesspop", "tebakkpop"];
 
 // Import database sementara 
@@ -26,7 +32,7 @@ async function handle(sock, messageInfo) {
   const lowerText = fullText.toLowerCase().trim();
   let isCommand = false;
 
-  for (const prefix of PREFIXES) {
+  for (const prefix of daftarPrefixGame()) {
     for (const cmd of COMMANDS) {
       if (lowerText.startsWith(prefix + cmd)) {
         isCommand = true;
