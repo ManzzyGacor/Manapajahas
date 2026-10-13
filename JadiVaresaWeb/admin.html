@@ -51,6 +51,7 @@
                 <p class="side__label">Kelola</p>
                 <button type="button" class="side__item" data-view="users"><i class="fa-solid fa-users"></i><span>Pengguna</span></button>
                 <button type="button" class="side__item" data-view="bots"><i class="fa-solid fa-robot"></i><span>Bot &amp; Node</span></button>
+                <button type="button" class="side__item" data-view="errors"><i class="fa-solid fa-screwdriver-wrench"></i><span>Error Plugin</span></button>
                 <button type="button" class="side__item" data-view="orders"><i class="fa-solid fa-file-invoice"></i><span>Invoice</span></button>
                 <button type="button" class="side__item" data-view="pricing"><i class="fa-solid fa-tags"></i><span>Harga &amp; Promo</span></button>
 
@@ -392,6 +393,45 @@
                         <button type="button" class="v-btn v-btn--danger v-btn--sm" id="btnDeleteFree"><i class="fa-solid fa-trash"></i> Hapus semua bot Free</button>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <!-- =========================================================
+             ERROR PLUGIN (kesehatan fitur per command)
+             ========================================================= -->
+        <section class="view" id="view-errors" data-title="Error Plugin" data-group="Kelola">
+            <div class="page-head">
+                <div>
+                    <p class="v-eyebrow">Kesehatan fitur</p>
+                    <h2>Fitur mana yang sedang bermasalah.</h2>
+                    <p class="v-muted">Kegagalan dari semua bot dikumpulkan per command — mis. <code>.tiktok</code> gagal 37x hari ini karena API timeout. Fitur yang gagal berturut-turut dinonaktifkan otomatis dengan pesan &ldquo;fitur sedang perbaikan&rdquo;, lalu dibuka lagi begitu API-nya pulih.</p>
+                </div>
+                <div class="page-head__tools">
+                    <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnErrOnlyDown"><i class="fa-solid fa-filter"></i> <span id="errOnlyDownLabel">Tampilkan semua</span></button>
+                    <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnErrRunProbe"><i class="fa-solid fa-tower-broadcast"></i> Cek semua sekarang</button>
+                    <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnErrRefresh"><i class="fa-solid fa-rotate"></i> Muat ulang</button>
+                </div>
+            </div>
+
+            <div class="v-card tiles">
+                <div class="v-statgrid">
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-screwdriver-wrench"></i> Nonaktif</span><span class="v-stat__value" id="errStatDown">–</span><span class="v-stat__sub">fitur sedang perbaikan</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-tower-broadcast"></i> Dipantau</span><span class="v-stat__value" id="errStatWatched">–</span><span class="v-stat__sub">punya pengecekan API</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-list-check"></i> Terlacak</span><span class="v-stat__value" id="errStatTotal">–</span><span class="v-stat__sub">command dengan data</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-triangle-exclamation"></i> Gagal hari ini</span><span class="v-stat__value" id="errStatFails">–</span><span class="v-stat__sub" id="errStatFailsSub">semua command</span></div>
+                </div>
+            </div>
+
+            <div class="v-card">
+                <div class="table-wrap">
+                    <table class="atable is-stack">
+                        <thead><tr><th>Command</th><th>API</th><th>Gagal hari ini</th><th>Total</th><th>Terakhir</th><th>Aksi</th></tr></thead>
+                        <tbody id="errTableBody">
+                            <tr><td colspan="6" class="td-empty">Memuat...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="v-help" id="errHint">Fitur yang nonaktif otomatis dibuka kembali begitu pengecekan berikutnya berhasil. Tombol &ldquo;Nonaktifkan&rdquo; bersifat manual dan tidak terpengaruh hasil cek.</p>
             </div>
         </section>
 
