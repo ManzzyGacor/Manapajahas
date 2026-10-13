@@ -221,7 +221,17 @@ reloadPlugins()
     // termuat supaya daftar command sudah lengkap.
     try {
       setPluginSourceReader(readPluginSource);
-      startHealthMonitor({ plugins: () => getLoadedPlugins() });
+      // HEALTH_MONITOR=off mematikan pengawas ini tanpa mengubah kode —
+      // dipakai kalau ada kecurigaan pengawas mengganggu jalannya bot.
+      if (String(process.env.HEALTH_MONITOR || "").toLowerCase() !== "off") {
+        // startHealthMonitor async: try/catch di atas tidak menangkap
+        // rejection-nya, jadi promise-nya ditangkap di sini.
+        Promise.resolve(startHealthMonitor({ plugins: () => getLoadedPlugins() })).catch((err) =>
+          console.error("⚠️ Pengawas kesehatan fitur berhenti:", err?.message || err)
+        );
+      } else {
+        console.log("ℹ️ Pengawas kesehatan fitur dimatikan (HEALTH_MONITOR=off).");
+      }
     } catch (err) {
       console.error("⚠️ Pengawas kesehatan fitur gagal dinyalakan:", err.message);
     }
