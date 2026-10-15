@@ -25,7 +25,10 @@ async function process(sock, messageInfo) {
 
   if (respondedSenders.has("notif_update")) return;
 
-  const isOwnerUsers = isOwner(sender);
+  // Owner utama dihitung di autoresbot.js (termasuk pengirim LID yang
+  // nomor HP-nya owner utama). Cadangan isOwner() kalau handle ini dipanggil
+  // tanpa messageInfo yang sudah diperkaya.
+  const isOwnerUsers = messageInfo.isMainOwner ?? isOwner(sender);
   if (!isOwnerUsers) return;
 
   const result = await checkUpdate();

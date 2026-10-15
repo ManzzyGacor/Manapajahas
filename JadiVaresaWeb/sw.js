@@ -29,7 +29,7 @@ const PAGE_CACHE = `${VERSION}-pages`;
 // dipakai halaman (termasuk ?v=...), karena cache dicocokkan per-URL.
 const PRECACHE = [
   "/assets/varesa.css?v=31",
-  "/landing.css?v=32",
+  "/landing.css?v=33",
   "/landing.js?v=32",
   "/assets/logo-mark.svg",
   "/assets/logo.svg",
@@ -39,7 +39,7 @@ const PRECACHE = [
 ];
 
 // Halaman publik yang disimpan untuk cadangan offline.
-const PAGES = ["/", "/status", "/login"];
+const PAGES = ["/", "/status", "/login", "/terms", "/privacy"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

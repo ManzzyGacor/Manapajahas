@@ -258,7 +258,7 @@
 
         <label class="tos" for="tos">
           <input type="checkbox" id="tos">
-          <span>Saya setuju dengan <a href="#">Syarat &amp; Ketentuan</a> dan <a href="#">Kebijakan Privasi</a></span>
+          <span>Saya setuju dengan <a href="/terms" target="_blank" rel="noopener">Syarat &amp; Ketentuan</a> dan <a href="/privacy" target="_blank" rel="noopener">Kebijakan Privasi</a></span>
         </label>
 
         <div id="gsiButton" class="gsi-wrap disabled">
@@ -313,6 +313,26 @@
       authError.style.display = 'flex';
     }
     function hideError() { authError.style.display = 'none'; }
+
+    // Tujuan setelah masuk (?next=/invoice?order_id=…), diisi otomatis oleh
+    // /assets/session.js saat sesi berakhir di tengah jalan. HANYA path di
+    // situs ini sendiri: "//evil.com", "/\\evil.com", "https://…" dan
+    // sejenisnya ditolak supaya halaman login tidak bisa dipakai untuk
+    // mengalihkan orang ke situs lain (open redirect).
+    function nextTarget() {
+      const raw = new URLSearchParams(location.search).get('next') || '';
+      if (!raw || raw.length > 500 || raw.charAt(0) !== '/' || raw.charAt(1) === '/' || raw.charAt(1) === '\\') return '/dashboard';
+      if (/[\u0000-\u001f\u007f]/.test(raw)) return '/dashboard';
+      try {
+        const u = new URL(raw, location.origin);
+        if (u.origin !== location.origin) return '/dashboard';
+        // Kembali ke halaman login lagi = berputar-putar.
+        if (/^\/login(\.html)?\/?$/.test(u.pathname)) return '/dashboard';
+        return u.pathname + u.search + u.hash;
+      } catch (e) {
+        return '/dashboard';
+      }
+    }
 
     // Kondisi layanan dari /api/status. `dbDown`: true/false, atau null kalau
     // belum/tidak bisa dicek. Dipakai untuk pemberitahuan di kartu (skrip di
@@ -389,7 +409,19 @@
           return;
         }
 
+        // Pastikan cookie sesi benar-benar tersimpan. Browser yang memblokir
+        // cookie akan "berhasil login" lalu langsung dilempar balik ke sini
+        // oleh dashboard — lebih baik dijelaskan sekarang.
+        try {
+          const cek = await fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' });
+          if (cek.status === 401) {
+            showError('Browser kamu memblokir cookie untuk situs ini, jadi sesi masuk tidak bisa disimpan. Izinkan cookie untuk ' + location.hostname + ' lalu coba lagi.', retry);
+            return;
+          }
+        } catch (e) { /* jaringan putus sesaat: lanjut, dashboard akan mengecek lagi */ }
+
         // Kunci 'currentUser' ini wajib sama dengan yang dibaca app.js & admin.html.
+        // Isinya hanya untuk tampilan — bukti login yang sebenarnya cookie sesi.
         localStorage.setItem('currentUser', JSON.stringify(result.user));
 
         // Kalau datang lewat link undangan (?ref=KODE), langsung pakai
@@ -407,7 +439,7 @@
         }
 
         leaving = true;
-        window.location.href = '/dashboard';
+        window.location.href = nextTarget();
         return;
       } catch (err) {
         const timedOut = err && err.name === 'AbortError';

@@ -28,6 +28,8 @@ database/mediaFiles.json
 database/numvirtual.json
 database/additional/
 database/media/
+# (termasuk database/runtime/session-secret — rahasia penanda tangan
+# cookie login yang dibuat otomatis oleh lib/session.js)
 database/runtime/
 JadiVaresaWeb/uploads/
 

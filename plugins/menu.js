@@ -1,4 +1,4 @@
-import { loadMenuOnce } from "../database/menu.js";
+import { loadMenuForBot } from "../database/menu.js";
 import config from "../config.js";
 import { prefixTampilan } from "../lib/bot-prefix.js";
 import { readFileAsBuffer } from "../lib/fileHelper.js";
@@ -243,7 +243,8 @@ async function handle(sock, messageInfo) {
     // ditambah kategori "perintah khusus" berisi perintah kustom bot ini,
     // supaya ikut muncul di daftar tombol, .menu perintah_khusus, dan
     // .allmenu — bukan cuma di kepala menu.
-    const menuBawaan = await loadMenuOnce();
+    // Kategori yang dimatikan owner bot ini (dashboard) tidak ditampilkan.
+    const menuBawaan = await loadMenuForBot(sessionConfig);
     const menuData = perintahKustom.length
         ? { "perintah khusus": perintahKustom.map(c => c.cmd), ...menuBawaan }
         : menuBawaan;

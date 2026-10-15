@@ -1,0 +1,46 @@
+# CI Varesa: dijalankan untuk setiap push ke main dan setiap pull request.
+#
+# Isinya `npm test` (lihat package.json):
+#   1. node --test tests/*.test.mjs — unit test modul murni (sesi login,
+#      voucher, prefix/alias, data per bot, penjaga SSRF, rumus kapasitas)
+#      + cek sintaks semua berkas .js di repo;
+#   2. node tools/check-plugins.mjs — semua plugin & handler harus bisa
+#      dimuat, dengan jaringan diblokir.
+# Tidak butuh MongoDB, WhatsApp, maupun rahasia apa pun: CI ini sengaja tidak
+# memakai secrets, jadi aman juga untuk PR dari fork (repo ini public).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# Push baru ke branch/PR yang sama membatalkan run lama yang belum selesai.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: npm test (Node 20)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 20 = versi yang dipakai server (index.js menolak versi lain).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Pasang dependensi (sesuai package-lock.json)
+        run: npm ci --no-audit --no-fund
+
+      - name: Test
+        run: npm test
+        env:
+          TZ: Asia/Jakarta

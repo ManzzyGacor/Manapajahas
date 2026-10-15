@@ -1049,3 +1049,26 @@ button.v-pill { font-family: inherit; }
   .stage__seg.is-on i { animation: none; width: 100%; }
   .steps .step::before { width: 100%; }
 }
+
+/* ==========================================================================
+   HALAMAN LEGAL (Syarat & Ketentuan, Kebijakan Privasi)
+   ========================================================================== */
+/* Satu kartu panjang berisi pasal-pasal. Lebar dibatasi supaya baris teks
+   tetap nyaman dibaca (bukan melebar penuh di desktop). */
+.legal { max-width: 860px; margin: 0 auto; padding: clamp(22px, 3vw, 36px); }
+.legal h2 { margin: 30px 0 0; font-family: var(--font-display); font-size: clamp(16px, 2vw, 18px); letter-spacing: -.02em; line-height: 1.35; }
+.legal h2:first-of-type { margin-top: 0; }
+.legal__n { margin-right: 7px; font-family: var(--font-mono); font-size: .85em; color: var(--accent); }
+.legal p { margin: 12px 0 0; font-size: 14.5px; line-height: 1.78; color: var(--text-2); }
+.legal ul { margin: 12px 0 0; padding-left: 20px; display: grid; gap: 9px; }
+.legal li { font-size: 14.5px; line-height: 1.72; color: var(--text-2); }
+.legal li::marker { color: var(--text-3); }
+.legal b { color: var(--text); font-weight: 600; }
+.legal a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-line); }
+.legal a:hover { border-bottom-color: var(--accent); }
+.legal__meta { margin: 14px 0 0; font-family: var(--font-mono); font-size: 12px; color: var(--text-3); }
+.legal__foot { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13.5px; }
+@media (max-width: 640px) {
+  .legal ul { padding-left: 18px; }
+  .legal p, .legal li { font-size: 14px; }
+}

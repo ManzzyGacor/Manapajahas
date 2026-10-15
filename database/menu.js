@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { pathToFileURL } from "url";
 import { getLoadedPlugins } from "../lib/plugins.js";
+import { categoryKey, disabledCategoryFor } from "../lib/tier-guard.js";
 
 const pluginsDir = path.join(process.cwd(), "plugins");
 
@@ -93,6 +94,38 @@ export async function loadMenuOnce() {
     cachedMenu = await loadMenuFromDisk();
   }
   return cachedMenu;
+}
+
+/**
+ * Menu untuk SATU bot: kategori yang dimatikan owner bot ini di dashboard
+ * (sessionConfig.disabledCategories) disembunyikan. Perintah inti (menu,
+ * owner, prefix, ...) yang tetap jalan walau kategorinya mati tetap
+ * ditampilkan, supaya menu tidak pernah kosong/menyesatkan.
+ * Mengembalikan objek baru; cache menu bersama tidak diubah.
+ */
+export function filterMenuForBot(menu, sessionConfig) {
+  const daftar = Array.isArray(sessionConfig?.disabledCategories)
+    ? sessionConfig.disabledCategories
+    : [];
+  if (!daftar.length || !menu || typeof menu !== "object") return menu || {};
+  const out = {};
+  for (const [kategori, perintah] of Object.entries(menu)) {
+    if (!daftar.includes(categoryKey(kategori))) {
+      out[kategori] = perintah;
+      continue;
+    }
+    // Kategori mati: sisakan hanya perintah yang tetap boleh jalan.
+    const tersisa = (Array.isArray(perintah) ? perintah : []).filter(
+      (c) => !disabledCategoryFor(sessionConfig, kategori, typeof c === "string" ? c : c?.command)
+    );
+    if (tersisa.length) out[kategori] = tersisa;
+  }
+  return out;
+}
+
+/** loadMenuOnce() + saringan kategori milik bot ini. */
+export async function loadMenuForBot(sessionConfig) {
+  return filterMenuForBot(await loadMenuOnce(), sessionConfig);
 }
 
 // Proxy tetap bisa dipakai untuk akses langsung (non-await)

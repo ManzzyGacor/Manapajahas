@@ -3,6 +3,8 @@ User-agent: *
 Allow: /$
 Allow: /login
 Allow: /status
+Allow: /terms
+Allow: /privacy
 Allow: /assets/
 Allow: /icons/
 

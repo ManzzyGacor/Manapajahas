@@ -16,7 +16,11 @@
     <!-- Versi di query string wajib dinaikkan tiap rilis: sw.js menyimpan
          aset per-URL, jadi tanpa ini admin bisa tertahan di JS/CSS lama. -->
     <link rel="stylesheet" href="/assets/varesa.css?v=31">
-    <link rel="stylesheet" href="/admin.css?v=4">
+    <link rel="stylesheet" href="/admin.css?v=5">
+    <!-- Penjaga sesi login (window.VaresaSession): dimuat PALING AWAL supaya
+         semua fetch admin.js sudah lewat pembungkus 401 -> /login. Lihat
+         JadiVaresaWeb/assets/session.js. -->
+    <script src="/assets/session.js?v=1"></script>
     <!-- Penjaga awal: halaman disembunyikan sampai admin.js memastikan yang
          membuka memang admin, supaya kerangka panel tidak sempat terlihat
          (dan tidak berkedip) sebelum dialihkan ke /login atau /dashboard. -->
@@ -54,6 +58,7 @@
                 <button type="button" class="side__item" data-view="errors"><i class="fa-solid fa-screwdriver-wrench"></i><span>Error Plugin</span></button>
                 <button type="button" class="side__item" data-view="orders"><i class="fa-solid fa-file-invoice"></i><span>Invoice</span></button>
                 <button type="button" class="side__item" data-view="pricing"><i class="fa-solid fa-tags"></i><span>Harga &amp; Promo</span></button>
+                <button type="button" class="side__item" data-view="vouchers"><i class="fa-solid fa-ticket"></i><span>Voucher</span></button>
 
                 <p class="side__label">Situs</p>
                 <button type="button" class="side__item" data-view="site"><i class="fa-regular fa-images"></i><span>Tampilan Situs</span><em class="side__new">Baru</em></button>
@@ -556,6 +561,125 @@
         </section>
 
         <!-- =========================================================
+             VOUCHER PAKET
+             ========================================================= -->
+        <section class="view" id="view-vouchers" data-title="Voucher" data-group="Kelola">
+            <div class="page-head">
+                <div>
+                    <p class="v-eyebrow">Kode tukar</p>
+                    <h2>Voucher paket gratis.</h2>
+                    <p class="v-muted">Voucher langsung memberi masa aktif ke satu bot pilihan user, tanpa pembayaran. Beda dengan promo yang memotong harga saat checkout. Sisa paket lama otomatis dikonversi (prorata), dan satu user hanya bisa memakai satu kode sekali.</p>
+                </div>
+                <div class="page-head__tools">
+                    <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnVouRefresh"><i class="fa-solid fa-rotate"></i> Muat ulang</button>
+                </div>
+            </div>
+
+            <div class="v-card tiles">
+                <div class="v-statgrid">
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-ticket"></i> Total voucher</span><span class="v-stat__value" id="vouStatTotal">–</span><span class="v-stat__sub" id="vouStatTotalSub">semua kode</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-circle-check"></i> Aktif</span><span class="v-stat__value" id="vouStatActive">–</span><span class="v-stat__sub">siap dipakai</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-solid fa-people-arrows"></i> Pemakaian</span><span class="v-stat__value" id="vouStatUsed">–</span><span class="v-stat__sub" id="vouStatUsedSub">kali ditukar</span></div>
+                    <div class="v-stat"><span class="v-stat__label"><i class="fa-regular fa-hourglass-half"></i> Habis / kedaluwarsa</span><span class="v-stat__value" id="vouStatDead">–</span><span class="v-stat__sub">tidak bisa dipakai lagi</span></div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="v-card">
+                    <div class="card-head"><div><h3><i class="fa-solid fa-wand-magic-sparkles"></i> Buat voucher</h3><p>Kosongkan kode untuk membuat kode acak (sekali buat sampai 100).</p></div></div>
+                    <div class="card-body">
+                        <div class="form-grid">
+                            <div class="form-grid form-grid--3">
+                                <div class="v-field">
+                                    <label class="v-label" for="vouTier">Paket</label>
+                                    <select id="vouTier" class="v-select">
+                                        <option value="basic">Core</option>
+                                        <option value="plus">Prime</option>
+                                        <option value="booster">Zenith</option>
+                                    </select>
+                                </div>
+                                <div class="v-field">
+                                    <label class="v-label" for="vouDays">Masa aktif</label>
+                                    <span class="affix affix--suffix"><input type="number" id="vouDays" class="v-input" value="30" min="1" max="365" step="1" inputmode="numeric"><em>hari</em></span>
+                                </div>
+                                <div class="v-field">
+                                    <label class="v-label" for="vouMax">Maks. pemakaian</label>
+                                    <span class="affix affix--suffix"><input type="number" id="vouMax" class="v-input" value="1" min="1" max="10000" step="1" inputmode="numeric"><em>kali</em></span>
+                                </div>
+                            </div>
+                            <div class="form-grid form-grid--2">
+                                <div class="v-field">
+                                    <label class="v-label" for="vouCode">Kode khusus <small>opsional</small></label>
+                                    <input type="text" id="vouCode" class="v-input" style="text-transform:uppercase;font-family:var(--font-mono);letter-spacing:.06em" maxlength="24" placeholder="cth: MANZZY30" autocomplete="off" spellcheck="false">
+                                </div>
+                                <div class="v-field">
+                                    <label class="v-label" for="vouPrefix">Awalan kode acak <small>opsional</small></label>
+                                    <input type="text" id="vouPrefix" class="v-input" style="text-transform:uppercase;font-family:var(--font-mono);letter-spacing:.06em" maxlength="12" placeholder="cth: VARESA" autocomplete="off" spellcheck="false">
+                                </div>
+                            </div>
+                            <div class="form-grid form-grid--2">
+                                <div class="v-field">
+                                    <label class="v-label" for="vouCount">Jumlah kode acak</label>
+                                    <span class="affix affix--suffix"><input type="number" id="vouCount" class="v-input" value="1" min="1" max="100" step="1" inputmode="numeric"><em>kode</em></span>
+                                </div>
+                                <div class="v-field">
+                                    <label class="v-label" for="vouExpiry">Berlaku sampai <small>opsional</small></label>
+                                    <input type="date" id="vouExpiry" class="v-input">
+                                </div>
+                            </div>
+                            <div class="v-field">
+                                <label class="v-label" for="vouNote">Catatan <small>opsional — untuk admin sendiri</small></label>
+                                <input type="text" id="vouNote" class="v-input" maxlength="200" placeholder="cth: giveaway Instagram Oktober">
+                                <span class="count-hint" data-count-for="vouNote">0/200</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-foot">
+                        <span class="v-help">Kode otomatis huruf besar. Kosongkan “Kode khusus” untuk memakai jumlah &amp; awalan di atas.</span>
+                        <button type="button" class="v-btn v-btn--primary" id="btnVouCreate"><i class="fa-solid fa-plus"></i> Buat voucher</button>
+                    </div>
+                </div>
+
+                <div class="v-card">
+                    <div class="card-head"><div><h3><i class="fa-solid fa-receipt"></i> Hasil pembuatan terakhir</h3><p>Kode yang baru dibuat muncul di sini, siap disalin.</p></div></div>
+                    <div class="card-body">
+                        <p class="v-help" id="vouResultHint">Belum ada voucher yang dibuat dari panel ini.</p>
+                        <div class="vou-out" id="vouResult" hidden>
+                            <div class="vou-out__head">
+                                <span id="vouResultTitle">–</span>
+                                <button type="button" class="v-btn v-btn--outline v-btn--sm" id="btnVouCopy"><i class="fa-regular fa-copy"></i> Salin semua</button>
+                            </div>
+                            <textarea class="v-input vou-out__list" id="vouResultList" readonly rows="8" spellcheck="false" aria-label="Daftar kode voucher yang baru dibuat"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="v-card">
+                <div class="toolbar">
+                    <label class="search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="v-input" id="vouSearch" placeholder="Cari kode, catatan, atau paket" autocomplete="off"></label>
+                    <div class="seg" id="vouStateSeg" aria-label="Saring status">
+                        <button type="button" class="seg__btn is-active" data-state="">Semua</button>
+                        <button type="button" class="seg__btn" data-state="aktif">Aktif</button>
+                        <button type="button" class="seg__btn" data-state="nonaktif">Nonaktif</button>
+                        <button type="button" class="seg__btn" data-state="habis">Habis</button>
+                        <button type="button" class="seg__btn" data-state="kedaluwarsa">Kedaluwarsa</button>
+                    </div>
+                    <span class="toolbar__count" id="vouListCount">–</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="atable is-stack">
+                        <thead><tr><th>Kode</th><th>Paket</th><th class="right">Masa aktif</th><th>Pemakaian</th><th>Berlaku s/d</th><th>Status</th><th class="right">Aksi</th></tr></thead>
+                        <tbody id="vouTableBody">
+                            <tr><td colspan="7" class="td-empty">Memuat voucher…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="v-help">Menghapus voucher juga menghapus catatan pemakaiannya — kalau kode yang sama dibuat lagi, user lama bisa memakainya sekali lagi.</p>
+            </div>
+        </section>
+
+        <!-- =========================================================
              BANNER & TAMPILAN SITUS
              ========================================================= -->
         <section class="view" id="view-site" data-title="Banner & Tampilan" data-group="Situs">
@@ -980,6 +1104,6 @@
 
     <div class="v-toast-wrap" id="toastWrap" aria-live="polite"></div>
 
-    <script src="/admin.js?v=4" defer></script>
+    <script src="/admin.js?v=5" defer></script>
 </body>
 </html>

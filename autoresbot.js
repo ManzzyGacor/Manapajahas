@@ -12,6 +12,7 @@ import handler from "./lib/handler.js";
 import mess from "./strings.js";
 import { updateParticipant } from "./lib/cache.js";
 
+import fs from "fs";
 import path from "path";
 import { handleActiveFeatures } from "./lib/participant_update.js";
 
@@ -51,7 +52,7 @@ import { getBotConfig, isJadibot } from "./lib/jadibot.js";
 import { enforceForSession } from "./lib/tier-enforcer.js";
 import { recordMessage } from "./lib/bot-stats.js";
 import { hasActiveAddon } from "./lib/addons.js";
-import { applyTierCaps } from "./lib/tier-guard.js";
+import { applyTierCaps, disabledCategoryFor, categoryName } from "./lib/tier-guard.js";
 import { logCommand } from "./lib/monitor.js";
 import {
   isCommandDisabled,
@@ -69,6 +70,25 @@ import {
 
 // Pembatas frekuensi pemeriksaan kuota grup (botNumber -> timestamp).
 const lastQuotaCheck = new Map();
+
+// Pemberitahuan "kategori fitur dimatikan": sekali per chat per 10 menit
+// (kunci "bot|chat"). Tanpa jeda ini, member yang mencoba-coba perintah di
+// grup ramai membuat bot membalas pemberitahuan yang sama berulang kali.
+const JEDA_INFO_KATEGORI_MS = 10 * 60 * 1000;
+const lastInfoKategori = new Map();
+
+function bolehInfoKategori(kunci) {
+  const now = Date.now();
+  const terakhir = lastInfoKategori.get(kunci) || 0;
+  if (now - terakhir < JEDA_INFO_KATEGORI_MS) return false;
+  lastInfoKategori.set(kunci, now);
+  if (lastInfoKategori.size > 5000) {
+    for (const [k, t] of lastInfoKategori) {
+      if (now - t > JEDA_INFO_KATEGORI_MS) lastInfoKategori.delete(k);
+    }
+  }
+  return true;
+}
 
 // ── Owner utama vs owner bot ───────────────────────────────────
 // Owner UTAMA = operator Varesa (OWNER_NUMBERS di .env + database/owner.json).
@@ -99,7 +119,7 @@ const PERINTAH_OWNER_UTAMA = new Set([
   "addrespon", "delrespon", "deleterespon", "listrespon",
   // sistem sewa bot utama (yang tidak punya versi per bot)
   "sewabotid", "kompensasi",
-  "listsewa2", "listnosewa", "outnosewa", "totalsewa",
+  "listsewa2", "totalsewa",
   "excelsewa", "listsewaexcel",
   // status apikey autoresbot milik operator
   "apikey",
@@ -110,10 +130,14 @@ const PERINTAH_OWNER_UTAMA = new Set([
 // owner utama tetap menulis data global seperti dulu. Di bot utama, hanya
 // owner utama yang boleh — "owner" dashboard yang kebetulan menempel ke
 // nomor bot utama tidak punya ruang per bot di sana.
+// .listnosewa/.outnosewa di bot user membandingkan dengan sewa PER BOT itu
+// sendiri dan hanya bekerja pada socket bot itu (keluar dari grup miliknya
+// sendiri), jadi aman untuk owner bot; di bot utama tetap owner utama.
 const PERINTAH_SCOPE_BOT = new Set([
   "addprem", "addpremium", "delprem", "delpremium", "listprem",
   "addlimit",
   "sewabot", "tambahsewa", "delsewa", "listsewa",
+  "listnosewa", "outnosewa",
 ]);
 
 // Iklan paket Free. Penanda dipakai supaya pesan yang sudah memuat alamat
@@ -345,21 +369,34 @@ async function processMessage(sock, messageInfo) {
   const senderNumber = String(sender || "").split("@")[0].split(":")[0];
   const angkaJid = (jid) => String(jid || "").split("@")[0].split(":")[0].replace(/\D/g, "");
 
-  // Pengirim bisa datang sebagai LID (di grup yang masih memakai nomor HP,
-  // serializeMessage mengambil participantAlt yang isinya LID). Auto-register
-  // di handle/usersHandle.js mencatat LID itu sebagai user TERPISAH, jadi
-  // alias users.json tidak menolong. Nomor HP-nya dicari lewat lidMapping
-  // Baileys (cache/penyimpanan sesi saja, tanpa query ke server) supaya
-  // owner dashboard dan data per bot tetap dikenali. Hanya di bot user;
-  // perilaku bot utama tidak berubah.
+  // Pengirim bisa datang sebagai LID: di grup yang anggotanya dialamatkan
+  // dengan LID, atau di grup lama saat serializeMessage mengambil
+  // participantAlt yang isinya LID. Auto-register di handle/usersHandle.js
+  // mencatat LID itu sebagai user TERPISAH, jadi alias users.json tidak
+  // menolong. Nomor HP-nya diambil dari bentuk lain ID pengirim yang dibawa
+  // pesan itu sendiri (senderAlt, diisi server WhatsApp), atau lewat
+  // lidMapping Baileys (cache/penyimpanan sesi saja, tanpa query ke server).
+  //
+  // Dulu hanya dihitung di bot user, jadi di grup LID owner UTAMA ditolak
+  // untuk semua perintah khusus owner utama (mis. .listnosewa) karena
+  // nomornya datang sebagai "xxxx@lid". LID yang tidak bisa dipetakan
+  // TIDAK PERNAH dianggap owner — senderPn tetap kosong.
   let senderPn = "";
-  if (isJadibotSession && String(sender || "").endsWith("@lid")) {
-    try {
-      senderPn = angkaJid(await sock.signalRepository?.lidMapping?.getPNForLID?.(sender));
-    } catch {
-      /* mapping belum ada: pakai LID-nya saja seperti dulu */
+  if (String(sender || "").endsWith("@lid")) {
+    const alt = String(messageInfo.senderAlt || "");
+    if (alt.endsWith("@s.whatsapp.net")) senderPn = angkaJid(alt);
+    if (!senderPn) {
+      try {
+        senderPn = angkaJid(await sock.signalRepository?.lidMapping?.getPNForLID?.(sender));
+      } catch {
+        /* mapping belum ada: pakai LID-nya saja seperti dulu */
+      }
     }
+    // Hanya nomor HP yang masuk akal (8–15 digit) yang dipakai.
+    if (!/^\d{8,15}$/.test(senderPn)) senderPn = "";
   }
+  const senderPnJid = senderPn ? `${senderPn}@s.whatsapp.net` : "";
+  messageInfo.senderPn = senderPn;
 
   // Semua ID milik pengirim (nomor HP & LID) untuk mencocokkan data per
   // bot: premium/bonus limit bisa tersimpan sebagai nomor HP padahal
@@ -389,15 +426,23 @@ async function processMessage(sock, messageInfo) {
 
   // Premium global (users.json, diatur owner utama) berlaku di semua bot;
   // premium per bot (diberikan owner bot lewat .addprem) hanya di bot ini.
+  // Premium global biasanya tercatat di nomor HP, jadi pengirim LID juga
+  // dicek lewat nomor HP hasil pemetaan di atas.
   const isPremiumUsers =
     isPremiumUser(sender) ||
+    (!!senderPnJid && isPremiumUser(senderPnJid)) ||
     (isJadibotSession &&
       hasBotPremiumEntries(botNumber) &&
       getBotPremiumAny(botNumber, userKeys) !== null);
 
   // Owner utama (operator) — berlaku di semua bot.
   // Pesan yang diketik dari HP/perangkat bot utama sendiri juga owner utama.
-  const isMainOwner = isOwner(sender) || (!!fromMe && !isJadibotSession);
+  // Pengirim LID dicocokkan lewat nomor HP hasil pemetaan (OWNER_NUMBERS di
+  // .env selalu nomor HP).
+  const isMainOwner =
+    isOwner(sender) ||
+    (!!senderPnJid && isOwner(senderPnJid)) ||
+    (!!fromMe && !isJadibotSession);
 
   // Owner bot ini: nomor dari dashboard (sudah dibatasi sesuai paket oleh
   // applyTierCaps) + pemilik nomor bot itu sendiri (pesan fromMe = diketik
@@ -666,6 +711,9 @@ async function processMessage(sock, messageInfo) {
     }
 
     let commandFound = false;
+    // Kunci kategori yang dimatikan owner bot (diisi di loop plugin), supaya
+    // pemberitahuannya dikirim sekali setelah loop selesai.
+    let infoKategoriMati = null;
     // Data untuk log monitor: diisi saat handle() plugin pertama kali
     // dipanggil, lalu dicatat SEKALI di blok finally (sukses maupun error).
     let eksekusi = null;
@@ -724,6 +772,18 @@ async function processMessage(sock, messageInfo) {
         if (!command || !plugin.Commands.includes(command)) continue;
         commandFound = true;
 
+        // Kategori fitur yang dimatikan owner bot ini (dashboard). Owner bot
+        // & owner utama tetap boleh memakainya (untuk mencoba). Dicek SEBELUM
+        // pemotongan limit supaya user tidak kehilangan limit. Plugin lain
+        // dengan perintah yang sama (kategori lain) tetap boleh menangani.
+        const kategoriMati = isOwnerUsers
+          ? null
+          : disabledCategoryFor(sessionConfig, plugin.__category, command);
+        if (kategoriMati) {
+          infoKategoriMati = infoKategoriMati || kategoriMati;
+          continue;
+        }
+
         // Cek apakah perintah ini hanya untuk pengguna premium
         if (plugin.OnlyPremium && !isPremiumUsers && !isOwnerUsers) {
           logTracking(`Handler - Bukan premium (${command})`);
@@ -776,11 +836,26 @@ async function processMessage(sock, messageInfo) {
         // premium, tapi berlaku per-bot dan ada masa berlakunya.
         if (!isPremiumUsers && !isOwnerUsers && !hasUnlimitedAddon && plugin.limitDeduction) {
           try {
-            const dataUsers = await findUser(sender);
+            const biaya = plugin.limitDeduction;
+            // Data limit global dicari lewat ID pengirim; kalau pengirim
+            // datang sebagai LID, entri nomor HP-nya juga dicoba (limit dari
+            // .addlimit/.claim lama tersimpan di nomor HP). Entri yang
+            // dipakai adalah yang limitnya cukup, dan pemotongan ditulis ke
+            // entri itu juga.
+            let idLimit = sender;
+            let dataUsers = await findUser(sender);
+            if (senderPnJid) {
+              const viaHp = await findUser(senderPnJid);
+              const sisaLid = Number(dataUsers?.[1]?.limit) || 0;
+              const sisaHp = Number(viaHp?.[1]?.limit) || 0;
+              if (viaHp && (!dataUsers || (sisaLid < biaya && sisaHp > sisaLid))) {
+                dataUsers = viaHp;
+                idLimit = senderPnJid;
+              }
+            }
             if (!dataUsers) return;
 
             const [docId, userData] = dataUsers;
-            const biaya = plugin.limitDeduction;
             const limitGlobal = Number(userData.limit) || 0;
 
             // Bonus limit dari owner bot ini (.addlimit di bot user) dipakai
@@ -805,7 +880,7 @@ async function processMessage(sock, messageInfo) {
 
             // Kurangi limit global hanya untuk sisa yang tidak tertutup bonus.
             if (dariGlobal > 0) {
-              await updateUser(sender, {
+              await updateUser(idLimit, {
                 limit: limitGlobal - dariGlobal,
               });
             }
@@ -873,6 +948,25 @@ async function processMessage(sock, messageInfo) {
           error: eksekusi.err?.message || (gagalPesan ? eksekusi.pesan : ""),
         });
       }
+    }
+
+    // Semua plugin untuk perintah ini ada di kategori yang dimatikan owner
+    // bot: beri tahu (paling sering sekali per chat per 10 menit), tanpa
+    // memotong limit dan tanpa dicatat sebagai kegagalan fitur.
+    if (infoKategoriMati && !eksekusi) {
+      logTracking(`Handler - Kategori ${infoKategoriMati} dimatikan owner bot (${command})`);
+      if (bolehInfoKategori(`${botNumber}|${remoteJid}`)) {
+        await sock.sendMessage(
+          remoteJid,
+          {
+            text: mess.general.categoryDisabled
+              ? mess.general.categoryDisabled.replace("@kategori", categoryName(infoKategoriMati))
+              : `Fitur ${categoryName(infoKategoriMati)} sedang dimatikan oleh owner bot ini.`,
+          },
+          { quoted: message }
+        );
+      }
+      return;
     }
 
     // sampai sini command tidak di temukan
