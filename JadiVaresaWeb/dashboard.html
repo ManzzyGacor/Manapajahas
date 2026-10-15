@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Dashboard · Varesa</title>
     <meta name="description" content="Dashboard Varesa — kelola bot WhatsApp kamu, pantau server dan log command secara langsung.">
+    <!-- WAJIB paling awal: membungkus fetch supaya sesi login yang habis
+         (401 SESSION_EXPIRED) langsung diarahkan ke halaman masuk. -->
+    <script src="/assets/session.js?v=1"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,7 +22,7 @@
     <!-- Versi di query string wajib dinaikkan tiap rilis: sw.js menyimpan
          aset statis per-URL, jadi tanpa ini user bisa tertahan di CSS lama. -->
     <link rel="stylesheet" href="/assets/varesa.css?v=31">
-    <link rel="stylesheet" href="/style.css?v=36">
+    <link rel="stylesheet" href="/style.css?v=37">
 </head>
 <body class="app has-tabbar">
 
@@ -108,6 +111,7 @@
                         <ul class="profile-dropdown-list">
                             <li class="nav-btn" data-target="setting"><i class="fa-solid fa-gear"></i> Pengaturan profil</li>
                             <li class="nav-btn" data-target="upgrade"><i class="fa-regular fa-gem"></i> Paket &amp; harga</li>
+                            <li id="btnVoucherDrop"><i class="fa-solid fa-ticket"></i> Tukar voucher</li>
                             <li id="btnLogoutDrop" class="is-danger"><i class="fa-solid fa-right-from-bracket"></i> Keluar</li>
                         </ul>
                     </div>
@@ -162,7 +166,11 @@
                         <h3 class="fleet__title" id="fleetTitle">Bot saya <span class="fleet__count v-mono" id="fleetCount"></span></h3>
                         <p class="card-sub" id="fleetSub">Tiap bot punya paket sendiri. Pilih bot untuk mengatur config, menu, API, dan lainnya.</p>
                     </div>
-                    <button type="button" class="v-btn v-btn--primary v-btn--sm" id="btnAddBotToggle" aria-expanded="false" aria-controls="addBotPanel"><i class="fa-solid fa-plus"></i> Tambah bot</button>
+                    <div class="fleet__acts">
+                        <!-- Pintasan ke kartu "Punya kode voucher?" di Paket & Harga -->
+                        <button type="button" class="v-btn v-btn--ghost v-btn--sm" data-act="voucher"><i class="fa-solid fa-ticket"></i> Punya voucher?</button>
+                        <button type="button" class="v-btn v-btn--primary v-btn--sm" id="btnAddBotToggle" aria-expanded="false" aria-controls="addBotPanel"><i class="fa-solid fa-plus"></i> Tambah bot</button>
+                    </div>
                 </header>
 
                 <!-- Paket tersimpan dari bot yang dihapus, menunggu bot baru -->
@@ -474,6 +482,33 @@
                 </div>
             </div>
 
+            <!-- Saklar kategori fitur per bot (config `disabledCategories`).
+                 Terbuka untuk SEMUA paket: fitur ini membatasi, bukan membuka.
+                 Daftar & jumlah fitur dari /api/public/features; OWNER selalu
+                 aktif supaya pemilik tidak terkunci dari botnya sendiri. -->
+            <div class="v-card v-card--pad cats" id="catCard">
+                <div class="cats__head">
+                    <div class="cats__intro">
+                        <h3 class="card-title">Kategori fitur</h3>
+                        <p class="card-sub">Matikan kategori yang tidak dipakai di bot ini, mis. <b>Game</b> di grup kerja. Kamu sebagai owner bot tetap bisa memakai semuanya.</p>
+                    </div>
+                    <span class="cats__sum v-mono" id="catSummary" aria-live="polite">memuat…</span>
+                </div>
+                <div class="cats__grid" id="catGrid" role="group" aria-label="Kategori fitur bot ini">
+                    <div class="cat cat--skel"><span class="v-skel"></span></div>
+                    <div class="cat cat--skel"><span class="v-skel"></span></div>
+                    <div class="cat cat--skel"><span class="v-skel"></span></div>
+                </div>
+                <div class="cats__foot">
+                    <p class="v-help cats__note"><i class="fa-solid fa-circle-info"></i> <span>Perintah inti seperti <code>.menu</code>, <code>.owner</code> &amp; <code>.prefix</code> tetap jalan. Member yang memanggil fitur yang dimatikan dapat balasan singkat dari bot.</span></p>
+                    <div class="cats__acts">
+                        <span class="cats__dirty v-hide" id="catDirty"><span class="v-dot v-dot--warn"></span> Belum disimpan</span>
+                        <button type="button" class="v-btn v-btn--ghost v-btn--sm" id="btnCatAllOn">Nyalakan semua</button>
+                        <button type="button" class="v-btn v-btn--primary v-btn--sm" id="btnSaveCats">Simpan kategori</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="v-card v-card--pad lockable">
                 <div class="locked-overlay" id="identityLockOverlay">
                     <div class="lock-card">
@@ -749,10 +784,14 @@
                         </div>
                     </div>
 
-                    <div class="v-card v-card--pad">
-                        <h3 class="card-title">Akun</h3>
-                        <p class="card-sub">Keluar dari sesi dashboard ini.</p>
-                        <button type="button" class="v-btn v-btn--danger" id="btnLogoutSetting"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                    <div class="v-card v-card--pad" id="accountCard">
+                        <h3 class="card-title">Akun &amp; sesi masuk</h3>
+                        <p class="card-sub">Keluar dari browser ini saja, atau dari semua perangkat sekaligus — berguna kalau kamu pernah masuk di HP atau komputer orang lain.</p>
+                        <div class="btn-row">
+                            <button type="button" class="v-btn v-btn--danger" id="btnLogoutSetting"><i class="fa-solid fa-right-from-bracket"></i> Keluar</button>
+                            <button type="button" class="v-btn v-btn--outline" id="btnLogoutAll"><i class="fa-solid fa-power-off"></i> Keluar dari semua perangkat</button>
+                        </div>
+                        <p class="form-msg" id="logoutMsg" role="status"></p>
                     </div>
                 </div>
             </div>
@@ -1269,6 +1308,33 @@
                 </article>
             </div>
 
+            <!-- Voucher paket: kode dari admin (giveaway, kompensasi, reseller)
+                 langsung memasang paket ke satu bot tanpa bayar. BEDA dengan
+                 kode promo di form pesanan, yang hanya memotong harga. -->
+            <section class="v-card voucher-card" id="voucherCard" aria-labelledby="voucherTitle">
+                <div class="voucher-card__intro">
+                    <span class="voucher-card__icon" aria-hidden="true"><i class="fa-solid fa-ticket"></i></span>
+                    <div>
+                        <h3 class="card-title" id="voucherTitle">Punya kode voucher?</h3>
+                        <p class="card-sub">Tukar kode voucher paket untuk mengaktifkan atau memperpanjang paket bot — tanpa bayar. Kode promo (potongan harga) dipakai di form pesanan.</p>
+                    </div>
+                </div>
+                <form class="voucher-form" id="voucherForm" novalidate>
+                    <div class="v-field voucher-form__code">
+                        <label class="v-label" for="voucherCode">Kode voucher</label>
+                        <input type="text" id="voucherCode" class="v-input voucher-input" maxlength="30" placeholder="Cth: VARESA-7K2Q9M" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="voucherRedeemMsg">
+                    </div>
+                    <div class="v-field voucher-form__bot">
+                        <label class="v-label" for="voucherBot">Pasang ke bot</label>
+                        <select id="voucherBot" class="v-select"></select>
+                    </div>
+                    <button type="submit" class="v-btn v-btn--primary voucher-form__go" id="btnRedeemVoucher"><i class="fa-solid fa-gift"></i> Tukar voucher</button>
+                </form>
+                <p class="v-help voucher-card__rule" id="voucherRule"><i class="fa-solid fa-circle-info"></i> <span>Paket sama &rarr; masa aktif ditambah. Paket beda &rarr; sisa paket lama dikonversi otomatis. Satu kode cuma bisa kamu pakai sekali.</span></p>
+                <p class="form-msg is-err" id="voucherRedeemMsg" role="alert"></p>
+                <div class="voucher-ok v-hide" id="voucherResult" role="status"></div>
+            </section>
+
             <section class="v-card lb-panel">
                 <header class="v-card__head">
                     <div>
@@ -1284,7 +1350,11 @@
 
         <footer class="app-footer">
             <span>&copy; 2026 Varesa. Seluruh hak dilindungi.</span>
-            <span>Dikelola oleh <a href="https://www.instagram.com/manzz_wakeup?stkn=OHIzazZoNXBjM2Vr" target="_blank" rel="noopener">@ManzzyID</a></span>
+            <nav class="app-footer__links" aria-label="Info legal">
+                <a href="/terms">Syarat &amp; Ketentuan</a>
+                <a href="/privacy">Kebijakan Privasi</a>
+                <span>Dikelola oleh <a href="https://www.instagram.com/manzz_wakeup?stkn=OHIzazZoNXBjM2Vr" target="_blank" rel="noopener">@ManzzyID</a></span>
+            </nav>
         </footer>
         </main>
     </div>
@@ -1348,9 +1418,9 @@
                 <select class="v-select" aria-label="Metode pembayaran"><option>QRIS (otomatis)</option></select>
             </div>
             <div class="v-field">
-                <label class="v-label" for="addonVoucher">Kode voucher</label>
+                <label class="v-label" for="addonVoucher">Kode promo <span class="label-hint">(potongan harga)</span></label>
                 <div class="voucher-row">
-                    <input type="text" id="addonVoucher" class="v-input" placeholder="Punya kode? Masukkan di sini">
+                    <input type="text" id="addonVoucher" class="v-input" placeholder="Punya kode promo? Masukkan di sini">
                     <button type="button" class="v-btn v-btn--outline" id="btnApplyAddonVoucher">Terapkan</button>
                 </div>
                 <p id="addonVoucherMsg" class="form-msg"></p>
@@ -1416,9 +1486,9 @@
                 </select>
             </div>
             <div class="v-field">
-                <label class="v-label" for="orderVoucher">Kode voucher</label>
+                <label class="v-label" for="orderVoucher">Kode promo <span class="label-hint">(potongan harga)</span></label>
                 <div class="voucher-row">
-                    <input type="text" id="orderVoucher" class="v-input" placeholder="Punya kode? Masukkan di sini">
+                    <input type="text" id="orderVoucher" class="v-input" placeholder="Punya kode promo? Masukkan di sini">
                     <button type="button" class="v-btn v-btn--outline" id="btnApplyVoucher">Terapkan</button>
                 </div>
                 <p id="voucherMsg" class="form-msg"></p>
@@ -1474,6 +1544,6 @@
     <div class="v-toast-wrap" id="toastWrap" aria-live="polite"></div>
 
     <script src="/live.js?v=33"></script>
-    <script src="/app.js?v=35"></script>
+    <script src="/app.js?v=36"></script>
 </body>
 </html>

@@ -31,6 +31,9 @@ const mess = {
     // command karena API luarnya rusak (lihat lib/health.js).
     maintenance:
       "🔧 _Fitur sedang perbaikan._\n\n_Layanan sumber fitur ini sedang tidak merespons. Kami sudah menerima laporan dan akan segera memperbaikinya. Coba lagi nanti, ya._",
+    // Kategori fitur yang dimatikan owner bot lewat dashboard (saklar
+    // kategori per bot). @kategori diganti nama kategorinya.
+    categoryDisabled: "🔕 _Fitur @kategori sedang dimatikan oleh owner bot ini._",
   },
 
   action: {

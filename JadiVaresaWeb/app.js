@@ -184,6 +184,57 @@ function busy(btn, label) {
     return () => { btn.innerHTML = html; btn.disabled = wasDisabled; };
 }
 
+// ==========================================
+// SESI LOGIN
+// ==========================================
+// Bukti login sekarang cookie sesi HttpOnly (vrs_sid) dari server; data di
+// localStorage.currentUser hanya untuk tampilan. /assets/session.js (dimuat
+// paling awal) membungkus fetch: jawaban 401 SESSION_EXPIRED langsung
+// diarahkan SEKALI ke /login?next=…. Yang diurus di sini: hal yang tidak
+// lewat fetch (stream SSE, polling berkala, tab lain yang keluar) supaya
+// halaman berhenti total begitu sesinya berakhir — tidak menyambung ulang
+// tanpa henti ke server yang terus menjawab 401.
+let sessionEnded = false;
+function endSession() {
+    if (sessionEnded) return;
+    sessionEnded = true;
+    window.dispatchEvent(new Event('varesa:session-end'));
+}
+
+function goLoginPage() {
+    endSession();
+    const next = location.pathname + location.search + location.hash;
+    location.replace('/login?next=' + encodeURIComponent(next));
+}
+
+// Halaman dibuka tanpa data user lokal (storage dibersihkan, perangkat baru
+// yang cookie-nya masih sah, dst). Tanya server dulu daripada langsung
+// melempar ke halaman masuk. Sah -> muat ulang SEKALI dengan data dari
+// server (check() sudah menyimpannya). Reload hanya kalau data itu benar-benar
+// tersimpan, jadi browser yang memblokir storage tidak berputar-putar.
+let bootTries = 0;
+function bootWithoutLocalUser() {
+    const S = window.VaresaSession;
+    if (!S) return goLoginPage();
+    S.check().then((r) => {
+        if (r.success && S.getUser()?.id) { location.reload(); return; }
+        if (r.status === 401 || bootTries >= 5) { goLoginPage(); return; }
+        // Jaringan/database sedang putus: jangan anggap sesi habis. Coba lagi.
+        bootTries++;
+        if (bootTries === 1 && window.VLive?.toast) window.VLive.toast('Tidak bisa menghubungi server. Mencoba lagi…', 'err');
+        setTimeout(bootWithoutLocalUser, 4000);
+    });
+}
+
+// Tab lain keluar (atau sesinya habis) -> data user lokal dihapus. Tab ini
+// ikut berhenti supaya tidak menembak API dengan sesi yang sudah mati.
+window.addEventListener('storage', (e) => {
+    if (sessionEnded || (e.key !== 'currentUser' && e.key !== null)) return;
+    let still = null;
+    try { still = localStorage.getItem('currentUser'); } catch { /* abaikan */ }
+    if (!still) goLoginPage();
+});
+
 // Render ulang semua elemen UI yang bergantung pada data profil user.
 function applyProfileToUI() {
     const name = currentUser.username || 'Guest';
@@ -240,15 +291,40 @@ function applyProfileToUI() {
     if (bannerTier) bannerTier.innerText = tierName(tier);
 }
 
-// Ambil profil & tier terkini dari server (sumber kebenaran).
+// Ambil profil & tier terkini dari server (sumber kebenaran). Lewat
+// VaresaSession.check() (GET /api/auth/session) sekaligus dipastikan cookie
+// sesi masih sah DAN milik akun yang sama dengan data lokal.
 async function refreshUserFromServer() {
     if (!currentUser?.id) return;
+    const S = window.VaresaSession;
     try {
-        const res = await fetch(`/api/user/me/${encodeURIComponent(currentUser.id)}`);
-        const result = await res.json();
-        if (!result.success) return;
+        let fresh = null;
+        if (S) {
+            const r = await S.check();
+            // 401 = cookie hilang/kedaluwarsa/dicabut ("keluar dari semua
+            // perangkat"). Gangguan jaringan/database BUKAN alasan
+            // mengeluarkan user — tetap pakai data lokal.
+            if (r.status === 401) { endSession(); S.expired(); return; }
+            if (!r.success) return;
+            fresh = r.user;
+            if (fresh?.id && fresh.id !== currentUser.id) {
+                // Browser ini sudah masuk dengan akun lain (mis. dari tab
+                // lain). Muat ulang supaya seluruh halaman memakai akun dari
+                // cookie — hanya kalau datanya memang sudah tersimpan,
+                // supaya tidak berputar-putar.
+                endSession();
+                if (S.getUser()?.id === fresh.id) location.reload();
+                else S.expired();
+                return;
+            }
+        } else {
+            const res = await fetch(`/api/user/me/${encodeURIComponent(currentUser.id)}`);
+            const result = await res.json();
+            if (!result.success) return;
+            fresh = result.user;
+        }
 
-        currentUser = { ...currentUser, ...result.user };
+        currentUser = { ...currentUser, ...fresh };
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
 
         applyProfileToUI();
@@ -640,9 +716,11 @@ window.addEventListener('appinstalled', () => {
 document.addEventListener("DOMContentLoaded", () => {
 
     // --- 1. AUTH GUARD ---
-    const userStr = localStorage.getItem('currentUser');
-    if (!userStr && !window.location.pathname.endsWith('/login')) {
-        window.location.href = '/login';
+    // Tanpa data user lokal: tanya server dulu (lihat bootWithoutLocalUser).
+    let userStr = null;
+    try { userStr = localStorage.getItem('currentUser'); } catch { userStr = null; }
+    if (!userStr) {
+        bootWithoutLocalUser();
         return;
     }
 
@@ -681,6 +759,16 @@ document.addEventListener("DOMContentLoaded", () => {
     // supaya pemanggilan lebih awal tidak kena ReferenceError (TDZ).
     let liveWidgets = null;
     let currentView = 'dashboard';
+    // Kategori fitur per bot (lihat bagian KATEGORI FITUR) & voucher paket.
+    // Dideklarasikan di sini karena dipakai setActiveBotNumber/loadBotConfig
+    // yang bisa terpanggil sebelum bagian itu dijalankan.
+    let featCats = null;      // [{ key, name, desc, icon, count }] dari /api/public/features
+    let featReq = null;
+    let featFailed = false;
+    const cats = { bot: '', loaded: false, failed: false, saved: new Set(), off: new Set(), locked: new Set(['OWNER']) };
+    const voucherUI = { touched: false, waitUntil: 0, timer: null };
+    const voucherCode = $id('voucherCode');
+    const voucherBot = $id('voucherBot');
 
     const nowClock = () => new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/\./g, ':');
 
@@ -773,6 +861,9 @@ document.addEventListener("DOMContentLoaded", () => {
             // terlihat (atau tersimpan) sebagai teks bot ini.
             ['cfgSewaText', 'cfgPremiumText'].forEach(id => { const el = $id(id); if (el) el.value = ''; });
             renderOwnerText();
+            // Saklar kategori juga milik bot: kosongkan sampai config bot
+            // ini datang, supaya tidak tersimpan ke bot yang salah.
+            resetCats();
         }
         window.reconnectBotStream?.();
         liveWidgets?.feed?.render();
@@ -838,9 +929,57 @@ document.addEventListener("DOMContentLoaded", () => {
     $id('btnTabMore')?.addEventListener('click', () => mobileMenu.classList.add('active'));
     mobileMenu?.addEventListener('click', (e) => { if (e.target === mobileMenu) mobileMenu.classList.remove('active'); });
 
-    const logout = () => { localStorage.removeItem('currentUser'); window.location.href = '/login'; };
-    $id('btnLogoutDrop')?.addEventListener('click', logout);
-    $id('btnLogoutSetting')?.addEventListener('click', logout);
+    // --- KELUAR ---
+    // Lewat VaresaSession.logout(): cookie sesi dihapus server, data lokal
+    // dibersihkan, lalu ke /login. "Semua perangkat" menaikkan versi sesi di
+    // server sehingga cookie di HP/laptop lain ikut tidak berlaku.
+    let loggingOut = false;
+    async function doLogout({ all = false, btn = null } = {}) {
+        if (loggingOut) return;
+        if (all && !confirm('Keluar dari semua perangkat?\n\nSemua browser & HP yang sedang masuk ke akun ini harus masuk lagi. Bot kamu tetap jalan seperti biasa.')) return;
+        const S = window.VaresaSession;
+        const msg = $id('logoutMsg');
+        if (msg) { msg.textContent = ''; msg.className = 'form-msg'; }
+        loggingOut = true;
+        const done = busy(btn, 'Keluar…');
+        if (all && S) {
+            // Dikirim sendiri dulu supaya kegagalan terlihat: VaresaSession.logout
+            // tetap mengeluarkan browser ini walau server gagal mencabut sesi di
+            // perangkat lain (mis. database putus) — user jadi salah paham
+            // mengira perangkat lain sudah keluar.
+            try {
+                const res = await fetch('/api/auth/logout', {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ all: true })
+                });
+                let d = {};
+                try { d = await res.json(); } catch { d = {}; }
+                if (!res.ok || !d.success) {
+                    // 503 DB_DOWN membawa kalimat yang memang untuk user.
+                    const text = res.status === 503 && d.message ? d.message : serverMsg(res, d, 'Coba lagi sebentar lagi.');
+                    if (msg) { msg.textContent = `Belum bisa keluar dari semua perangkat. ${text}`; msg.className = 'form-msg is-err'; }
+                    say(`Belum bisa keluar dari semua perangkat. ${text}`, 'err');
+                    loggingOut = false; done();
+                    return;
+                }
+            } catch {
+                say('Gagal terhubung ke server. Coba lagi.', 'err');
+                loggingOut = false; done();
+                return;
+            }
+        }
+        endSession();
+        // Salinan daftar bot (nomor & nama bot) ikut dibuang: penting di
+        // komputer bersama.
+        try { localStorage.removeItem(BOTS_CACHE_KEY); } catch { /* abaikan */ }
+        if (S) { S.logout(); return; }
+        try { localStorage.removeItem('currentUser'); } catch { /* abaikan */ }
+        window.location.href = '/login';
+    }
+    $id('btnLogoutDrop')?.addEventListener('click', () => doLogout());
+    $id('btnLogoutSetting')?.addEventListener('click', (e) => doLogout({ btn: e.currentTarget }));
+    $id('btnLogoutAll')?.addEventListener('click', (e) => doLogout({ all: true, btn: e.currentTarget }));
 
     // --- NAVIGASI ANTAR HALAMAN (SPA) ---
     function showView(targetView, { scroll = true } = {}) {
@@ -875,7 +1014,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // kosong, dan menekan Simpan akan MENIMPA aturan yang ada di server.
         if (['config', 'menu', 'cmd', 'mess'].includes(targetView)) loadBotConfig();
         if (targetView === 'statistik') loadBotStats();
-        if (targetView === 'upgrade') loadLeaderboard();
+        if (targetView === 'upgrade') { loadLeaderboard(); fillVoucherBots(); }
+        // Daftar kategori fitur dimuat saat Config pertama kali dibuka.
+        if (targetView === 'config') renderCats();
         if (targetView === 'addons') loadAddons();
         if (targetView === 'referral') loadReferral();
         if (targetView === 'invoice') loadOrderHistory();
@@ -1013,7 +1154,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // memanggil ini bersamaan.
     let botsReq = null;
     function loadMyBots() {
-        if (!currentUser?.id) return Promise.resolve();
+        if (!currentUser?.id || sessionEnded) return Promise.resolve();
         if (botsReq) return botsReq;
         botsReq = (async () => {
             try {
@@ -1068,6 +1209,11 @@ document.addEventListener("DOMContentLoaded", () => {
         applyTierGating();
         renderExpiry();
         renderAddPanel();
+        fillVoucherBots();
+        // Kartu kategori cukup digambar ulang kalau belum berisi data bot
+        // ini (mis. bot pertama baru ditambahkan) — kalau tidak, saklar
+        // yang sedang diubah user ikut tergambar ulang tiap 30 detik.
+        if (!(cats.loaded && cats.bot === activeBotNumber)) renderCats();
         // Status di daftar = status dari server; samakan tampilan bot
         // terpilih kalau SSE belum memberi kabar.
         const b = activeBot();
@@ -1584,6 +1730,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const act = actEl.dataset.act;
         if (act === 'add') return openAddPanel();
+        if (act === 'voucher') return openVoucher();
         if (act === 'rename') {
             renamingNumber = number;
             renderFleet();
@@ -1757,15 +1904,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 customCommands = Array.isArray(cfg.customCommands) ? cfg.customCommands : [];
                 renderCustomCommands();
+                setCatsFromConfig(cfg);
                 setConfigLoaded(true);
             } else {
                 setConfigLoaded(false);
+                markCatsFailed();
             }
         } catch (err) {
             // BERBAHAYA kalau dibiarkan: form tampil kosong, user menekan
             // Simpan, dan config asli di server tertimpa data kosong.
             // Tombol simpan dikunci sampai config berhasil dimuat.
             setConfigLoaded(false);
+            markCatsFailed();
             if (!quiet) say('Config bot gagal dimuat. Tombol simpan dikunci sampai halaman dimuat ulang.', 'err');
         }
     }
@@ -2059,6 +2209,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 .find(([, t]) => t.length > OWNER_TEXT_MAX);
             if (panjang) return say(`${panjang[0]} maksimal ${OWNER_TEXT_MAX} karakter. Ringkas dulu, ya.`, 'err');
         }
+        // Saklar kategori yang diubah tapi belum disimpan ikut tersimpan:
+        // tombol ini "simpan seluruh halaman Config". Tidak diubah = tidak
+        // dikirim, jadi tidak menimpa apa pun.
+        const catKeys = catsDirty() ? catsToSave() : null;
+        if (catKeys) payload.disabledCategories = catKeys;
 
         const done = busy(e.currentTarget, 'Menyimpan…');
         try {
@@ -2067,6 +2222,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify(payload)
             });
             const result = await res.json();
+            if (result.success && catKeys) markCatsSaved(payload.number, catKeys);
             say(result.success ? (result.message || 'Konfigurasi disimpan!') : serverMsg(res, result, 'Gagal menyimpan konfigurasi.'), result.success ? 'ok' : 'err');
         } catch (err) {
             say('Gagal terhubung ke server. Konfigurasi BELUM tersimpan.', 'err');
@@ -2300,7 +2456,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 voucherMsg.className = 'form-msg is-ok';
             } else {
                 appliedVoucher = null;
-                voucherMsg.innerText = result.message || 'Kode voucher tidak valid.';
+                // Kode voucher paket (gratis paket) sering salah dimasukkan
+                // di sini. Tawarkan jalan pintas ke kartu penukarannya.
+                voucherMsg.innerHTML = `${escapeHtml(serverMsg(res, result, 'Kode promo tidak valid.'))}${VOUCHER_RE.test(normVoucher(code)) ? ' <button type="button" class="link-btn" id="btnPromoToVoucher">Ini kode voucher paket?</button>' : ''}`;
                 voucherMsg.className = 'form-msg is-err';
             }
             recalcOrderSummary();
@@ -2308,6 +2466,13 @@ document.addEventListener("DOMContentLoaded", () => {
             voucherMsg.innerText = 'Gagal memeriksa voucher.';
             voucherMsg.className = 'form-msg is-err';
         } finally { done(); }
+    });
+
+    voucherMsg?.addEventListener('click', (e) => {
+        if (!e.target.closest('#btnPromoToVoucher')) return;
+        const code = orderVoucher.value;
+        closeModal(orderModal);
+        openVoucher(code);
     });
 
     $id('btnCreateOrder')?.addEventListener('click', async (e) => {
@@ -2595,6 +2760,361 @@ document.addEventListener("DOMContentLoaded", () => {
             say(result.success ? (result.message || 'Perintah kustom disimpan.') : serverMsg(res, result, 'Gagal menyimpan.'), result.success ? 'ok' : 'err');
         } catch (err) { say('Gagal terhubung ke server.', 'err'); }
         finally { done(); }
+    });
+
+    // ==========================================
+    // KATEGORI FITUR (per bot)
+    // ==========================================
+    // Pemilik bot boleh mematikan kategori (mis. Game di grup kerja) lewat
+    // config `disabledCategories` — kuncinya PERSIS `key` di
+    // /api/public/features. Semua paket boleh karena fitur ini membatasi,
+    // bukan membuka. OWNER (dan daftar protectedCategories dari server)
+    // tidak bisa dimatikan supaya pemilik tidak terkunci dari botnya.
+    // Isi daftar dimuat dari config bot (loadBotConfig) — jadi otomatis
+    // dimuat ulang saat ganti bot.
+    const CAT_ICON = {
+        shield: 'fa-solid fa-shield-halved', sparkles: 'fa-solid fa-wand-magic-sparkles', star: 'fa-regular fa-star',
+        info: 'fa-solid fa-circle-info', download: 'fa-solid fa-download', image: 'fa-regular fa-image',
+        gamepad: 'fa-solid fa-gamepad', users: 'fa-solid fa-users', wand: 'fa-solid fa-wand-magic',
+        robot: 'fa-solid fa-robot', store: 'fa-solid fa-store', tools: 'fa-solid fa-screwdriver-wrench'
+    };
+    const MAX_CAT_OFF = 40; // sama dengan MAX_DISABLED_CATEGORIES di lib/webserver.js
+
+    function loadFeatureCats() {
+        if (featReq) return featReq;
+        featReq = (async () => {
+            try {
+                const res = await fetch('/api/public/features');
+                const d = await res.json();
+                const list = Array.isArray(d?.categories) ? d.categories.filter(c => c && typeof c.key === 'string') : [];
+                if (!res.ok || !d.success || !list.length) throw new Error('kosong');
+                // OWNER paling akhir: selalu aktif, bukan yang ingin diatur dulu.
+                featCats = list.map(c => ({ key: c.key, name: String(c.name || c.key), desc: String(c.desc || ''), icon: c.icon, count: Number(c.count) || 0 }))
+                    .sort((a, b) => (a.key === 'OWNER') - (b.key === 'OWNER'));
+                featFailed = false;
+            } catch {
+                featFailed = true;
+            } finally {
+                featReq = null;
+            }
+            renderCats();
+        })();
+        return featReq;
+    }
+
+    // Kategori yang benar-benar dikirim ke server: hanya yang dikenal &
+    // tidak terkunci (kunci lama yang sudah tidak ada ditolak server).
+    function catsToSave() {
+        const known = new Set((featCats || []).map(c => c.key));
+        return [...cats.off].filter(k => known.has(k) && !cats.locked.has(k)).slice(0, MAX_CAT_OFF);
+    }
+    function catsDirty() {
+        if (!cats.loaded || cats.bot !== activeBotNumber) return false;
+        const now = catsToSave();
+        const saved = [...cats.saved].filter(k => !featCats || featCats.some(c => c.key === k));
+        return now.length !== saved.length || now.some(k => !cats.saved.has(k));
+    }
+
+    function resetCats() {
+        cats.bot = ''; cats.loaded = false; cats.failed = false;
+        cats.saved = new Set(); cats.off = new Set();
+        renderCats();
+    }
+    // Dari GET /api/bot/config. Perubahan yang belum disimpan untuk bot yang
+    // sama tidak ditimpa (config dimuat ulang tiap kali halaman dibuka).
+    function setCatsFromConfig(cfg) {
+        const list = Array.isArray(cfg.disabledCategories) ? cfg.disabledCategories.filter(k => typeof k === 'string') : [];
+        const keepEdits = cats.loaded && cats.bot === activeBotNumber && catsDirty();
+        cats.saved = new Set(list);
+        if (!keepEdits) cats.off = new Set(list);
+        cats.locked = new Set(Array.isArray(cfg.protectedCategories) && cfg.protectedCategories.length ? cfg.protectedCategories : ['OWNER']);
+        cats.bot = activeBotNumber; cats.loaded = true; cats.failed = false;
+        renderCats();
+    }
+    function markCatsFailed() {
+        if (cats.loaded && cats.bot === activeBotNumber) return; // data lama bot ini masih sah
+        cats.loaded = false; cats.failed = true;
+        renderCats();
+    }
+
+    const catSkeleton = () => '<div class="cat cat--skel"><span class="v-skel"></span></div>'.repeat(6);
+
+    function renderCats() {
+        const grid = $id('catGrid');
+        if (!grid) return;
+        const setMsg = (html) => { grid.innerHTML = `<p class="cats__empty">${html}</p>`; };
+        if (!activeBotNumber) {
+            setMsg('<i class="fa-solid fa-robot"></i> Belum ada bot. Tambah bot dulu di Dashboard.');
+        } else if (!featCats) {
+            // Daftar kategori cukup dimuat sekali, dan hanya saat halaman
+            // Config memang dibuka.
+            if (featFailed) setMsg('<i class="fa-solid fa-circle-exclamation"></i> Daftar kategori belum bisa dimuat. <button type="button" class="link-btn" data-cat-retry>Coba lagi</button>');
+            else {
+                grid.innerHTML = catSkeleton();
+                if (currentView === 'config') loadFeatureCats();
+            }
+        } else if (!cats.loaded || cats.bot !== activeBotNumber) {
+            if (cats.failed) setMsg('<i class="fa-solid fa-circle-exclamation"></i> Setelan bot ini gagal dimuat. Muat ulang halaman sebelum mengubah kategori.');
+            else grid.innerHTML = catSkeleton();
+        } else {
+            grid.innerHTML = featCats.map(c => {
+                const locked = cats.locked.has(c.key);
+                const on = locked || !cats.off.has(c.key);
+                const key = escapeHtml(c.key);
+                const name = escapeHtml(c.name);
+                return `<label class="cat${on ? '' : ' is-off'}${locked ? ' is-locked' : ''}" data-key="${key}">
+                    <span class="cat__icon" aria-hidden="true"><i class="${CAT_ICON[c.icon] || 'fa-solid fa-puzzle-piece'}"></i></span>
+                    <span class="cat__text">
+                        <span class="cat__name"><strong>${name}</strong><em class="v-mono">${c.count} fitur</em></span>
+                        <span class="cat__desc">${locked ? '<i class="fa-solid fa-lock"></i> Selalu aktif — kendali pemilik bot' : escapeHtml(c.desc || '')}</span>
+                    </span>
+                    <span class="v-switch"><input type="checkbox" data-cat="${key}"${on ? ' checked' : ''}${locked ? ' disabled' : ''} aria-label="${locked ? `Kategori ${name} selalu aktif` : `Kategori ${name}`}"><span></span></span>
+                </label>`;
+            }).join('');
+        }
+        renderCatState();
+    }
+
+    // Ringkasan, penanda "belum disimpan" & tombol — dipanggil tiap saklar diubah.
+    function renderCatState() {
+        const ready = !!(activeBotNumber && featCats && cats.loaded && cats.bot === activeBotNumber);
+        const sum = $id('catSummary');
+        if (sum) {
+            if (!ready) sum.textContent = activeBotNumber ? 'memuat…' : '';
+            else {
+                const togglable = featCats.filter(c => !cats.locked.has(c.key));
+                const offList = togglable.filter(c => cats.off.has(c.key));
+                const offFeat = offList.reduce((n, c) => n + c.count, 0);
+                sum.textContent = offList.length
+                    ? `${featCats.length - offList.length}/${featCats.length} aktif · ${offFeat} fitur mati`
+                    : `Semua ${featCats.length} kategori aktif`;
+                sum.classList.toggle('is-off', offList.length > 0);
+            }
+        }
+        const dirty = ready && catsDirty();
+        $id('catDirty')?.classList.toggle('v-hide', !dirty);
+        const save = $id('btnSaveCats');
+        if (save && !save.querySelector('.fa-spin')) save.disabled = !dirty;
+        const allOn = $id('btnCatAllOn');
+        if (allOn) allOn.disabled = !ready || !catsToSave().length;
+        $id('catCard')?.classList.toggle('is-dirty', dirty);
+    }
+
+    $id('catGrid')?.addEventListener('change', (e) => {
+        const input = e.target.closest('input[data-cat]');
+        if (!input || input.disabled) return;
+        const key = input.dataset.cat;
+        if (input.checked) cats.off.delete(key);
+        else cats.off.add(key);
+        input.closest('.cat')?.classList.toggle('is-off', !input.checked);
+        renderCatState();
+    });
+    $id('catGrid')?.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-cat-retry]')) return;
+        featFailed = false;
+        renderCats();
+        loadFeatureCats();
+    });
+    $id('btnCatAllOn')?.addEventListener('click', () => {
+        cats.off.clear();
+        renderCats();
+    });
+
+    // Setelah tersimpan (lewat tombol kartu ini ATAU "Simpan config").
+    function markCatsSaved(bot, keys) {
+        if (bot !== activeBotNumber || cats.bot !== bot) return;
+        cats.saved = new Set(keys);
+        cats.off = new Set(keys);
+        renderCatState();
+    }
+
+    $id('btnSaveCats')?.addEventListener('click', async (e) => {
+        if (!activeBotNumber) return say(NO_BOT_MSG, 'err');
+        if (!cats.loaded || cats.bot !== activeBotNumber || !featCats) return say('Kategori bot ini belum selesai dimuat.', 'err');
+        const bot = activeBotNumber;
+        const keys = catsToSave();
+        const done = busy(e.currentTarget, 'Menyimpan…');
+        try {
+            const res = await fetch('/api/bot/config', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ number: bot, userId: currentUser.id, disabledCategories: keys })
+            });
+            let d = {};
+            try { d = await res.json(); } catch { d = {}; }
+            if (!res.ok || !d.success) { say(serverMsg(res, d, 'Gagal menyimpan kategori.'), 'err'); return; }
+            markCatsSaved(bot, keys);
+            const b = myBots.find(x => x.number === bot);
+            say(keys.length
+                ? `Kategori disimpan — ${keys.length} kategori dimatikan di ${botRef(b || { number: bot })}.`
+                : `Kategori disimpan — semua fitur aktif di ${botRef(b || { number: bot })}.`, 'ok');
+        } catch (err) {
+            say('Gagal terhubung ke server. Kategori BELUM tersimpan.', 'err');
+        } finally { done(); renderCatState(); }
+    });
+
+    // ==========================================
+    // VOUCHER PAKET (tukar kode -> masa aktif bot)
+    // ==========================================
+    // POST /api/vouchers/redeem { userId, code, botNumber }. Rumus paket sama
+    // dengan order berbayar (dihitung server): paket sama -> masa aktif
+    // ditambah, paket beda -> sisa paket lama dikonversi. Server membatasi
+    // 5 kode salah / 10 menit per user (429 + retryAfter).
+    const VOUCHER_RE = /^[A-Z0-9-]{4,24}$/; // sama dengan VOUCHER_CODE_RE di lib/vouchers.js
+    const normVoucher = (v) => String(v || '').replace(/\s+/g, '').toUpperCase();
+
+    // Pilihan bot: bawaan = bot yang sedang diatur, kecuali user sudah
+    // memilih bot lain di form ini.
+    function fillVoucherBots() {
+        if (!voucherBot) return;
+        const has = myBots.length > 0;
+        const opts = has
+            ? myBots.map(b => `<option value="${escapeHtml(b.number)}">${escapeHtml(botName(b))} · ${fmtBotNumber(b.number)} — ${escapeHtml(planText(b))}</option>`).join('')
+            : '<option value="">Belum ada bot</option>';
+        const keep = voucherUI.touched && myBots.some(b => b.number === voucherBot.value) ? voucherBot.value : '';
+        if (voucherBot.innerHTML !== opts) voucherBot.innerHTML = opts;
+        voucherBot.value = keep || (myBots.some(b => b.number === activeBotNumber) ? activeBotNumber : (myBots[0]?.number || ''));
+        voucherBot.disabled = !has;
+        const rule = $id('voucherRule');
+        if (rule) rule.querySelector('span').textContent = has
+            ? 'Paket sama → masa aktif ditambah. Paket beda → sisa paket lama dikonversi otomatis. Satu kode cuma bisa kamu pakai sekali.'
+            : 'Belum ada bot. Voucher dipasang ke bot tertentu, jadi tambah bot dulu di Dashboard.';
+        renderVoucherBtn();
+    }
+    voucherBot?.addEventListener('change', () => { voucherUI.touched = true; });
+
+    function renderVoucherBtn() {
+        const btn = $id('btnRedeemVoucher');
+        if (!btn || btn.querySelector('.fa-spin')) return;
+        const left = Math.ceil((voucherUI.waitUntil - Date.now()) / 1000);
+        if (left > 0) {
+            const m = Math.floor(left / 60), sec = String(left % 60).padStart(2, '0');
+            btn.innerHTML = `<i class="fa-regular fa-clock"></i> Coba lagi ${m}:${sec}`;
+            btn.disabled = true;
+            return;
+        }
+        if (voucherUI.timer) { clearInterval(voucherUI.timer); voucherUI.timer = null; }
+        btn.innerHTML = '<i class="fa-solid fa-gift"></i> Tukar voucher';
+        btn.disabled = !myBots.length;
+    }
+    // 429: tombol dikunci sampai server mengizinkan lagi, dengan hitung mundur.
+    function startVoucherWait(sec) {
+        voucherUI.waitUntil = Date.now() + Math.max(1, sec) * 1000;
+        if (!voucherUI.timer) voucherUI.timer = setInterval(renderVoucherBtn, 1000);
+        renderVoucherBtn();
+    }
+
+    function voucherError(text) {
+        const msg = $id('voucherRedeemMsg');
+        if (msg) msg.textContent = text || '';
+        $id('voucherCard')?.classList.toggle('has-error', !!text);
+        if (text) $id('voucherResult')?.classList.add('v-hide');
+    }
+
+    function showVoucherResult(d, number) {
+        const box = $id('voucherResult');
+        if (!box) return;
+        const nb = d.bot || {};
+        const b = myBots.find(x => x.number === String(nb.number || number)) || { number: String(nb.number || number), label: nb.label || '' };
+        const t = TIER_NAME[nb.tier] ? nb.tier : effectiveTier(b);
+        // Kalimat server sudah lengkap (bot, paket, tanggal, konversi);
+        // judulnya cukup sekali di atas.
+        const text = String(d.message || '').replace(/^Voucher berhasil dipakai!\s*/i, '');
+        const exp = nb.tierExpiredAt ? fmtDate(nb.tierExpiredAt) : '';
+        const left = nb.daysLeft != null ? Number(nb.daysLeft) : daysLeftOf({ ...b, tier: t, tierExpiredAt: nb.tierExpiredAt });
+        const meta = exp
+            ? `${nitroBadgeHTML(t)} <span>aktif s/d <b>${escapeHtml(exp)}</b>${left != null ? ` · sisa ${left} hari` : ''}</span>`
+            : nitroBadgeHTML(t);
+        box.innerHTML = `
+            <span class="voucher-ok__icon" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+            <div class="voucher-ok__body">
+                <strong>Voucher berhasil dipakai!</strong>
+                ${text ? `<p>${escapeHtml(text)}</p>` : ''}
+                <p class="voucher-ok__meta"><span class="voucher-ok__bot"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(botRef(b))}</span> ${meta}</p>
+            </div>
+            <button type="button" class="v-btn v-btn--sm v-btn--outline voucher-ok__go" data-voucher-manage="${escapeHtml(b.number)}"><i class="fa-solid fa-sliders"></i> Atur bot ini</button>`;
+        box.classList.remove('v-hide');
+    }
+
+    $id('voucherForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = $id('btnRedeemVoucher');
+        if (!btn || btn.disabled) return;
+        const code = normVoucher(voucherCode?.value);
+        if (voucherCode) voucherCode.value = code; // tampilkan bentuk yang dikirim
+        const botNumber = voucherBot?.value || '';
+        if (!myBots.length || !botNumber) return voucherError('Tambah bot dulu — voucher dipasang ke bot tertentu.');
+        if (!code) { voucherCode?.focus(); return voucherError('Masukkan kode vouchernya dulu.'); }
+        if (!VOUCHER_RE.test(code)) { voucherCode?.focus(); return voucherError('Format kode tidak valid: 4–24 karakter berisi huruf, angka, atau tanda minus.'); }
+        voucherError('');
+        $id('voucherResult')?.classList.add('v-hide');
+        const done = busy(btn, 'Menukar…');
+        let d = {};
+        let res = null;
+        try {
+            res = await fetch('/api/vouchers/redeem', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentUser.id, code, botNumber })
+            });
+            try { d = await res.json(); } catch { d = {}; }
+        } catch (err) {
+            done(); renderVoucherBtn();
+            return voucherError('Gagal terhubung ke server. Kodenya belum terpakai — coba lagi.');
+        }
+        done();
+        if (res.status === 429) {
+            const sec = Number(d.retryAfter) || Number(res.headers.get('Retry-After')) || 600;
+            startVoucherWait(sec);
+            return voucherError(d.message || `Terlalu banyak kode yang salah. Coba lagi dalam ${Math.ceil(sec / 60)} menit.`);
+        }
+        renderVoucherBtn();
+        // 401: session.js sudah mengarahkan ke halaman masuk.
+        if (d.code === 'SESSION_EXPIRED') return voucherError('Sesi kamu berakhir. Mengalihkan ke halaman masuk…');
+        if (!res.ok || !d.success) return voucherError(serverMsg(res, d, 'Voucher belum bisa dipakai. Coba lagi.'));
+
+        // Berhasil: paket bot langsung diperbarui di layar, lalu daftar bot
+        // diambil ulang dari server (sumber kebenaran).
+        const nb = d.bot || {};
+        const b = myBots.find(x => x.number === String(nb.number || botNumber));
+        if (b && TIER_NAME[nb.tier]) {
+            b.tier = nb.tier;
+            b.tierExpiredAt = nb.tierExpiredAt || '';
+            saveBotsCache();
+        }
+        if (voucherCode) voucherCode.value = '';
+        showVoucherResult(d, botNumber);
+        onBotsChanged();
+        loadMyBots();
+        say('Voucher berhasil dipakai!', 'ok');
+    });
+    voucherCode?.addEventListener('input', () => {
+        if ($id('voucherRedeemMsg')?.textContent) voucherError('');
+    });
+    $id('voucherResult')?.addEventListener('click', (e) => {
+        const go = e.target.closest('[data-voucher-manage]');
+        if (!go) return;
+        const number = go.dataset.voucherManage;
+        if (number && number !== activeBotNumber && myBots.some(b => b.number === number)) window.setActiveBotNumber(number);
+        showView('config');
+    });
+
+    // Buka kartu voucher dari mana saja (kartu Bot saya, menu profil,
+    // /dashboard#voucher, atau kode promo yang ternyata kode voucher).
+    function openVoucher(code = '') {
+        showView('upgrade', { scroll: false });
+        voucherUI.touched = false;
+        fillVoucherBots();
+        if (code && voucherCode) voucherCode.value = normVoucher(code);
+        const card = $id('voucherCard');
+        if (!card) return;
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.remove('is-flash');
+        void card.offsetWidth; // ulang animasi sorotan
+        card.classList.add('is-flash');
+        setTimeout(() => voucherCode?.focus({ preventScroll: true }), 350);
+    }
+    $id('btnVoucherDrop')?.addEventListener('click', () => {
+        $id('profileDropdown')?.classList.remove('active');
+        openVoucher();
     });
 
     // ==========================================
@@ -2929,6 +3449,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let sseRetry = 0;
     function connectSSE() {
         if (sse) { sse.close(); sse = null; }
+        // Sudah keluar / sesi habis: jangan buka stream lagi.
+        if (sessionEnded) return;
 
         // Tanpa nomor bot aktif tidak ada yang bisa dipantau. Membuka stream
         // di sini cuma menghabiskan slot koneksi Cloudflare dan memicu
@@ -2948,11 +3470,29 @@ document.addEventListener("DOMContentLoaded", () => {
         // Di sini stream ditutup lalu disambung sendiri dengan jeda menanjak.
         sse.onerror = () => {
             sse.close(); sse = null;
+            if (sessionEnded) return;
             sseRetry = Math.min(sseRetry + 1, 6);
             const wait = Math.min(30000, 2000 * 2 ** (sseRetry - 1));
-            setTimeout(() => { if (document.visibilityState === 'visible' && !sse) connectSSE(); }, wait);
+            const retry = () => setTimeout(() => { if (!sessionEnded && document.visibilityState === 'visible' && !sse) connectSSE(); }, wait);
+            // EventSource tidak bisa membaca status jawaban: stream yang
+            // ditolak 401 (sesi habis, atau keluar dari tab/perangkat lain)
+            // terlihat sama dengan server putus. Tanya server sekali — sesi
+            // habis -> berhenti total & ke halaman masuk, bukan menyambung
+            // ulang selamanya.
+            const S = window.VaresaSession;
+            if (!S) return retry();
+            S.check().then((r) => {
+                if (r.status === 401) { endSession(); S.expired(); return; }
+                retry();
+            });
         };
     }
+
+    // Sesi berakhir (keluar, 401, tab lain keluar): tutup stream sekarang.
+    window.addEventListener('varesa:session-end', () => {
+        if (sse) { sse.close(); sse = null; }
+    });
+    window.addEventListener('pagehide', () => { if (sse) { sse.close(); sse = null; } });
 
     // Tab disembunyikan (pindah tab / layar HP mati): tutup stream supaya
     // server tidak menyiarkan ke penonton yang tidak menonton. Dibuka lagi
@@ -3120,7 +3660,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Buka halaman sesuai #hash di URL (mis. /dashboard#api).
     const initial = (location.hash || '').replace('#', '');
-    if (initial && initial !== 'dashboard') showView(initial, { scroll: false });
+    // #voucher: tautan langsung ke kartu "Punya kode voucher?".
+    if (initial === 'voucher') openVoucher();
+    else if (initial && initial !== 'dashboard') showView(initial, { scroll: false });
     // Halaman config dkk. sudah memuat config sendiri; selain itu muat diam-diam
     // supaya penanda mode self di kartu Kontrol Bot langsung benar.
     if (!['config', 'menu', 'cmd', 'mess'].includes(initial)) loadBotConfig({ quiet: true });

@@ -6,6 +6,9 @@
   <title>Invoice · Varesa</title>
   <!-- Halaman pribadi per pesanan: jangan diindeks mesin pencari. -->
   <meta name="robots" content="noindex, nofollow">
+  <!-- WAJIB paling awal: membungkus fetch supaya sesi login yang habis
+       (401 SESSION_EXPIRED) diarahkan ke halaman masuk lalu kembali ke sini. -->
+  <script src="/assets/session.js?v=1"></script>
   <meta name="theme-color" content="#08090a">
   <link rel="icon" href="/assets/logo-mark.svg" type="image/svg+xml">
   <link rel="icon" href="/icons/favicon.ico" sizes="any">
@@ -143,6 +146,8 @@
   <footer class="inv-foot">
     <p>&copy; 2026 Varesa · Dikelola oleh <a href="https://www.instagram.com/manzz_wakeup" target="_blank" rel="noopener">@ManzzyID</a></p>
     <p><a href="/status">Status server</a></p>
+    <p><a href="/terms">Syarat &amp; Ketentuan</a></p>
+    <p><a href="/privacy">Kebijakan Privasi</a></p>
   </footer>
 
   <div class="v-toast-wrap" id="toastWrap" aria-live="polite"></div>
@@ -155,7 +160,9 @@
     const TIER_LABEL = { free: 'Free', basic: 'Core', plus: 'Prime', booster: 'Zenith' };
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('order_id');
-    const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    // Data user lokal hanya untuk tampilan; bukti login = cookie sesi.
+    let currentUser = null;
+    try { currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null'); } catch { currentUser = null; }
 
     let pollTimer = null, countdownTimer = null, qrRendered = false;
 
@@ -247,18 +254,37 @@
       setTimeout(() => el.remove(), 3500);
     }
 
-    if (!currentUser) window.location.href = '/login';
-    if (!orderId) window.location.href = '/dashboard';
+    // Ke halaman masuk lalu kembali ke invoice ini (login.html membaca ?next=).
+    function goLogin() {
+      stopTimers();
+      location.replace('/login?next=' + encodeURIComponent(location.pathname + location.search));
+    }
+
+    function showLoadError(html) {
+      stopTimers();
+      const box = document.getElementById('invoiceLoading');
+      document.getElementById('invoiceBox').style.display = 'none';
+      box.style.display = '';
+      box.innerHTML = html;
+    }
 
     async function loadInvoice() {
       try {
         const res = await fetch(`/api/payment/status/${encodeURIComponent(orderId)}`);
-        const result = await res.json();
+        let result = {};
+        try { result = await res.json(); } catch { result = {}; }
+        if (res.status === 401 || result.code === 'SESSION_EXPIRED') {
+          // session.js sudah mengarahkan ke halaman masuk; polling dihentikan
+          // supaya tidak terus menembak server dengan sesi yang sudah habis.
+          showLoadError(`<span class="inv-spinner" aria-hidden="true"></span>
+             <p>Sesi kamu berakhir. Mengalihkan ke halaman masuk…</p>`);
+          return;
+        }
         if (!result.success) {
-          document.getElementById('invoiceLoading').innerHTML =
-            `<div class="state-icon state-icon--off"><i class="fa-solid fa-file-circle-xmark"></i></div>
-             <p class="inv-loading__err">${esc(result.message || 'Invoice tidak ditemukan.')}</p>
-             <a href="/dashboard" class="v-btn v-btn--outline v-btn--sm">Kembali ke Dashboard</a>`;
+          if (res.status >= 500 && document.getElementById('invoiceBox').style.display === 'block') return; // gangguan sesaat saat polling: coba lagi di putaran berikutnya
+          showLoadError(`<div class="state-icon state-icon--off"><i class="fa-solid fa-file-circle-xmark"></i></div>
+             <p class="inv-loading__err">${esc(res.status >= 500 ? 'Server lagi bermasalah. Coba muat ulang sebentar lagi.' : (result.message || 'Invoice tidak ditemukan.'))}</p>
+             <a href="/dashboard" class="v-btn v-btn--outline v-btn--sm">Kembali ke Dashboard</a>`);
           return;
         }
         // Server menyertakan info bot tujuan (label dari dashboard) bila ada.
@@ -267,7 +293,9 @@
         if (!result.order.botNumber && result.botNumber) result.order.botNumber = result.botNumber;
         render(result.order);
       } catch (err) {
-        console.error('Gagal memuat invoice:', err);
+        // Jaringan putus sesaat (atau halaman sedang berpindah): polling
+        // berikutnya mencoba lagi. Bukan error halaman.
+        console.warn('Invoice belum bisa dimuat:', err && err.message);
       }
     }
 
@@ -491,7 +519,20 @@
       if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
     }
 
-    loadInvoice();
+    // Mulai: tanpa data user lokal, tanya server dulu — cookie sesi bisa
+    // masih sah. Tidak sah -> masuk dulu, lalu kembali ke invoice ini.
+    (function boot() {
+      if (!orderId) { location.replace('/dashboard'); return; }
+      if (currentUser) { loadInvoice(); return; }
+      if (!window.VaresaSession) { goLogin(); return; }
+      VaresaSession.check().then((r) => {
+        if (r.success && r.user) { currentUser = r.user; loadInvoice(); return; }
+        if (r.status === 401) { goLogin(); return; }
+        showLoadError(`<div class="state-icon state-icon--off"><i class="fa-solid fa-plug-circle-xmark"></i></div>
+           <p class="inv-loading__err">Tidak bisa terhubung ke server. Periksa koneksi kamu lalu muat ulang halaman ini.</p>
+           <button type="button" class="v-btn v-btn--outline v-btn--sm" onclick="location.reload()">Muat ulang</button>`);
+      });
+    })();
   </script>
 </body>
 </html>

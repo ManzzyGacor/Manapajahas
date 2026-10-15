@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "panel": "node panel.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test tests/*.test.mjs && node tools/check-plugins.mjs",
+    "test:unit": "node --test tests/*.test.mjs",
+    "check:plugins": "node tools/check-plugins.mjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
