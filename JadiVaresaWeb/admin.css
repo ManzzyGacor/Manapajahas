@@ -887,3 +887,19 @@ body.no-scroll .v-toast-wrap { top: 16px; bottom: auto; }
 .preview-box.is-warn b { color: var(--warn); }
 .modal__body .bt-err { margin-top: 10px; color: #ff8a8e; font-size: 13px; }
 .modal__body .bt-err:empty { display: none; }
+
+/* ==========================================================================
+   VOUCHER (view-vouchers)
+   ========================================================================== */
+/* Panel hasil pembuatan: daftar kode yang baru dibuat + tombol salin.
+   Kode acak tidak bisa dibaca lagi setelah panel ditutup, jadi kotak ini
+   sengaja monospace dan bisa dipilih semua (readonly, bukan disabled). */
+.vou-out { margin-top: 12px; display: grid; gap: 10px; }
+.vou-out__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.vou-out__head > span { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-2); overflow-wrap: anywhere; }
+.vou-out__list {
+  min-height: 132px; resize: vertical;
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.7;
+  letter-spacing: .04em; color: var(--accent);
+}
+.vou-out__list:focus { border-color: var(--accent-line); }

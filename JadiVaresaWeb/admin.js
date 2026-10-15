@@ -319,6 +319,7 @@
   function onEnterView(name) {
     if (name === 'audit') loadAuditLog();
     if (name === 'errors') loadPluginErrors();
+    if (name === 'vouchers') loadVouchers();
     if (name === 'site' || name === 'capacity') ensureSiteSettings();
     if (name === 'monitor' && live.data) renderMonitor(live.data, { charts: true });
     if (name === 'capacity' && live.data) renderCapacity(live.data);
@@ -1054,6 +1055,188 @@
     });
   });
 
+  /* ---------------- Voucher paket ---------------- */
+  // Backend: GET /api/admin/vouchers, POST /api/admin/vouchers (buat),
+  // /toggle (aktif/nonaktif), /delete (hapus + bersihkan riwayat pemakaian).
+  // Bentuk data dari voucherView() di lib/vouchers.js.
+  const vouState = { items: [], filter: { q: '', state: '' }, lastCodes: [] };
+
+  const vouStatusBadge = (v) => {
+    if (v.status === 'aktif') return '<span class="v-badge v-badge--ok">Aktif</span>';
+    if (v.status === 'habis') return '<span class="v-badge v-badge--warn">Habis</span>';
+    if (v.status === 'kedaluwarsa') return '<span class="v-badge v-badge--danger">Kedaluwarsa</span>';
+    return '<span class="v-badge">Nonaktif</span>';
+  };
+
+  const vouExpiryCell = (v) => {
+    if (!v.expiresAt) return '<span class="muted">tanpa batas</span>';
+    const d = fmtDate(v.expiresAt);
+    return `<span class="cell-mono${v.expired ? ' is-err' : ''}">${esc(d)}</span>`;
+  };
+
+  function vouMatches(v) {
+    const f = vouState.filter;
+    if (f.state && v.status !== f.state) return false;
+    if (!f.q) return true;
+    return `${v.code} ${v.note || ''} ${v.tierName || ''} ${v.createdBy || ''}`.toLowerCase().includes(f.q);
+  }
+
+  function renderVouchers() {
+    const list = vouState.items;
+    const aktif = list.filter((v) => v.status === 'aktif').length;
+    const used = list.reduce((a, v) => a + num(v.usedCount), 0);
+    const dead = list.filter((v) => v.status === 'habis' || v.status === 'kedaluwarsa').length;
+    setText('vouStatTotal', fmt(list.length));
+    setText('vouStatTotalSub', list.length ? `${fmt(list.filter((v) => v.status === 'nonaktif').length)} nonaktif` : 'semua kode');
+    setText('vouStatActive', fmt(aktif));
+    setText('vouStatUsed', fmt(used));
+    setText('vouStatUsedSub', `dari ${fmt(list.reduce((a, v) => a + num(v.maxUses), 0))} kuota`);
+    setText('vouStatDead', fmt(dead));
+
+    const rows = list.filter(vouMatches);
+    setText('vouListCount', `${fmt(rows.length)} dari ${fmt(list.length)} kode`);
+    const tbody = $('vouTableBody');
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="7" class="td-empty"><i class="fa-solid fa-ticket"></i>${list.length ? 'Tidak ada voucher yang cocok dengan filter.' : 'Belum ada voucher. Buat yang pertama di atas.'}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map((v) => {
+      const max = num(v.maxUses), u = num(v.usedCount);
+      const pct = max ? clamp((u / max) * 100, 0, 100) : 0;
+      return `
+        <tr>
+          <td class="td-main"><span class="promo-code">${esc(v.code)}</span>${v.note ? `<span class="cell-mono"><small class="muted">${esc(v.note)}</small></span>` : ''}</td>
+          <td data-label="Paket"><span class="tier tier--${esc(v.tier)}">${esc(v.tierName)}</span></td>
+          <td data-label="Masa aktif" class="right num">${fmt(v.days)} hari</td>
+          <td data-label="Pemakaian"><div class="use-meter"><span>${fmt(u)} / ${fmt(max)}</span><div class="v-meter${pct >= 90 ? ' is-danger' : pct >= 75 ? ' is-warn' : ''}" style="--v:${pct.toFixed(1)}%"><i></i></div></div></td>
+          <td data-label="Berlaku s/d">${vouExpiryCell(v)}</td>
+          <td data-label="Status">${vouStatusBadge(v)}</td>
+          <td data-label="Aksi" class="right nowrap">
+            <button type="button" class="v-btn v-btn--outline v-btn--sm" data-vou-act="toggle" data-code="${esc(v.code)}" data-active="${v.active ? '1' : '0'}" title="${v.active ? 'Nonaktifkan voucher ini' : 'Aktifkan voucher ini'}"><i class="fa-solid ${v.active ? 'fa-pause' : 'fa-play'}"></i> ${v.active ? 'Nonaktifkan' : 'Aktifkan'}</button>
+            <button type="button" class="icon-btn icon-btn--sm" data-vou-act="delete" data-code="${esc(v.code)}" aria-label="Hapus voucher ${esc(v.code)}" title="Hapus voucher"><i class="fa-solid fa-trash"></i></button>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  async function loadVouchers() {
+    const tbody = $('vouTableBody');
+    try {
+      const result = await api('/api/admin/vouchers');
+      vouState.items = Array.isArray(result.vouchers) ? result.vouchers : [];
+      renderVouchers();
+    } catch (err) {
+      if (err.auth) return;
+      tbody.innerHTML = `<tr><td colspan="7" class="td-empty is-err"><i class="fa-solid fa-triangle-exclamation"></i>Gagal memuat voucher.<br><small>${esc(err.message)}</small></td></tr>`;
+    }
+  }
+
+  $('btnVouRefresh').addEventListener('click', (e) => busy(e.currentTarget, 'Memuat…', loadVouchers));
+  $('vouSearch').addEventListener('input', (e) => { vouState.filter.q = e.target.value.trim().toLowerCase(); renderVouchers(); });
+  bindSeg('vouStateSeg', 'state', (v) => { vouState.filter.state = v; renderVouchers(); });
+
+  $('btnVouCreate').addEventListener('click', (e) => {
+    const tier = $('vouTier').value;
+    const days = Number($('vouDays').value);
+    const maxUses = Number($('vouMax').value);
+    if (!Number.isInteger(days) || days < 1 || days > 365) { toast('Masa aktif harus 1–365 hari.', 'err'); $('vouDays').focus(); return; }
+    if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 10000) { toast('Batas pemakaian harus 1–10000.', 'err'); $('vouMax').focus(); return; }
+    const code = $('vouCode').value.trim().toUpperCase();
+    const body = { tier, days, maxUses, note: $('vouNote').value.trim() };
+    const expiry = $('vouExpiry').value.trim();
+    if (expiry) body.expiresAt = expiry;
+    if (code) {
+      body.code = code;
+      if (Number($('vouCount').value) > 1) { toast('Kode khusus hanya untuk satu voucher. Kosongkan kode untuk membuat banyak sekaligus.', 'err'); $('vouCode').focus(); return; }
+    } else {
+      body.count = Number($('vouCount').value) || 1;
+      if (body.count < 1 || body.count > 100) { toast('Jumlah voucher sekali buat 1–100.', 'err'); $('vouCount').focus(); return; }
+      const prefix = $('vouPrefix').value.trim();
+      if (prefix) body.prefix = prefix;
+    }
+    busy(e.currentTarget, 'Membuat…', async () => {
+      try {
+        const result = await api('/api/admin/vouchers', { method: 'POST', body });
+        toast(result.message || 'Voucher dibuat.');
+        showVouResult(result.vouchers || []);
+        $('vouCode').value = '';
+        loadVouchers();
+      } catch (err) {
+        if (!err.auth) toast(err.network ? 'Gagal terhubung ke server. Perubahan BELUM tersimpan.' : err.message, 'err', 6000);
+      }
+    });
+  });
+
+  // Panel hasil: daftar kode yang baru dibuat + tombol salin semua.
+  function showVouResult(vouchers) {
+    if (!vouchers.length) return;
+    vouState.lastCodes = vouchers.map((v) => v.code);
+    $('vouResult').hidden = false;
+    setText('vouResultHint', 'Simpan kode ini — kode acak tidak bisa dilihat lagi dari daftar di bawah setelah halaman dimuat ulang.');
+    setText('vouResultTitle', vouchers.length === 1
+      ? `${vouchers[0].code} · ${vouchers[0].tierName} ${vouchers[0].days} hari`
+      : `${fmt(vouchers.length)} kode · ${vouchers[0].tierName} ${vouchers[0].days} hari`);
+    $('vouResultList').value = vouchers.map((v) => v.code).join('\n');
+  }
+
+  async function copyVouCodes() {
+    const text = vouState.lastCodes.join('\n');
+    if (!text) return false;
+    try {
+      if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return true; }
+    } catch { /* lanjut ke cara lama */ }
+    // Cara lama: pilih isi textarea lalu perintah salin bawaan browser.
+    try {
+      const ta = $('vouResultList');
+      ta.focus(); ta.select();
+      const ok = document.execCommand('copy');
+      ta.setSelectionRange(0, 0);
+      return ok;
+    } catch { return false; }
+  }
+
+  $('btnVouCopy').addEventListener('click', async (e) => {
+    const ok = await copyVouCodes();
+    if (ok) {
+      const btn = e.currentTarget, html = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-check"></i> Tersalin';
+      setTimeout(() => { btn.innerHTML = html; }, 1400);
+    } else {
+      toast('Browser menolak akses clipboard. Salin manual dari kotak kode.', 'err');
+    }
+  });
+
+  // Aksi per baris: aktif/nonaktif & hapus.
+  $('vouTableBody').addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-vou-act]');
+    if (!btn) return;
+    const code = btn.dataset.code;
+    if (btn.dataset.vouAct === 'toggle') {
+      const active = btn.dataset.active !== '1';
+      await busy(btn, 'Proses…', async () => {
+        try {
+          const result = await api('/api/admin/vouchers/toggle', { method: 'POST', body: { code, active } });
+          toast(result.message || 'Status voucher diperbarui.');
+          loadVouchers();
+        } catch (err) { if (!err.auth) toast(err.message, 'err'); }
+      });
+      return;
+    }
+    const ok = await ask({
+      title: 'Hapus voucher?',
+      body: `Voucher ${code} beserta catatan pemakaiannya akan dihapus permanen. Kalau kode yang sama dibuat lagi nanti, user lama bisa memakainya sekali lagi.`,
+      ok: 'Hapus', danger: true,
+    });
+    if (!ok) return;
+    await busy(btn, 'Menghapus…', async () => {
+      try {
+        const result = await api('/api/admin/vouchers/delete', { method: 'POST', body: { code } });
+        toast(result.message || 'Voucher dihapus.');
+        loadVouchers();
+      } catch (err) { if (!err.auth) toast(err.message, 'err'); }
+    });
+  });
+
   /* ---------------- Riwayat admin ---------------- */
   const AUDIT_LABEL = {
     'ubah-tier': 'Paket semua bot user',
@@ -1067,6 +1250,10 @@
     'aktifkan-fitur': 'Aktifkan fitur',
     'reset-statistik-fitur': 'Reset statistik fitur',
     'jalankan-cek-fitur': 'Jalankan cek fitur',
+    'buat-voucher': 'Buat voucher',
+    'aktifkan-voucher': 'Aktifkan voucher',
+    'nonaktifkan-voucher': 'Nonaktifkan voucher',
+    'hapus-voucher': 'Hapus voucher',
   };
   async function loadAuditLog() {
     const tbody = $('auditTableBody');

@@ -20,6 +20,10 @@ fs.writeFileSync(
   path.join(KOTAK, "config.js"),
   'export default { bot_name: "Varesa", owner_number: ["6280000000001"], web_url: "https://contoh.test" };\n'
 );
+// Salinan di folder sementara harus diperlakukan sebagai ESM: tanpa
+// package.json bertipe module, Node menganggap .js sebagai CommonJS dan
+// impor di bawah gagal ("Cannot use import statement outside a module").
+fs.writeFileSync(path.join(KOTAK, "package.json"), '{ "type": "module" }\n');
 const FILE = path.join(KOTAK, "database", "bot-scope.json");
 
 // File "jahat" sebelum modul dimuat: kunci prototype, tipe salah, angka
